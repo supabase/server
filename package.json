@@ -1,0 +1,45 @@
+{
+  "name": "@supabase/edge-functions",
+  "version": "0.0.0",
+  "description": "Supabase Edge Functions",
+  "keywords": [
+    "edge",
+    "functions",
+    "supabase"
+  ],
+  "homepage": "https://github.com/supabase/edge-functions#readme",
+  "bugs": {
+    "url": "https://github.com/supabase/edge-functions/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/supabase/edge-functions.git"
+  },
+  "license": "MIT",
+  "author": "supabase",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "3.8.1",
+    "tsdown": "^0.18.4",
+    "typescript": "^5.9.3"
+  }
+}
