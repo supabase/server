@@ -25,7 +25,7 @@ jobs:
         uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Checkout repository
         uses: actions/checkout@v4
