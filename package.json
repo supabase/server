@@ -35,10 +35,24 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm pretty-quick --staged",
+    "commit-msg": "pnpm commitlint --edit \"$1\""
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "simple-git-hooks"
+    ]
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.x",
+    "@commitlint/config-conventional": "^19.x",
     "prettier": "3.8.1",
+    "pretty-quick": "^4.2.2",
+    "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.18.4",
     "typescript": "^5.9.3"
   }
