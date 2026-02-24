@@ -32,11 +32,17 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
     "format": "prettier --write .",
-    "prepare": "simple-git-hooks"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "prepare": "simple-git-hooks",
+    "typecheck": "tsc --noEmit"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm pretty-quick --staged",
@@ -48,12 +54,14 @@
     ]
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.x",
-    "@commitlint/config-conventional": "^19.x",
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
+    "eslint": "^10.0.2",
     "prettier": "3.8.1",
     "pretty-quick": "^4.2.2",
     "simple-git-hooks": "^2.13.1",
-    "tsdown": "^0.18.4",
-    "typescript": "^5.9.3"
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
   }
 }
