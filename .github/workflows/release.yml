@@ -38,6 +38,16 @@ jobs:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Install latest npm (user prefix)
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          mkdir -p "$HOME/.npm-global"
+          npm config set prefix "$HOME/.npm-global"
+          echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
+
+          npm install -g npm@latest
+          npm --version
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         if: ${{ steps.release.outputs.release_created }}
