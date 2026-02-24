@@ -64,4 +64,5 @@ jobs:
 
       - name: Publish to npm
         if: ${{ steps.release.outputs.release_created }}
-        run: npm publish --access public --provenance
+        # TODO(@mandarini): add back --provenance once repo is OSS
+        run: npm publish --access public #--provenance
