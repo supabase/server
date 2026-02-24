@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/supabase/edge-functions/compare/edge-functions-v0.1.0...edge-functions-v0.1.1) (2026-02-24)
+
+
+### Features
+
+* set initial release version ([8352bda](https://github.com/supabase/edge-functions/commit/8352bda35c5967a6692f0a21744d30793e10709a))
+
 ## 0.1.0 (2026-02-24)
 
 
