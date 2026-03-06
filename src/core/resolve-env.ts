@@ -1,0 +1,67 @@
+import { EnvError } from '../errors.js'
+import type { JsonWebKeySet, NamedKey, SupabaseEnv } from '../types.js'
+
+function getEnvVar(name: string): string | undefined {
+  // Deno runtime
+  if (typeof Deno !== 'undefined' && Deno.env?.get) {
+    return Deno.env.get(name)
+  }
+  // Node.js / Workers / Bun
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env[name]
+  }
+  return undefined
+}
+
+function parseNamedKeys(raw: string | undefined): NamedKey[] {
+  if (!raw) return []
+  return raw.split(',').map((entry) => {
+    const trimmed = entry.trim()
+    const colonIndex = trimmed.indexOf(':')
+    if (colonIndex > 0) {
+      return {
+        name: trimmed.slice(0, colonIndex),
+        key: trimmed.slice(colonIndex + 1),
+      }
+    }
+    return { name: 'default', key: trimmed }
+  })
+}
+
+function parseJwks(raw: string | undefined): JsonWebKeySet | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as JsonWebKeySet
+  } catch {
+    return null
+  }
+}
+
+export function resolveEnv(
+  overrides?: Partial<SupabaseEnv>,
+): { data: SupabaseEnv; error: null } | { data: null; error: EnvError } {
+  const url = overrides?.url ?? getEnvVar('SUPABASE_URL')
+
+  if (!url) {
+    return {
+      data: null,
+      error: new EnvError(
+        'SUPABASE_URL is required but not set',
+        'MISSING_SUPABASE_URL',
+      ),
+    }
+  }
+
+  const data: SupabaseEnv = {
+    url,
+    publishableKeys:
+      overrides?.publishableKeys ??
+      parseNamedKeys(getEnvVar('SUPABASE_PUBLISHABLE_KEYS')),
+    secretKeys:
+      overrides?.secretKeys ??
+      parseNamedKeys(getEnvVar('SUPABASE_SECRET_KEYS')),
+    jwks: overrides?.jwks ?? parseJwks(getEnvVar('SUPABASE_JWKS')),
+  }
+
+  return { data, error: null }
+}
