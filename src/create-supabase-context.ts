@@ -1,8 +1,8 @@
-import type { AuthError } from '../errors.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../types.js'
-import { createAdminClient } from './create-admin-client.js'
-import { createContextClient } from './create-context-client.js'
-import { verifyAuth } from './verify-auth.js'
+import type { AuthError } from './errors.js'
+import type { SupabaseContext, WithSupabaseConfig } from './types.js'
+import { createAdminClient } from './core/create-admin-client.js'
+import { createContextClient } from './core/create-context-client.js'
+import { verifyAuth } from './core/verify-auth.js'
 
 export async function createSupabaseContext(
   request: Request,

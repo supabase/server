@@ -1,6 +1,6 @@
-import { buildCorsHeaders, addCorsHeaders } from '../cors.js'
-import { createSupabaseContext } from '../core/create-supabase-context.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../types.js'
+import { buildCorsHeaders, addCorsHeaders } from './cors.js'
+import { createSupabaseContext } from './create-supabase-context.js'
+import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 
 export function withSupabase(
   config: WithSupabaseConfig,

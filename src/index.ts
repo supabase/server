@@ -1,5 +1,5 @@
-export { withSupabase } from './wrappers/with-supabase.js'
-export { createSupabaseContext } from './core/create-supabase-context.js'
+export { withSupabase } from './with-supabase.js'
+export { createSupabaseContext } from './create-supabase-context.js'
 export { resolveEnv } from './core/resolve-env.js'
 export { extractCredentials } from './core/extract-credentials.js'
 export { verifyCredentials } from './core/verify-credentials.js'

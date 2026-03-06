@@ -1,0 +1,100 @@
+import { describe, expect, it } from 'vitest'
+
+import { createSupabaseContext } from './create-supabase-context.js'
+
+const baseEnv = {
+  url: 'https://test.supabase.co',
+  publishableKeys: [{ name: 'default', key: 'pk_test' }],
+  secretKeys: [{ name: 'default', key: 'sk_test' }],
+  jwks: null,
+}
+
+describe('createSupabaseContext', () => {
+  it('returns context with clients on successful auth', async () => {
+    const req = new Request('http://localhost')
+    const result = await createSupabaseContext(req, {
+      allow: 'always',
+      env: baseEnv,
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data).not.toBeNull()
+    expect(result.data!.supabase).toBeDefined()
+    expect(result.data!.supabaseAdmin).toBeDefined()
+    expect(result.data!.authType).toBe('always')
+  })
+
+  it('returns user and claims as null for non-user auth', async () => {
+    const req = new Request('http://localhost')
+    const result = await createSupabaseContext(req, {
+      allow: 'always',
+      env: baseEnv,
+    })
+
+    expect(result.data!.user).toBeNull()
+    expect(result.data!.claims).toBeNull()
+  })
+
+  it('returns error when auth fails', async () => {
+    const req = new Request('http://localhost')
+    const result = await createSupabaseContext(req, {
+      allow: 'user',
+      env: baseEnv,
+    })
+
+    expect(result.data).toBeNull()
+    expect(result.error).not.toBeNull()
+    expect(result.error!.status).toBe(401)
+    expect(result.error!.code).toBeDefined()
+  })
+
+  it('defaults to allow: user when no options provided', async () => {
+    const req = new Request('http://localhost')
+    const result = await createSupabaseContext(req, { env: baseEnv })
+
+    expect(result.data).toBeNull()
+    expect(result.error).not.toBeNull()
+    expect(result.error!.status).toBe(401)
+  })
+
+  it('accepts public key auth', async () => {
+    const req = new Request('http://localhost', {
+      headers: { apikey: 'pk_test' },
+    })
+    const result = await createSupabaseContext(req, {
+      allow: 'public',
+      env: baseEnv,
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data!.authType).toBe('public')
+    expect(result.data!.supabase).toBeDefined()
+    expect(result.data!.supabaseAdmin).toBeDefined()
+  })
+
+  it('accepts secret key auth', async () => {
+    const req = new Request('http://localhost', {
+      headers: { apikey: 'sk_test' },
+    })
+    const result = await createSupabaseContext(req, {
+      allow: 'secret',
+      env: baseEnv,
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data!.authType).toBe('secret')
+  })
+
+  it('rejects invalid secret key', async () => {
+    const req = new Request('http://localhost', {
+      headers: { apikey: 'wrong_key' },
+    })
+    const result = await createSupabaseContext(req, {
+      allow: 'secret',
+      env: baseEnv,
+    })
+
+    expect(result.data).toBeNull()
+    expect(result.error).not.toBeNull()
+  })
+})
