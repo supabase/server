@@ -23,7 +23,7 @@ One import. One line of config. Auth is validated, clients are scoped, CORS is h
 
 ```bash
 # Deno
-import { withSupabase } from "jsr:@supabase/<tbd>";
+import { withSupabase } from "npm:@supabase/<tbd>";
 
 # npm
 pnpm add @supabase/<tbd>
@@ -133,31 +133,6 @@ withSupabase(
 `cors` defaults to allowing all origins. Set `cors: false` to disable CORS handling (e.g. when using a framework that handles CORS separately).
 
 `env` overrides environment variable resolution. Defaults to reading `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`, and `SUPABASE_JWKS` from the runtime environment.
-
-## Wrappers
-
-Specialized wrappers for Supabase integration points. Each handles its protocol — auth, payload parsing, response shape — so you only write business logic.
-
-```ts
-import { beforeUserCreated } from '@supabase/<tbd>/wrappers'
-
-Deno.serve(
-  beforeUserCreated(
-    async (req, ctx) => {
-      if (!ctx.userData.email?.endsWith('@company.com')) {
-        return { decision: 'reject', message: 'Company emails only' }
-      }
-      return { decision: 'continue' }
-    },
-    { webhookSecret: Deno.env.get('WEBHOOK_SECRET')! },
-  ),
-)
-```
-
-| Wrapper             | Trigger                                  |
-| ------------------- | ---------------------------------------- |
-| `beforeUserCreated` | Auth hook — before a new user is created |
-| `afterUserCreated`  | Auth hook — after a new user is created  |
 
 ## Framework Adapters
 
@@ -289,7 +264,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `@supabase/<tbd>`               | `withSupabase`, `createSupabaseContext`                                                                           |
 | `@supabase/<tbd>/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/<tbd>/wrappers`      | `beforeUserCreated`, `afterUserCreated`                                                                           |
+| `@supabase/<tbd>/wrappers`      | `withSupabase`, `verifyWebhookSignature`                                                                          |
 | `@supabase/<tbd>/adapters/hono` | Hono middleware                                                                                                   |
 
 ## Development
