@@ -1,18 +1,12 @@
-import type { Context, MiddlewareHandler } from 'hono'
+import { createMiddleware } from 'hono/factory'
 
 import { createSupabaseContext } from '../../core/create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
-declare module 'hono' {
-  interface ContextVariableMap {
-    supabase: SupabaseContext
-  }
-}
-
-export function supabase(
-  config?: Omit<WithSupabaseConfig, 'cors'>,
-): MiddlewareHandler {
-  return async (c: Context, next) => {
+export function supabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
+  return createMiddleware<{
+    Variables: { supabase: SupabaseContext }
+  }>(async (c, next) => {
     const { data: ctx, error } = await createSupabaseContext(c.req.raw, config)
     if (error) {
       return c.json(
@@ -23,5 +17,5 @@ export function supabase(
 
     c.set('supabase', ctx)
     await next()
-  }
+  })
 }
