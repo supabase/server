@@ -6,13 +6,13 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
 export function supabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
   return createMiddleware<{
-    Variables: { supabase: SupabaseContext }
+    Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
     // Skip if a previous middleware already set the context.
     // This allows route-level overrides: a route can use supabase({ allow: 'secret' })
     // while the app-wide middleware uses supabase({ allow: 'user' }), without the
     // app-wide one overwriting the stricter context already established.
-    if (c.var.supabase) {
+    if (c.var.supabaseContext) {
       await next()
       return
     }
@@ -25,7 +25,7 @@ export function supabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
       })
     }
 
-    c.set('supabase', ctx)
+    c.set('supabaseContext', ctx)
     await next()
   })
 }

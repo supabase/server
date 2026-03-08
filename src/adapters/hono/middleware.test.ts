@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { SupabaseContext } from '../../types.js'
 import { supabase } from './middleware.js'
 
-type Env = { Variables: { supabase: SupabaseContext } }
+type Env = { Variables: { supabaseContext: SupabaseContext } }
 
 describe('hono supabase middleware', () => {
   const env = {
@@ -18,7 +18,7 @@ describe('hono supabase middleware', () => {
     const app = new Hono<Env>()
     app.use('*', supabase({ allow: 'always', env }))
     app.get('/', (c) => {
-      const ctx = c.get('supabase')
+      const ctx = c.get('supabaseContext')
       return c.json({
         authType: ctx.authType,
         hasSupabase: !!ctx.supabase,
