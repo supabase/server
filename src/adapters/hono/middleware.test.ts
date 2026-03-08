@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 import { describe, expect, it } from 'vitest'
 
+import type { SupabaseContext } from '../../types.js'
 import { supabase } from './middleware.js'
+
+type Env = { Variables: { supabase: SupabaseContext } }
 
 describe('hono supabase middleware', () => {
   const env = {
@@ -12,7 +15,7 @@ describe('hono supabase middleware', () => {
   }
 
   it('sets supabase context on successful auth', async () => {
-    const app = new Hono()
+    const app = new Hono<Env>()
     app.use('*', supabase({ allow: 'always', env }))
     app.get('/', (c) => {
       const ctx = c.get('supabase')
@@ -47,7 +50,9 @@ describe('hono supabase middleware', () => {
     app.use('*', supabase({ allow: 'user', env }))
     app.get('/', (c) => c.json({ ok: true }))
     app.onError((err, c) => {
-      const cause = err.cause as { code?: string; status?: number }
+      const cause = (err as Error).cause as
+        | { code?: string; status?: number }
+        | undefined
       return c.json(
         { error: err.message, code: cause?.code },
         (cause?.status as 401) ?? 500,
