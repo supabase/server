@@ -20,9 +20,12 @@ describe('resolveEnv', () => {
     expect(result.data!.url).toBe('https://test.supabase.co')
   })
 
-  it('parses comma-separated publishable keys', () => {
+  it('parses JSON publishable keys', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
-    vi.stubEnv('SUPABASE_PUBLISHABLE_KEYS', 'web:pk_abc,mobile:pk_def')
+    vi.stubEnv(
+      'SUPABASE_PUBLISHABLE_KEYS',
+      JSON.stringify({ web: 'pk_abc', mobile: 'pk_def' }),
+    )
     const result = resolveEnv()
     expect(result.data!.publishableKeys).toEqual([
       { name: 'web', key: 'pk_abc' },
@@ -30,13 +33,11 @@ describe('resolveEnv', () => {
     ])
   })
 
-  it('uses "default" name for unnamed keys', () => {
+  it('returns empty array for invalid JSON keys', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
-    vi.stubEnv('SUPABASE_PUBLISHABLE_KEYS', 'pk_abc')
+    vi.stubEnv('SUPABASE_PUBLISHABLE_KEYS', 'not-json')
     const result = resolveEnv()
-    expect(result.data!.publishableKeys).toEqual([
-      { name: 'default', key: 'pk_abc' },
-    ])
+    expect(result.data!.publishableKeys).toEqual([])
   })
 
   it('parses JWKS as JSON', () => {

@@ -15,17 +15,12 @@ function getEnvVar(name: string): string | undefined {
 
 function parseNamedKeys(raw: string | undefined): NamedKey[] {
   if (!raw) return []
-  return raw.split(',').map((entry) => {
-    const trimmed = entry.trim()
-    const colonIndex = trimmed.indexOf(':')
-    if (colonIndex > 0) {
-      return {
-        name: trimmed.slice(0, colonIndex),
-        key: trimmed.slice(colonIndex + 1),
-      }
-    }
-    return { name: 'default', key: trimmed }
-  })
+  try {
+    const parsed = JSON.parse(raw) as Record<string, string>
+    return Object.entries(parsed).map(([name, key]) => ({ name, key }))
+  } catch {
+    return []
+  }
 }
 
 function parseJwks(raw: string | undefined): JsonWebKeySet | null {
