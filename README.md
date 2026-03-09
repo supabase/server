@@ -107,8 +107,8 @@ Every handler receives a `SupabaseContext`:
 interface SupabaseContext {
   supabase: SupabaseClient // RLS-scoped (user or anon depending on auth)
   supabaseAdmin: SupabaseClient // Bypasses RLS
-  user?: UserIdentity // Present when auth is JWT
-  claims?: JWTClaims // Present when auth is JWT
+  user: UserIdentity | null // Present when auth is JWT
+  claims: JWTClaims | null // Present when auth is JWT
   authType: Allow // Which auth mode matched
 }
 ```
@@ -145,7 +145,7 @@ import { supabase } from '@supabase/<tbd>/adapters/hono'
 const app = new Hono()
 
 app.get('/todos', supabase({ allow: 'user' }), async (c) => {
-  const { supabase: sb } = c.get('supabase')
+  const { supabase: sb } = c.var.supabaseContext
   const { data } = await sb.from('todos').select()
   return c.json(data)
 })
@@ -187,7 +187,7 @@ if (error) {
 Low-level — works with raw credentials instead of a Request. Used by SSR adapters and custom auth flows.
 
 ```ts
-const credentials = { type: 'bearer', token: myToken }
+const credentials = { token: myToken, apikey: null }
 const { data: auth, error } = await verifyCredentials(credentials, {
   allow: 'user',
 })
@@ -264,7 +264,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `@supabase/<tbd>`               | `withSupabase`, `createSupabaseContext`                                                                           |
 | `@supabase/<tbd>/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/<tbd>/wrappers`      | `withSupabase`, `verifyWebhookSignature`                                                                          |
+| `@supabase/<tbd>/wrappers`      | `verifyWebhookSignature`                                                                                          |
 | `@supabase/<tbd>/adapters/hono` | Hono middleware                                                                                                   |
 
 ## Development
