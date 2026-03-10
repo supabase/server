@@ -76,6 +76,23 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
+    it('rejects wrong named key type', async () => {
+      const env = makeEnv({
+        publishableKeys: [
+          { name: 'web', key: 'pk_web' },
+          { name: 'mobile', key: 'pk_mobile' },
+        ],
+      })
+      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const result = await verifyCredentials(creds, {
+        allow: 'secret:web',
+        env,
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
   })
 
@@ -97,6 +114,54 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
+    it('matches secret named key with colon syntax', async () => {
+      const env = makeEnv({
+        secretKeys: [
+          { name: 'web', key: 'pk_web' },
+          { name: 'mobile', key: 'pk_mobile' },
+        ],
+      })
+      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const result = await verifyCredentials(creds, {
+        allow: 'secret:web',
+        env,
+      })
+      expect(result.error).toBeNull()
+    })
+
+    it('rejects wrong secret named key', async () => {
+      const env = makeEnv({
+        secretKeys: [
+          { name: 'web', key: 'pk_web' },
+          { name: 'mobile', key: 'pk_mobile' },
+        ],
+      })
+      const creds: Credentials = { token: null, apikey: 'pk_mobile' }
+      const result = await verifyCredentials(creds, {
+        allow: 'secret:web',
+        env,
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
+    it('rejects wrong secret named key type', async () => {
+      const env = makeEnv({
+        secretKeys: [
+          { name: 'web', key: 'pk_web' },
+          { name: 'mobile', key: 'pk_mobile' },
+        ],
+      })
+      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const result = await verifyCredentials(creds, {
+        allow: 'public:web',
+        env,
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
   })
 
@@ -143,6 +208,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
 
     it('fails with no token', async () => {
@@ -152,6 +218,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
 
     it('fails with expired JWT', async () => {
@@ -173,6 +240,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks: expiredJwks }),
       })
       expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
   })
 
@@ -193,6 +261,7 @@ describe('verifyCredentials', () => {
         allow: ['always', 'public'],
         env: makeEnv(),
       })
+      expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('always')
     })
   })
