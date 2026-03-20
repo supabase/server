@@ -7,8 +7,8 @@ import { verifyCredentials } from './verify-credentials.js'
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
   return {
     url: 'https://test.supabase.co',
-    publishableKeys: { default: 'sb_publishable_xyz_key' },
-    secretKeys: { default: 'sb_secret_xyz_secret' },
+    publishableKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_secret_xyz' },
     jwks: null,
     ...overrides,
   }
@@ -31,7 +31,7 @@ describe('verifyCredentials', () => {
     it('succeeds with valid publishable key', async () => {
       const creds: Credentials = {
         token: null,
-        apikey: 'sb_publishable_xyz_key',
+        apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
         allow: 'public',
@@ -53,9 +53,12 @@ describe('verifyCredentials', () => {
 
     it('only matches default key when bare public is used', async () => {
       const env = makeEnv({
-        publishableKeys: { default: 'pk_default', web: 'pk_web' },
+        publishableKeys: {
+          default: 'sb_publishable_default',
+          web: 'sb_publishable_web',
+        },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const creds: Credentials = { token: null, apikey: 'sb_publishable_web' }
       const result = await verifyCredentials(creds, {
         allow: 'public',
         env,
@@ -66,9 +69,12 @@ describe('verifyCredentials', () => {
 
     it('matches named key with colon syntax', async () => {
       const env = makeEnv({
-        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
+        publishableKeys: {
+          web: 'sb_publishable_web',
+          mobile: 'sb_publishable_mobile',
+        },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const creds: Credentials = { token: null, apikey: 'sb_publishable_web' }
       const result = await verifyCredentials(creds, {
         allow: 'public:web',
         env,
@@ -78,9 +84,15 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong named key', async () => {
       const env = makeEnv({
-        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
+        publishableKeys: {
+          web: 'sb_publishable_web',
+          mobile: 'sb_publishable_mobile',
+        },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_mobile' }
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_mobile',
+      }
       const result = await verifyCredentials(creds, {
         allow: 'public:web',
         env,
@@ -91,9 +103,12 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong named key type', async () => {
       const env = makeEnv({
-        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
+        publishableKeys: {
+          web: 'sb_publishable_web',
+          mobile: 'sb_publishable_mobile',
+        },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const creds: Credentials = { token: null, apikey: 'sb_publishable_web' }
       const result = await verifyCredentials(creds, {
         allow: 'secret:web',
         env,
@@ -104,9 +119,15 @@ describe('verifyCredentials', () => {
 
     it('matches any key with wildcard syntax', async () => {
       const env = makeEnv({
-        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
+        publishableKeys: {
+          web: 'sb_publishable_web',
+          mobile: 'sb_publishable_mobile',
+        },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_mobile' }
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_mobile',
+      }
       const result = await verifyCredentials(creds, {
         allow: 'public:*',
         env,
@@ -118,7 +139,7 @@ describe('verifyCredentials', () => {
 
   describe('secret mode', () => {
     it('succeeds with valid secret key', async () => {
-      const creds: Credentials = { token: null, apikey: 'sb_secret_xyz_secret' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_xyz' }
       const result = await verifyCredentials(creds, {
         allow: 'secret',
         env: makeEnv(),
@@ -139,9 +160,9 @@ describe('verifyCredentials', () => {
 
     it('only matches default key when bare secret is used', async () => {
       const env = makeEnv({
-        secretKeys: { default: 'sk_default', web: 'sk_web' },
+        secretKeys: { default: 'sb_secret_default', web: 'sb_secret_web' },
       })
-      const creds: Credentials = { token: null, apikey: 'sk_web' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_web' }
       const result = await verifyCredentials(creds, {
         allow: 'secret',
         env,
@@ -152,9 +173,9 @@ describe('verifyCredentials', () => {
 
     it('matches secret named key with colon syntax', async () => {
       const env = makeEnv({
-        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
+        secretKeys: { web: 'sb_secret_web', mobile: 'sb_secret_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'sk_web' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_web' }
       const result = await verifyCredentials(creds, {
         allow: 'secret:web',
         env,
@@ -164,9 +185,9 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong secret named key', async () => {
       const env = makeEnv({
-        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
+        secretKeys: { web: 'sb_secret_web', mobile: 'sb_secret_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'sk_mobile' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_mobile' }
       const result = await verifyCredentials(creds, {
         allow: 'secret:web',
         env,
@@ -177,9 +198,9 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong secret named key type', async () => {
       const env = makeEnv({
-        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
+        secretKeys: { web: 'sb_secret_web', mobile: 'sb_secret_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'sk_web' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_web' }
       const result = await verifyCredentials(creds, {
         allow: 'public:web',
         env,
@@ -190,9 +211,9 @@ describe('verifyCredentials', () => {
 
     it('matches any key with wildcard syntax', async () => {
       const env = makeEnv({
-        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
+        secretKeys: { web: 'sb_secret_web', mobile: 'sb_secret_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'sk_mobile' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_mobile' }
       const result = await verifyCredentials(creds, {
         allow: 'secret:*',
         env,
@@ -285,7 +306,7 @@ describe('verifyCredentials', () => {
     it('matches second mode when first fails', async () => {
       const creds: Credentials = {
         token: null,
-        apikey: 'sb_publishable_xyz_key',
+        apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
         allow: ['secret', 'public'],

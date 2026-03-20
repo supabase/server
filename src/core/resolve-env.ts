@@ -30,6 +30,17 @@ function parseKeys(raw: string | undefined): Record<string, string> {
   }
 }
 
+function resolveKeys(
+  singularVar: string,
+  pluralVar: string,
+): Record<string, string> {
+  const plural = getEnvVar(pluralVar)
+  if (plural) return parseKeys(plural)
+  const singular = getEnvVar(singularVar)
+  if (singular) return { default: singular }
+  return {}
+}
+
 function parseJwks(raw: string | undefined): JsonWebKeySet | null {
   if (!raw) return null
   try {
@@ -58,9 +69,10 @@ export function resolveEnv(
     url,
     publishableKeys:
       overrides?.publishableKeys ??
-      parseKeys(getEnvVar('SUPABASE_PUBLISHABLE_KEYS')),
+      resolveKeys('SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_PUBLISHABLE_KEYS'),
     secretKeys:
-      overrides?.secretKeys ?? parseKeys(getEnvVar('SUPABASE_SECRET_KEYS')),
+      overrides?.secretKeys ??
+      resolveKeys('SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'),
     jwks: overrides?.jwks ?? parseJwks(getEnvVar('SUPABASE_JWKS')),
   }
 
