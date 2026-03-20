@@ -51,6 +51,14 @@ describe('resolveEnv', () => {
     expect(result.data!.jwks).toEqual(jwks)
   })
 
+  it('wraps bare JWKS array in { keys } object', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    const keys = [{ kty: 'EC', crv: 'P-256', x: 'test', y: 'test' }]
+    vi.stubEnv('SUPABASE_JWKS', JSON.stringify(keys))
+    const result = resolveEnv()
+    expect(result.data!.jwks).toEqual({ keys })
+  })
+
   it('returns null jwks for invalid JSON', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     vi.stubEnv('SUPABASE_JWKS', 'not-json')

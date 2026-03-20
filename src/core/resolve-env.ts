@@ -44,7 +44,10 @@ function resolveKeys(
 function parseJwks(raw: string | undefined): JsonWebKeySet | null {
   if (!raw) return null
   try {
-    return JSON.parse(raw) as JsonWebKeySet
+    const parsed = JSON.parse(raw)
+    // Support both { keys: [...] } and bare array [...] formats
+    if (Array.isArray(parsed)) return { keys: parsed }
+    return parsed as JsonWebKeySet
   } catch {
     return null
   }
