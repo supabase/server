@@ -97,4 +97,22 @@ describe('createSupabaseContext', () => {
     expect(result.data).toBeNull()
     expect(result.error).not.toBeNull()
   })
+
+  it('returns error when client creation fails due to missing keys', async () => {
+    const req = new Request('http://localhost')
+    const result = await createSupabaseContext(req, {
+      allow: 'always',
+      env: {
+        url: 'https://test.supabase.co',
+        publishableKeys: {},
+        secretKeys: {},
+        jwks: null,
+      },
+    })
+
+    expect(result.data).toBeNull()
+    expect(result.error).not.toBeNull()
+    expect(result.error!.status).toBe(500)
+    expect(result.error!.code).toBe('MISSING_PUBLISHABLE_KEY')
+  })
 })

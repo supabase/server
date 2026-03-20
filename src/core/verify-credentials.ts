@@ -33,6 +33,7 @@ function parseAllowMode(mode: AllowWithKey): {
   const colonIndex = mode.indexOf(':')
   const base = mode.slice(0, colonIndex) as Allow
   const keyName = mode.slice(colonIndex + 1)
+  if (!keyName) return { base, keyName: null }
   return { base, keyName }
 }
 
@@ -103,6 +104,9 @@ async function tryMode(
       try {
         const jwkSet = createLocalJWKSet(env.jwks)
         const { payload } = await jwtVerify(credentials.token, jwkSet)
+        if (typeof payload.sub !== 'string') {
+          return null
+        }
         const claims = payload as unknown as JWTClaims
         return {
           authType: 'user',
