@@ -1,13 +1,13 @@
-# @supabase/<tbd>
+# @supabase/server
 
 [![License](https://img.shields.io/npm/l/nx.svg?style=flat-square)](./LICENSE)
-[![Package](https://img.shields.io/npm/v/@supabase/<tbd>)](https://www.npmjs.com/package/@supabase/<tbd>)
-[![pkg.pr.new](https://pkg.pr.new/badge/supabase/<tbd>)](https://pkg.pr.new/~/supabase/<tbd>)
+[![Package](https://img.shields.io/npm/v/@supabase/server)](https://www.npmjs.com/package/@supabase/server)
+[![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 
 Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.
 
 ```ts
-import { withSupabase } from '@supabase/<tbd>'
+import { withSupabase } from '@supabase/server'
 
 Deno.serve(
   withSupabase({ allow: 'user' }, async (req, ctx) => {
@@ -23,10 +23,10 @@ One import. One line of config. Auth is validated, clients are scoped, CORS is h
 
 ```bash
 # Deno
-import { withSupabase } from "npm:@supabase/<tbd>";
+import { withSupabase } from "npm:@supabase/server";
 
 # npm
-pnpm add @supabase/<tbd>
+pnpm add @supabase/server
 ```
 
 ## Quick Start
@@ -34,7 +34,7 @@ pnpm add @supabase/<tbd>
 ### Authenticated endpoint
 
 ```ts
-import { withSupabase } from '@supabase/<tbd>'
+import { withSupabase } from '@supabase/server'
 
 Deno.serve(
   withSupabase({ allow: 'user' }, async (req, ctx) => {
@@ -140,7 +140,7 @@ withSupabase(
 
 ```ts
 import { Hono } from 'hono'
-import { withSupabase } from '@supabase/<tbd>/adapters/hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
 
@@ -161,14 +161,14 @@ The adapter does not handle CORS — use `hono/cors` for that. Per-route auth wo
 
 For when you need more control than `withSupabase` provides — multiple routes with different auth, custom response headers, or building your own wrapper.
 
-All primitives are available from `@supabase/<tbd>/core`.
+All primitives are available from `@supabase/server/core`.
 
 ```ts
 import {
   verifyAuth,
   createContextClient,
   createAdminClient,
-} from '@supabase/<tbd>/core'
+} from '@supabase/server/core'
 ```
 
 ### verifyAuth
@@ -222,7 +222,7 @@ const { data: env, error } = resolveEnv({
 ### Example: custom multi-route handler
 
 ```ts
-import { verifyAuth, createContextClient } from '@supabase/<tbd>/core'
+import { verifyAuth, createContextClient } from '@supabase/server/core'
 
 Deno.serve(async (req) => {
   const url = new URL(req.url)
@@ -260,12 +260,12 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 ## Exports
 
-| Export                          | What's in it                                                                                                      |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/<tbd>`               | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/<tbd>/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/<tbd>/wrappers`      | `verifyWebhookSignature`                                                                                          |
-| `@supabase/<tbd>/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
+| Export                           | What's in it                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
+| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
 
 ## Development
 

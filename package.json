@@ -1,7 +1,7 @@
 {
-  "name": "@supabase/edge-functions",
+  "name": "@supabase/server",
   "version": "0.1.2",
-  "description": "Supabase Edge Functions",
+  "description": "Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.",
   "keywords": [
     "edge",
     "functions",

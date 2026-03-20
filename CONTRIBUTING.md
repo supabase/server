@@ -1,6 +1,6 @@
-# Contributing to `@supabase/edge-functions`
+# Contributing to `@supabase/server`
 
-Thank you for your interest in contributing to `@supabase/edge-functions`! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to `@supabase/server`! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -193,4 +193,4 @@ Publishing is fully automated via GitHub Actions:
 
 ## License
 
-By contributing to `@supabase/edge-functions`, you agree that your contributions will be licensed under the MIT License.
+By contributing to `@supabase/server`, you agree that your contributions will be licensed under the MIT License.
