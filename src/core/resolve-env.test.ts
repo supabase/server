@@ -99,6 +99,39 @@ describe('resolveEnv', () => {
     })
   })
 
+  it('parses platform env vars with multiple keys and JWKS array', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv(
+      'SUPABASE_PUBLISHABLE_KEYS',
+      '{"default":"sb_publishable_fake_default_key","test":"sb_publishable_fake_test_key"}',
+    )
+    vi.stubEnv(
+      'SUPABASE_SECRET_KEYS',
+      '{"default":"sb_secret_fake_default_key_val","internal":"sb_secret_fake_internal_key"}',
+    )
+    vi.stubEnv(
+      'SUPABASE_JWKS',
+      '[{"x":"aN7ek2W_m0BCBoy2vnfwd_785kEfMCcAMGznUg3ut34","y":"7vftLMpD-fRUFmhrqOIfS6ApmCzKgbE6dFsP4o5BCso","alg":"ES256","crv":"P-256","ext":true,"kid":"cb770052-bdd3-4f5e-8d6f-8836046b7c93","kty":"EC","key_ops":["verify"]},{"x":"vwGP-KLJgwv0LHlZEd-7AksGdnznPFcodh4kEKjWUV0","y":"hOyozpKPMwFu8iFGC6QJLqOmDdrNTLyBxiWhKoSSg58","alg":"ES256","crv":"P-256","ext":true,"kid":"9a9933f7-e18f-4d6f-a791-9a992845a27b","kty":"EC","key_ops":["verify"]}]',
+    )
+    const result = resolveEnv()
+    expect(result.error).toBeNull()
+    expect(result.data!.publishableKeys).toEqual({
+      default: 'sb_publishable_fake_default_key',
+      test: 'sb_publishable_fake_test_key',
+    })
+    expect(result.data!.secretKeys).toEqual({
+      default: 'sb_secret_fake_default_key_val',
+      internal: 'sb_secret_fake_internal_key',
+    })
+    expect(result.data!.jwks!.keys).toHaveLength(2)
+    expect((result.data!.jwks!.keys[0] as Record<string, unknown>).kid).toBe(
+      'cb770052-bdd3-4f5e-8d6f-8836046b7c93',
+    )
+    expect((result.data!.jwks!.keys[1] as Record<string, unknown>).kid).toBe(
+      '9a9933f7-e18f-4d6f-a791-9a992845a27b',
+    )
+  })
+
   it('uses overrides when provided', () => {
     const result = resolveEnv({
       url: 'https://override.supabase.co',
