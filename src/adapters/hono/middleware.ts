@@ -4,13 +4,13 @@ import { createMiddleware } from 'hono/factory'
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
-export function supabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
+export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
   return createMiddleware<{
     Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
     // Skip if a previous middleware already set the context.
-    // This allows route-level overrides: a route can use supabase({ allow: 'secret' })
-    // while the app-wide middleware uses supabase({ allow: 'user' }), without the
+    // This allows route-level overrides: a route can use withSupabase({ allow: 'secret' })
+    // while the app-wide middleware uses withSupabase({ allow: 'user' }), without the
     // app-wide one overwriting the stricter context already established.
     if (c.var.supabaseContext) {
       await next()

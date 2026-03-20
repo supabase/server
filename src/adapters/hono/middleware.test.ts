@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { describe, expect, it } from 'vitest'
 
 import type { SupabaseContext } from '../../types.js'
-import { supabase } from './middleware.js'
+import { withSupabase } from './middleware.js'
 
 type Env = { Variables: { supabaseContext: SupabaseContext } }
 
@@ -16,7 +16,7 @@ describe('hono supabase middleware', () => {
 
   it('sets supabase context on successful auth', async () => {
     const app = new Hono<Env>()
-    app.use('*', supabase({ allow: 'always', env }))
+    app.use('*', withSupabase({ allow: 'always', env }))
     app.get('/', (c) => {
       const ctx = c.get('supabaseContext')
       return c.json({
@@ -36,7 +36,7 @@ describe('hono supabase middleware', () => {
 
   it('throws HTTPException on auth failure', async () => {
     const app = new Hono()
-    app.use('*', supabase({ allow: 'user', env }))
+    app.use('*', withSupabase({ allow: 'user', env }))
     app.get('/', (c) => c.json({ ok: true }))
 
     const res = await app.request('/')
@@ -47,7 +47,7 @@ describe('hono supabase middleware', () => {
 
   it('exposes AuthError via cause in app.onError', async () => {
     const app = new Hono()
-    app.use('*', supabase({ allow: 'user', env }))
+    app.use('*', withSupabase({ allow: 'user', env }))
     app.get('/', (c) => c.json({ ok: true }))
     app.onError((err, c) => {
       const cause = (err as Error).cause as
@@ -68,7 +68,7 @@ describe('hono supabase middleware', () => {
 
   it('does not add CORS headers', async () => {
     const app = new Hono()
-    app.use('*', supabase({ allow: 'always', env }))
+    app.use('*', withSupabase({ allow: 'always', env }))
     app.get('/', (c) => c.json({ ok: true }))
 
     const res = await app.request('/')

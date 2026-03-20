@@ -140,11 +140,11 @@ withSupabase(
 
 ```ts
 import { Hono } from 'hono'
-import { supabase } from '@supabase/<tbd>/adapters/hono'
+import { withSupabase } from '@supabase/<tbd>/adapters/hono'
 
 const app = new Hono()
 
-app.get('/todos', supabase({ allow: 'user' }), async (c) => {
+app.get('/todos', withSupabase({ allow: 'user' }), async (c) => {
   const { supabase: sb } = c.var.supabaseContext
   const { data } = await sb.from('todos').select()
   return c.json(data)
@@ -265,7 +265,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | `@supabase/<tbd>`               | `withSupabase`, `createSupabaseContext`                                                                           |
 | `@supabase/<tbd>/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
 | `@supabase/<tbd>/wrappers`      | `verifyWebhookSignature`                                                                                          |
-| `@supabase/<tbd>/adapters/hono` | Hono middleware                                                                                                   |
+| `@supabase/<tbd>/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
 
 ## Development
 

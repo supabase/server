@@ -1,1 +1,1 @@
-export { supabase } from './middleware.js'
+export { withSupabase } from './middleware.js'
