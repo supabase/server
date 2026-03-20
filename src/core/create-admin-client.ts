@@ -12,7 +12,8 @@ export function createAdminClient(
   if (error) throw error
 
   const name = keyName ?? 'default'
-  const secretKey = resolved.secretKeys[name]
+  const keys = resolved.secretKeys
+  const secretKey = keys[name] ?? (keyName ? undefined : Object.values(keys)[0])
   if (!secretKey) {
     throw new EnvError(
       `No "${name}" secret key found. Set SUPABASE_SECRET_KEY or include a "${name}" entry in SUPABASE_SECRET_KEYS.`,

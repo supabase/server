@@ -16,7 +16,7 @@ function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
 
 describe('verifyCredentials', () => {
   describe('always mode', () => {
-    it('succeeds with no credentials', async () => {
+    it('succeeds with no credentials and keyName is null', async () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, {
         allow: 'always',
@@ -24,11 +24,12 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('always')
+      expect(result.data!.keyName).toBeNull()
     })
   })
 
   describe('public mode', () => {
-    it('succeeds with valid publishable key', async () => {
+    it('succeeds with valid publishable key and returns default keyName', async () => {
       const creds: Credentials = {
         token: null,
         apikey: 'sb_publishable_xyz',
@@ -39,6 +40,7 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('public')
+      expect(result.data!.keyName).toBe('default')
     })
 
     it('fails with invalid key', async () => {
@@ -67,7 +69,7 @@ describe('verifyCredentials', () => {
       expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
 
-    it('matches named key with colon syntax', async () => {
+    it('matches named key with colon syntax and returns keyName', async () => {
       const env = makeEnv({
         publishableKeys: {
           web: 'sb_publishable_web',
@@ -80,6 +82,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).toBeNull()
+      expect(result.data!.keyName).toBe('web')
     })
 
     it('rejects wrong named key', async () => {
@@ -135,10 +138,30 @@ describe('verifyCredentials', () => {
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('public')
     })
+
+    it('wildcard returns correct keyName for non-first key', async () => {
+      const env = makeEnv({
+        publishableKeys: {
+          default: 'sb_publishable_default',
+          web: 'sb_publishable_web',
+          mobile: 'sb_publishable_mobile',
+        },
+      })
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_mobile',
+      }
+      const result = await verifyCredentials(creds, {
+        allow: 'public:*',
+        env,
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.keyName).toBe('mobile')
+    })
   })
 
   describe('secret mode', () => {
-    it('succeeds with valid secret key', async () => {
+    it('succeeds with valid secret key and returns default keyName', async () => {
       const creds: Credentials = { token: null, apikey: 'sb_secret_xyz' }
       const result = await verifyCredentials(creds, {
         allow: 'secret',
@@ -146,6 +169,7 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('secret')
+      expect(result.data!.keyName).toBe('default')
     })
 
     it('fails with invalid secret key', async () => {
@@ -171,7 +195,7 @@ describe('verifyCredentials', () => {
       expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
 
-    it('matches secret named key with colon syntax', async () => {
+    it('matches secret named key with colon syntax and returns keyName', async () => {
       const env = makeEnv({
         secretKeys: { web: 'sb_secret_web', mobile: 'sb_secret_mobile' },
       })
@@ -181,6 +205,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).toBeNull()
+      expect(result.data!.keyName).toBe('web')
     })
 
     it('rejects wrong secret named key', async () => {
@@ -221,6 +246,23 @@ describe('verifyCredentials', () => {
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('secret')
     })
+
+    it('wildcard returns correct keyName for non-first key', async () => {
+      const env = makeEnv({
+        secretKeys: {
+          default: 'sb_secret_default',
+          web: 'sb_secret_web',
+          mobile: 'sb_secret_mobile',
+        },
+      })
+      const creds: Credentials = { token: null, apikey: 'sb_secret_mobile' }
+      const result = await verifyCredentials(creds, {
+        allow: 'secret:*',
+        env,
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.keyName).toBe('mobile')
+    })
   })
 
   describe('user mode', () => {
@@ -253,6 +295,7 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('user')
+      expect(result.data!.keyName).toBeNull()
       expect(result.data!.userClaims!.id).toBe('user-123')
       expect(result.data!.userClaims!.email).toBe('test@example.com')
       expect(result.data!.claims!.sub).toBe('user-123')
@@ -348,7 +391,7 @@ describe('verifyCredentials', () => {
   })
 
   describe('array allow (first match wins)', () => {
-    it('matches second mode when first fails', async () => {
+    it('matches second mode when first fails and returns its keyName', async () => {
       const creds: Credentials = {
         token: null,
         apikey: 'sb_publishable_xyz',
@@ -359,6 +402,7 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).toBeNull()
       expect(result.data!.authType).toBe('public')
+      expect(result.data!.keyName).toBe('default')
     })
 
     it('matches first mode when it succeeds', async () => {

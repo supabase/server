@@ -13,7 +13,8 @@ export function createContextClient(
   if (error) throw error
 
   const name = keyName ?? 'default'
-  const anonKey = resolved.publishableKeys[name]
+  const keys = resolved.publishableKeys
+  const anonKey = keys[name] ?? (keyName ? undefined : Object.values(keys)[0])
   if (!anonKey) {
     throw new EnvError(
       `No "${name}" publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "${name}" entry in SUPABASE_PUBLISHABLE_KEYS.`,
