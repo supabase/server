@@ -4,8 +4,8 @@ import { withSupabase } from './with-supabase.js'
 
 const baseEnv = {
   url: 'https://test.supabase.co',
-  publishableKeys: { default: 'pk_test' },
-  secretKeys: { default: 'sk_test' },
+  publishableKeys: { default: 'sb_publishable_xyz' },
+  secretKeys: { default: 'sb_secret_xyz' },
   jwks: null,
 }
 

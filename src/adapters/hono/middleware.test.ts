@@ -9,8 +9,8 @@ type Env = { Variables: { supabaseContext: SupabaseContext } }
 describe('hono supabase middleware', () => {
   const env = {
     url: 'https://test.supabase.co',
-    publishableKeys: { default: 'pk_test' },
-    secretKeys: { default: 'sk_test' },
+    publishableKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_publishable_xyz' },
     jwks: null,
   }
 

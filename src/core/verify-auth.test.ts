@@ -5,14 +5,14 @@ import { verifyAuth } from './verify-auth.js'
 describe('verifyAuth', () => {
   const env = {
     url: 'https://test.supabase.co',
-    publishableKeys: { default: 'pk_test' },
+    publishableKeys: { default: 'sb_publishable_xyz' },
     secretKeys: {},
     jwks: null,
   }
 
   it('extracts credentials from request and verifies', async () => {
     const req = new Request('http://localhost', {
-      headers: { apikey: 'pk_test' },
+      headers: { apikey: 'sb_publishable_xyz' },
     })
     const result = await verifyAuth(req, { allow: 'public', env })
     expect(result.error).toBeNull()

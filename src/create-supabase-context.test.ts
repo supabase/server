@@ -4,8 +4,8 @@ import { createSupabaseContext } from './create-supabase-context.js'
 
 const baseEnv = {
   url: 'https://test.supabase.co',
-  publishableKeys: { default: 'pk_test' },
-  secretKeys: { default: 'sk_test' },
+  publishableKeys: { default: 'sb_publishable_xyz' },
+  secretKeys: { default: 'sb_secret_xyz' },
   jwks: null,
 }
 
@@ -59,7 +59,7 @@ describe('createSupabaseContext', () => {
 
   it('accepts public key auth', async () => {
     const req = new Request('http://localhost', {
-      headers: { apikey: 'pk_test' },
+      headers: { apikey: 'sb_publishable_xyz' },
     })
     const result = await createSupabaseContext(req, {
       allow: 'public',
@@ -74,7 +74,7 @@ describe('createSupabaseContext', () => {
 
   it('accepts secret key auth', async () => {
     const req = new Request('http://localhost', {
-      headers: { apikey: 'sk_test' },
+      headers: { apikey: 'sb_secret_xyz' },
     })
     const result = await createSupabaseContext(req, {
       allow: 'secret',

@@ -7,8 +7,8 @@ import { verifyCredentials } from './verify-credentials.js'
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
   return {
     url: 'https://test.supabase.co',
-    publishableKeys: { default: 'pk_test_key' },
-    secretKeys: { default: 'sk_test_secret' },
+    publishableKeys: { default: 'sb_publishable_xyz_key' },
+    secretKeys: { default: 'sb_secret_xyz_secret' },
     jwks: null,
     ...overrides,
   }
@@ -29,7 +29,10 @@ describe('verifyCredentials', () => {
 
   describe('public mode', () => {
     it('succeeds with valid publishable key', async () => {
-      const creds: Credentials = { token: null, apikey: 'pk_test_key' }
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_xyz_key',
+      }
       const result = await verifyCredentials(creds, {
         allow: 'public',
         env: makeEnv(),
@@ -115,7 +118,7 @@ describe('verifyCredentials', () => {
 
   describe('secret mode', () => {
     it('succeeds with valid secret key', async () => {
-      const creds: Credentials = { token: null, apikey: 'sk_test_secret' }
+      const creds: Credentials = { token: null, apikey: 'sb_secret_xyz_secret' }
       const result = await verifyCredentials(creds, {
         allow: 'secret',
         env: makeEnv(),
@@ -280,7 +283,10 @@ describe('verifyCredentials', () => {
 
   describe('array allow (first match wins)', () => {
     it('matches second mode when first fails', async () => {
-      const creds: Credentials = { token: null, apikey: 'pk_test_key' }
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_xyz_key',
+      }
       const result = await verifyCredentials(creds, {
         allow: ['secret', 'public'],
         env: makeEnv(),
