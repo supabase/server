@@ -1,7 +1,7 @@
 {
-  "name": "@supabase/edge-functions",
+  "name": "@supabase/server",
   "version": "0.1.2",
-  "description": "Supabase Edge Functions",
+  "description": "Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.",
   "keywords": [
     "edge",
     "functions",
@@ -24,6 +24,21 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./core": {
+      "types": "./dist/core/index.d.mts",
+      "import": "./dist/core/index.mjs",
+      "require": "./dist/core/index.cjs"
+    },
+    "./wrappers": {
+      "types": "./dist/wrappers/index.d.mts",
+      "import": "./dist/wrappers/index.mjs",
+      "require": "./dist/wrappers/index.cjs"
+    },
+    "./adapters/hono": {
+      "types": "./dist/adapters/hono/index.d.mts",
+      "import": "./dist/adapters/hono/index.mjs",
+      "require": "./dist/adapters/hono/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -42,6 +57,8 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "prepare": "simple-git-hooks",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "simple-git-hooks": {
@@ -53,15 +70,30 @@
       "simple-git-hooks"
     ]
   },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "hono": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "hono": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
+    "@supabase/supabase-js": "^2.98.0",
     "eslint": "^10.0.2",
+    "hono": "^4.12.5",
     "prettier": "3.8.1",
     "pretty-quick": "^4.2.2",
     "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.1"
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "jose": "^6.2.0"
   }
 }
