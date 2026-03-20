@@ -66,6 +66,20 @@ describe('resolveEnv', () => {
     expect(result.data!.jwks).toBeNull()
   })
 
+  it.each([
+    ['a primitive', '1'],
+    ['an empty object', '{}'],
+    ['an object with non-array keys', '{"keys":"nope"}'],
+    ['a string', '"hello"'],
+    ['null', 'null'],
+    ['a boolean', 'true'],
+  ])('returns null jwks for valid JSON that is %s', (_label, value) => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS', value)
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
   it('reads singular SUPABASE_PUBLISHABLE_KEY as { default: value }', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     vi.stubEnv('SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_test_123')
