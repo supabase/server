@@ -47,18 +47,10 @@ export interface UserIdentity {
   userMetadata?: Record<string, unknown>
 }
 
-export interface CorsConfig {
-  origins?: string | string[]
-  methods?: string[]
-  headers?: string[]
-  maxAge?: number
-  credentials?: boolean
-}
-
 export interface WithSupabaseConfig {
   allow?: AllowWithKey | AllowWithKey[]
   env?: Partial<SupabaseEnv>
-  cors?: boolean | CorsConfig
+  cors?: boolean | Record<string, string>
 }
 
 export interface SupabaseContext {

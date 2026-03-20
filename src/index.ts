@@ -6,12 +6,10 @@ export { verifyCredentials } from './core/verify-credentials.js'
 export { verifyAuth } from './core/verify-auth.js'
 export { createContextClient } from './core/create-context-client.js'
 export { createAdminClient } from './core/create-admin-client.js'
-export { buildCorsHeaders, addCorsHeaders } from './cors.js'
 export type {
   Allow,
   AllowWithKey,
   AuthResult,
-  CorsConfig,
   Credentials,
   JWTClaims,
   SupabaseContext,

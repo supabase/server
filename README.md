@@ -123,14 +123,27 @@ interface SupabaseContext {
 withSupabase(
   {
     allow: 'user', // who can call this function
-    cors: { origins: ['https://myapp.com'] }, // CORS config (optional)
+    cors: false, // disable CORS (default: supabase-js CORS headers)
     env: { url: '...' }, // env overrides (optional)
   },
   handler,
 )
 ```
 
-`cors` defaults to allowing all origins. Set `cors: false` to disable CORS handling (e.g. when using a framework that handles CORS separately).
+`cors` defaults to the standard [supabase-js CORS headers](https://supabase.com/docs/guides/functions/cors). Pass a `Record<string, string>` to set custom headers, or `false` to disable CORS handling (e.g. when using a framework that handles CORS separately).
+
+```ts
+withSupabase(
+  {
+    allow: 'user',
+    cors: {
+      'Access-Control-Allow-Origin': 'https://myapp.com',
+      'Access-Control-Allow-Headers': 'authorization, content-type',
+    },
+  },
+  handler,
+)
+```
 
 `env` overrides environment variable resolution. Defaults to reading `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`, and `SUPABASE_JWKS` from the runtime environment.
 
