@@ -24,7 +24,7 @@ export interface AuthResult {
   token: string | null
   userClaims: UserClaims | null
   claims: JWTClaims | null
-  keyName: string | null
+  keyName?: string | null
 }
 
 export interface JWTClaims {
