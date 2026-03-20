@@ -302,6 +302,51 @@ describe('verifyCredentials', () => {
     })
   })
 
+  describe('parseAllowMode edge cases', () => {
+    it('treats trailing colon as bare mode (default key)', async () => {
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        allow: 'public:' as 'public',
+        env: makeEnv(),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('public')
+    })
+
+    it('treats multiple colons as part of key name', async () => {
+      const env = makeEnv({
+        publishableKeys: { 'key:extra': 'sb_publishable_colon' },
+      })
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_colon',
+      }
+      const result = await verifyCredentials(creds, {
+        allow: 'public:key:extra' as 'public',
+        env,
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('public')
+    })
+
+    it('fails wildcard with empty key object', async () => {
+      const env = makeEnv({ publishableKeys: {} })
+      const creds: Credentials = {
+        token: null,
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        allow: 'public:*' as 'public',
+        env,
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+  })
+
   describe('array allow (first match wins)', () => {
     it('matches second mode when first fails', async () => {
       const creds: Credentials = {

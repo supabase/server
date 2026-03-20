@@ -66,6 +66,27 @@ describe('hono supabase middleware', () => {
     expect(body.code).toBeDefined()
   })
 
+  it('skips if context is already set by prior middleware', async () => {
+    const app = new Hono<Env>()
+
+    // First middleware sets context with 'always' auth
+    app.use('*', withSupabase({ allow: 'always', env }))
+    // Second middleware would require 'secret' — but should skip
+    app.use('*', withSupabase({ allow: 'secret', env }))
+
+    app.get('/', (c) => {
+      const ctx = c.get('supabaseContext')
+      return c.json({ authType: ctx.authType })
+    })
+
+    // No apikey header — would fail 'secret' if it ran
+    const res = await app.request('/')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // First middleware's auth type is preserved
+    expect(body.authType).toBe('always')
+  })
+
   it('does not add CORS headers', async () => {
     const app = new Hono()
     app.use('*', withSupabase({ allow: 'always', env }))

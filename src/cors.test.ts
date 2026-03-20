@@ -50,4 +50,16 @@ describe('addCorsHeaders', () => {
       'https://example.com',
     )
   })
+
+  it('overwrites existing CORS headers on response', () => {
+    const response = new Response('ok', {
+      headers: { 'Access-Control-Allow-Origin': 'https://old.com' },
+    })
+    const result = addCorsHeaders(response, {
+      'Access-Control-Allow-Origin': 'https://new.com',
+    })
+    expect(result.headers.get('Access-Control-Allow-Origin')).toBe(
+      'https://new.com',
+    )
+  })
 })

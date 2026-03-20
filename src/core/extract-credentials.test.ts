@@ -47,4 +47,30 @@ describe('extractCredentials', () => {
     const creds = extractCredentials(req)
     expect(creds.token).toBeNull()
   })
+
+  it('returns null for empty Bearer token', () => {
+    const req = new Request('http://localhost', {
+      headers: { Authorization: 'Bearer ' },
+    })
+    const creds = extractCredentials(req)
+    expect(creds.token).toBeNull()
+  })
+
+  it('returns null for whitespace-only Bearer token', () => {
+    const req = new Request('http://localhost', {
+      headers: { Authorization: 'Bearer   ' },
+    })
+    const creds = extractCredentials(req)
+    // Request headers trim trailing whitespace, so "Bearer   " becomes "Bearer"
+    // which doesn't start with "Bearer " (with space), returning null
+    expect(creds.token).toBeNull()
+  })
+
+  it('is case-sensitive for Bearer prefix', () => {
+    const req = new Request('http://localhost', {
+      headers: { Authorization: 'bearer test-token' },
+    })
+    const creds = extractCredentials(req)
+    expect(creds.token).toBeNull()
+  })
 })
