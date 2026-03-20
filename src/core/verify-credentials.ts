@@ -56,20 +56,27 @@ async function tryMode(
 
   switch (base) {
     case 'always':
-      return { authType: 'always', token: null, userClaims: null, claims: null }
+      return {
+        authType: 'always',
+        token: null,
+        userClaims: null,
+        claims: null,
+        keyName: null,
+      }
 
     case 'public': {
       if (!credentials.apikey) return null
       const keys = env.publishableKeys
 
       if (keyName === '*') {
-        for (const value of Object.values(keys)) {
+        for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
               authType: 'public',
               token: null,
               userClaims: null,
               claims: null,
+              keyName: name,
             }
           }
         }
@@ -82,6 +89,7 @@ async function tryMode(
             token: null,
             userClaims: null,
             claims: null,
+            keyName: name,
           }
         }
       }
@@ -93,13 +101,14 @@ async function tryMode(
       const keys = env.secretKeys
 
       if (keyName === '*') {
-        for (const value of Object.values(keys)) {
+        for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
               authType: 'secret',
               token: null,
               userClaims: null,
               claims: null,
+              keyName: name,
             }
           }
         }
@@ -112,6 +121,7 @@ async function tryMode(
             token: null,
             userClaims: null,
             claims: null,
+            keyName: name,
           }
         }
       }
@@ -133,6 +143,7 @@ async function tryMode(
           token: credentials.token,
           userClaims: claimsToUserClaims(claims),
           claims,
+          keyName: null,
         }
       } catch {
         return null

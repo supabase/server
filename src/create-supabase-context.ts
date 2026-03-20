@@ -21,8 +21,8 @@ export async function createSupabaseContext(
   }
 
   try {
-    const supabase = createContextClient(auth.token, options?.env)
-    const supabaseAdmin = createAdminClient(options?.env)
+    const supabase = createContextClient(auth.token, options?.env, auth.keyName)
+    const supabaseAdmin = createAdminClient(options?.env, auth.keyName)
 
     return {
       data: {

@@ -7,14 +7,16 @@ import { resolveEnv } from './resolve-env.js'
 export function createContextClient(
   token?: string | null,
   env?: Partial<SupabaseEnv>,
+  keyName?: string | null,
 ): SupabaseClient {
   const { data: resolved, error } = resolveEnv(env)
   if (error) throw error
 
-  const anonKey = resolved.publishableKeys['default']
+  const name = keyName ?? 'default'
+  const anonKey = resolved.publishableKeys[name]
   if (!anonKey) {
     throw new EnvError(
-      'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
+      `No "${name}" publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "${name}" entry in SUPABASE_PUBLISHABLE_KEYS.`,
       'MISSING_PUBLISHABLE_KEY',
     )
   }
