@@ -8,7 +8,7 @@ import type {
   Credentials,
   JWTClaims,
   SupabaseEnv,
-  UserIdentity,
+  UserClaims,
 } from '../types.js'
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
 import { resolveEnv } from './resolve-env.js'
@@ -37,7 +37,7 @@ function parseAllowMode(mode: AllowWithKey): {
   return { base, keyName }
 }
 
-function claimsToUser(claims: JWTClaims): UserIdentity {
+function claimsToUserClaims(claims: JWTClaims): UserClaims {
   return {
     id: claims.sub,
     role: claims.role,
@@ -56,7 +56,7 @@ async function tryMode(
 
   switch (base) {
     case 'always':
-      return { authType: 'always', token: null, user: null, claims: null }
+      return { authType: 'always', token: null, userClaims: null, claims: null }
 
     case 'public': {
       if (!credentials.apikey) return null
@@ -65,14 +65,24 @@ async function tryMode(
       if (keyName === '*') {
         for (const value of Object.values(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
-            return { authType: 'public', token: null, user: null, claims: null }
+            return {
+              authType: 'public',
+              token: null,
+              userClaims: null,
+              claims: null,
+            }
           }
         }
       } else {
         const name = keyName ?? 'default'
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
-          return { authType: 'public', token: null, user: null, claims: null }
+          return {
+            authType: 'public',
+            token: null,
+            userClaims: null,
+            claims: null,
+          }
         }
       }
       return null
@@ -85,14 +95,24 @@ async function tryMode(
       if (keyName === '*') {
         for (const value of Object.values(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
-            return { authType: 'secret', token: null, user: null, claims: null }
+            return {
+              authType: 'secret',
+              token: null,
+              userClaims: null,
+              claims: null,
+            }
           }
         }
       } else {
         const name = keyName ?? 'default'
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
-          return { authType: 'secret', token: null, user: null, claims: null }
+          return {
+            authType: 'secret',
+            token: null,
+            userClaims: null,
+            claims: null,
+          }
         }
       }
       return null
@@ -111,7 +131,7 @@ async function tryMode(
         return {
           authType: 'user',
           token: credentials.token,
-          user: claimsToUser(claims),
+          userClaims: claimsToUserClaims(claims),
           claims,
         }
       } catch {

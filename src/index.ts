@@ -14,7 +14,7 @@ export type {
   JWTClaims,
   SupabaseContext,
   SupabaseEnv,
-  UserIdentity,
+  UserClaims,
   WithSupabaseConfig,
 } from './types.js'
 export { AuthError, EnvError } from './errors.js'

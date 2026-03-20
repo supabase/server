@@ -40,7 +40,7 @@ Deno.serve(
   withSupabase({ allow: 'user' }, async (req, ctx) => {
     // ctx.supabase — RLS-scoped to the authenticated user
     // ctx.supabaseAdmin — bypasses RLS (service role)
-    // ctx.user — user identity (id, email, role)
+    // ctx.userClaims — user identity from JWT (id, email, role)
     // ctx.claims — JWT claims
     // ctx.authType — which auth mode matched
 
@@ -76,7 +76,7 @@ Deno.serve(
 ```ts
 Deno.serve(
   withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
-    const userId = ctx.user?.id ?? (await req.json()).user_id
+    const userId = ctx.userClaims?.id ?? (await req.json()).user_id
     const { data } = await ctx.supabaseAdmin
       .from('reports')
       .select()
@@ -107,7 +107,7 @@ Every handler receives a `SupabaseContext`:
 interface SupabaseContext {
   supabase: SupabaseClient // RLS-scoped (user or anon depending on auth)
   supabaseAdmin: SupabaseClient // Bypasses RLS
-  user: UserIdentity | null // Present when auth is JWT
+  userClaims: UserClaims | null // JWT-derived identity (for full User, call supabase.auth.getUser())
   claims: JWTClaims | null // Present when auth is JWT
   authType: Allow // Which auth mode matched
 }

@@ -28,7 +28,7 @@ export async function createSupabaseContext(
       data: {
         supabase,
         supabaseAdmin,
-        user: auth.user,
+        userClaims: auth.userClaims,
         claims: auth.claims,
         authType: auth.authType,
       },

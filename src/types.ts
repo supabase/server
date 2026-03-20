@@ -22,7 +22,7 @@ export interface Credentials {
 export interface AuthResult {
   authType: Allow
   token: string | null
-  user: UserIdentity | null
+  userClaims: UserClaims | null
   claims: JWTClaims | null
 }
 
@@ -39,7 +39,7 @@ export interface JWTClaims {
   [key: string]: unknown
 }
 
-export interface UserIdentity {
+export interface UserClaims {
   id: string
   role?: string
   email?: string
@@ -56,7 +56,8 @@ export interface WithSupabaseConfig {
 export interface SupabaseContext {
   supabase: SupabaseClient
   supabaseAdmin: SupabaseClient
-  user: UserIdentity | null
+  /** JWT-derived identity. For the full Supabase User object, call `supabase.auth.getUser()`. */
+  userClaims: UserClaims | null
   claims: JWTClaims | null
   authType: Allow
 }

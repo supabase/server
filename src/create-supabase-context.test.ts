@@ -31,7 +31,7 @@ describe('createSupabaseContext', () => {
       env: baseEnv,
     })
 
-    expect(result.data!.user).toBeNull()
+    expect(result.data!.userClaims).toBeNull()
     expect(result.data!.claims).toBeNull()
   })
 
