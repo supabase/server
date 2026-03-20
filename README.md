@@ -249,12 +249,21 @@ Deno.serve(async (req) => {
 
 Automatically available in Supabase Edge Functions:
 
-| Variable                    | Description                           |
-| --------------------------- | ------------------------------------- |
-| `SUPABASE_URL`              | Your project URL                      |
-| `SUPABASE_PUBLISHABLE_KEYS` | Publishable API keys                  |
-| `SUPABASE_SECRET_KEYS`      | Secret API keys                       |
-| `SUPABASE_JWKS`             | JSON Web Key Set for JWT verification |
+| Variable                    | Format                                                        | Description                           |
+| --------------------------- | ------------------------------------------------------------- | ------------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                      |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)          |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)               |
+| `SUPABASE_JWKS`             | `{"keys":[...]}`                                              | JSON Web Key Set for JWT verification |
+
+Also supported (for local dev, self-hosted, or other runtimes):
+
+| Variable                   | Format               | Description            |
+| -------------------------- | -------------------- | ---------------------- |
+| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Single publishable key |
+| `SUPABASE_SECRET_KEY`      | `sb_secret_...`      | Single secret key      |
+
+When both singular and plural forms are set, plural takes priority.
 
 For other environments, pass overrides via the `env` config option or `resolveEnv()`.
 
