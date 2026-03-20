@@ -4,8 +4,8 @@ import { createSupabaseContext } from './create-supabase-context.js'
 
 const baseEnv = {
   url: 'https://test.supabase.co',
-  publishableKeys: [{ name: 'default', key: 'pk_test' }],
-  secretKeys: [{ name: 'default', key: 'sk_test' }],
+  publishableKeys: { default: 'pk_test' },
+  secretKeys: { default: 'sk_test' },
   jwks: null,
 }
 

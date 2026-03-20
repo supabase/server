@@ -1,5 +1,5 @@
 import { EnvError } from '../errors.js'
-import type { JsonWebKeySet, NamedKey, SupabaseEnv } from '../types.js'
+import type { JsonWebKeySet, SupabaseEnv } from '../types.js'
 
 function getEnvVar(name: string): string | undefined {
   // Deno runtime
@@ -13,13 +13,20 @@ function getEnvVar(name: string): string | undefined {
   return undefined
 }
 
-function parseNamedKeys(raw: string | undefined): NamedKey[] {
-  if (!raw) return []
+function parseKeys(raw: string | undefined): Record<string, string> {
+  if (!raw) return {}
   try {
-    const parsed = JSON.parse(raw) as Record<string, string>
-    return Object.entries(parsed).map(([name, key]) => ({ name, key }))
+    const parsed = JSON.parse(raw)
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return {}
+    }
+    return parsed as Record<string, string>
   } catch {
-    return []
+    return {}
   }
 }
 
@@ -51,10 +58,9 @@ export function resolveEnv(
     url,
     publishableKeys:
       overrides?.publishableKeys ??
-      parseNamedKeys(getEnvVar('SUPABASE_PUBLISHABLE_KEYS')),
+      parseKeys(getEnvVar('SUPABASE_PUBLISHABLE_KEYS')),
     secretKeys:
-      overrides?.secretKeys ??
-      parseNamedKeys(getEnvVar('SUPABASE_SECRET_KEYS')),
+      overrides?.secretKeys ?? parseKeys(getEnvVar('SUPABASE_SECRET_KEYS')),
     jwks: overrides?.jwks ?? parseJwks(getEnvVar('SUPABASE_JWKS')),
   }
 

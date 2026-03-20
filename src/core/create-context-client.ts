@@ -10,7 +10,7 @@ export function createContextClient(
   const { data: resolved, error } = resolveEnv(env)
   if (error) throw error
 
-  const anonKey = resolved.publishableKeys[0]?.key ?? ''
+  const anonKey = resolved.publishableKeys['default'] ?? ''
 
   return createClient(resolved.url, anonKey, {
     global: {

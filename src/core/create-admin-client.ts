@@ -7,7 +7,7 @@ export function createAdminClient(env?: Partial<SupabaseEnv>): SupabaseClient {
   const { data: resolved, error } = resolveEnv(env)
   if (error) throw error
 
-  const secretKey = resolved.secretKeys[0]?.key ?? ''
+  const secretKey = resolved.secretKeys['default'] ?? ''
 
   return createClient(resolved.url, secretKey, {
     auth: {

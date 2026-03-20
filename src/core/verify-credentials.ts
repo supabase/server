@@ -59,17 +59,19 @@ async function tryMode(
 
     case 'public': {
       if (!credentials.apikey) return null
-      const keys = keyName
-        ? env.publishableKeys.filter((k) => k.name === keyName)
-        : env.publishableKeys
-      for (const k of keys) {
-        if (await timingSafeEqual(credentials.apikey, k.key)) {
-          return {
-            authType: 'public',
-            token: null,
-            user: null,
-            claims: null,
+      const keys = env.publishableKeys
+
+      if (keyName === '*') {
+        for (const value of Object.values(keys)) {
+          if (await timingSafeEqual(credentials.apikey, value)) {
+            return { authType: 'public', token: null, user: null, claims: null }
           }
+        }
+      } else {
+        const name = keyName ?? 'default'
+        const value = keys[name]
+        if (value && (await timingSafeEqual(credentials.apikey, value))) {
+          return { authType: 'public', token: null, user: null, claims: null }
         }
       }
       return null
@@ -77,17 +79,19 @@ async function tryMode(
 
     case 'secret': {
       if (!credentials.apikey) return null
-      const keys = keyName
-        ? env.secretKeys.filter((k) => k.name === keyName)
-        : env.secretKeys
-      for (const k of keys) {
-        if (await timingSafeEqual(credentials.apikey, k.key)) {
-          return {
-            authType: 'secret',
-            token: null,
-            user: null,
-            claims: null,
+      const keys = env.secretKeys
+
+      if (keyName === '*') {
+        for (const value of Object.values(keys)) {
+          if (await timingSafeEqual(credentials.apikey, value)) {
+            return { authType: 'secret', token: null, user: null, claims: null }
           }
+        }
+      } else {
+        const name = keyName ?? 'default'
+        const value = keys[name]
+        if (value && (await timingSafeEqual(credentials.apikey, value))) {
+          return { authType: 'secret', token: null, user: null, claims: null }
         }
       }
       return null

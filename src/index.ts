@@ -14,7 +14,6 @@ export type {
   CorsConfig,
   Credentials,
   JWTClaims,
-  NamedKey,
   SupabaseContext,
   SupabaseEnv,
   UserIdentity,

@@ -5,8 +5,8 @@ import { verifyAuth } from './verify-auth.js'
 describe('verifyAuth', () => {
   const env = {
     url: 'https://test.supabase.co',
-    publishableKeys: [{ name: 'default', key: 'pk_test' }],
-    secretKeys: [],
+    publishableKeys: { default: 'pk_test' },
+    secretKeys: {},
     jwks: null,
   }
 

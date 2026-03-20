@@ -3,15 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type Allow = 'always' | 'public' | 'secret' | 'user'
 export type AllowWithKey = Allow | `public:${string}` | `secret:${string}`
 
-export interface NamedKey {
-  name: string
-  key: string
-}
-
 export interface SupabaseEnv {
   url: string
-  publishableKeys: NamedKey[]
-  secretKeys: NamedKey[]
+  publishableKeys: Record<string, string>
+  secretKeys: Record<string, string>
   jwks: JsonWebKeySet | null
 }
 

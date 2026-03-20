@@ -27,17 +27,17 @@ describe('resolveEnv', () => {
       JSON.stringify({ web: 'pk_abc', mobile: 'pk_def' }),
     )
     const result = resolveEnv()
-    expect(result.data!.publishableKeys).toEqual([
-      { name: 'web', key: 'pk_abc' },
-      { name: 'mobile', key: 'pk_def' },
-    ])
+    expect(result.data!.publishableKeys).toEqual({
+      web: 'pk_abc',
+      mobile: 'pk_def',
+    })
   })
 
-  it('returns empty array for invalid JSON keys', () => {
+  it('returns empty object for invalid JSON keys', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     vi.stubEnv('SUPABASE_PUBLISHABLE_KEYS', 'not-json')
     const result = resolveEnv()
-    expect(result.data!.publishableKeys).toEqual([])
+    expect(result.data!.publishableKeys).toEqual({})
   })
 
   it('parses JWKS as JSON', () => {
@@ -58,11 +58,11 @@ describe('resolveEnv', () => {
   it('uses overrides when provided', () => {
     const result = resolveEnv({
       url: 'https://override.supabase.co',
-      publishableKeys: [{ name: 'test', key: 'pk_override' }],
+      publishableKeys: { test: 'pk_override' },
     })
     expect(result.data!.url).toBe('https://override.supabase.co')
-    expect(result.data!.publishableKeys).toEqual([
-      { name: 'test', key: 'pk_override' },
-    ])
+    expect(result.data!.publishableKeys).toEqual({
+      test: 'pk_override',
+    })
   })
 })

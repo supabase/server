@@ -7,8 +7,8 @@ import { verifyCredentials } from './verify-credentials.js'
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
   return {
     url: 'https://test.supabase.co',
-    publishableKeys: [{ name: 'default', key: 'pk_test_key' }],
-    secretKeys: [{ name: 'default', key: 'sk_test_secret' }],
+    publishableKeys: { default: 'pk_test_key' },
+    secretKeys: { default: 'sk_test_secret' },
     jwks: null,
     ...overrides,
   }
@@ -48,12 +48,22 @@ describe('verifyCredentials', () => {
       expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
 
+    it('only matches default key when bare public is used', async () => {
+      const env = makeEnv({
+        publishableKeys: { default: 'pk_default', web: 'pk_web' },
+      })
+      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const result = await verifyCredentials(creds, {
+        allow: 'public',
+        env,
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
     it('matches named key with colon syntax', async () => {
       const env = makeEnv({
-        publishableKeys: [
-          { name: 'web', key: 'pk_web' },
-          { name: 'mobile', key: 'pk_mobile' },
-        ],
+        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
       })
       const creds: Credentials = { token: null, apikey: 'pk_web' }
       const result = await verifyCredentials(creds, {
@@ -65,10 +75,7 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong named key', async () => {
       const env = makeEnv({
-        publishableKeys: [
-          { name: 'web', key: 'pk_web' },
-          { name: 'mobile', key: 'pk_mobile' },
-        ],
+        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
       })
       const creds: Credentials = { token: null, apikey: 'pk_mobile' }
       const result = await verifyCredentials(creds, {
@@ -81,10 +88,7 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong named key type', async () => {
       const env = makeEnv({
-        publishableKeys: [
-          { name: 'web', key: 'pk_web' },
-          { name: 'mobile', key: 'pk_mobile' },
-        ],
+        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
       })
       const creds: Credentials = { token: null, apikey: 'pk_web' }
       const result = await verifyCredentials(creds, {
@@ -93,6 +97,19 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
+    it('matches any key with wildcard syntax', async () => {
+      const env = makeEnv({
+        publishableKeys: { web: 'pk_web', mobile: 'pk_mobile' },
+      })
+      const creds: Credentials = { token: null, apikey: 'pk_mobile' }
+      const result = await verifyCredentials(creds, {
+        allow: 'public:*',
+        env,
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('public')
     })
   })
 
@@ -117,14 +134,24 @@ describe('verifyCredentials', () => {
       expect(result.error!.code).toBe('INVALID_CREDENTIALS')
     })
 
+    it('only matches default key when bare secret is used', async () => {
+      const env = makeEnv({
+        secretKeys: { default: 'sk_default', web: 'sk_web' },
+      })
+      const creds: Credentials = { token: null, apikey: 'sk_web' }
+      const result = await verifyCredentials(creds, {
+        allow: 'secret',
+        env,
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
     it('matches secret named key with colon syntax', async () => {
       const env = makeEnv({
-        secretKeys: [
-          { name: 'web', key: 'pk_web' },
-          { name: 'mobile', key: 'pk_mobile' },
-        ],
+        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const creds: Credentials = { token: null, apikey: 'sk_web' }
       const result = await verifyCredentials(creds, {
         allow: 'secret:web',
         env,
@@ -134,12 +161,9 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong secret named key', async () => {
       const env = makeEnv({
-        secretKeys: [
-          { name: 'web', key: 'pk_web' },
-          { name: 'mobile', key: 'pk_mobile' },
-        ],
+        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_mobile' }
+      const creds: Credentials = { token: null, apikey: 'sk_mobile' }
       const result = await verifyCredentials(creds, {
         allow: 'secret:web',
         env,
@@ -150,18 +174,28 @@ describe('verifyCredentials', () => {
 
     it('rejects wrong secret named key type', async () => {
       const env = makeEnv({
-        secretKeys: [
-          { name: 'web', key: 'pk_web' },
-          { name: 'mobile', key: 'pk_mobile' },
-        ],
+        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
       })
-      const creds: Credentials = { token: null, apikey: 'pk_web' }
+      const creds: Credentials = { token: null, apikey: 'sk_web' }
       const result = await verifyCredentials(creds, {
         allow: 'public:web',
         env,
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+    })
+
+    it('matches any key with wildcard syntax', async () => {
+      const env = makeEnv({
+        secretKeys: { web: 'sk_web', mobile: 'sk_mobile' },
+      })
+      const creds: Credentials = { token: null, apikey: 'sk_mobile' }
+      const result = await verifyCredentials(creds, {
+        allow: 'secret:*',
+        env,
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('secret')
     })
   })
 
