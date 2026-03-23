@@ -9,12 +9,12 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 ```ts
 import { withSupabase } from '@supabase/server'
 
-Deno.serve(
-  withSupabase({ allow: 'user' }, async (req, ctx) => {
+export default {
+  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
     const { data } = await ctx.supabase.from('todos').select()
     return Response.json(data)
   }),
-)
+}
 ```
 
 One import. One line of config. Auth is validated, clients are scoped, CORS is handled. Your handler only runs on successful auth.
@@ -34,10 +34,8 @@ pnpm add @supabase/server
 ### Authenticated endpoint
 
 ```ts
-import { withSupabase } from '@supabase/server'
-
-Deno.serve(
-  withSupabase({ allow: 'user' }, async (req, ctx) => {
+export default {
+  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
     // ctx.supabase — RLS-scoped to the authenticated user
     // ctx.supabaseAdmin — bypasses RLS (service role)
     // ctx.userClaims — user identity from JWT (id, email, role)
@@ -47,35 +45,35 @@ Deno.serve(
     const { data } = await ctx.supabase.from('todos').select()
     return Response.json(data)
   }),
-)
+}
 ```
 
 ### Public endpoint (no auth)
 
 ```ts
-Deno.serve(
-  withSupabase({ allow: 'always' }, async (req, ctx) => {
+export default {
+  fetch: withSupabase({ allow: 'always' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok' })
   }),
-)
+}
 ```
 
 ### API key protected
 
 ```ts
-Deno.serve(
-  withSupabase({ allow: 'secret' }, async (req, ctx) => {
+export default {
+  fetch: withSupabase({ allow: 'secret' }, async (_req, ctx) => {
     const { data } = await ctx.supabaseAdmin.from('config').select()
     return Response.json(data)
   }),
-)
+}
 ```
 
 ### Dual auth (user or service)
 
 ```ts
-Deno.serve(
-  withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
+export default {
+  fetch: withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
     const userId = ctx.userClaims?.id ?? (await req.json()).user_id
     const { data } = await ctx.supabaseAdmin
       .from('reports')
@@ -83,7 +81,7 @@ Deno.serve(
       .eq('user_id', userId)
     return Response.json(data)
   }),
-)
+}
 ```
 
 ## Auth Modes
@@ -165,7 +163,7 @@ app.get('/todos', withSupabase({ allow: 'user' }), async (c) => {
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
-Deno.serve(app.fetch)
+export default { fetch: app.fetch }
 ```
 
 The adapter does not handle CORS — use `hono/cors` for that. Per-route auth works naturally by applying the middleware to specific routes.
@@ -237,25 +235,27 @@ const { data: env, error } = resolveEnv({
 ```ts
 import { verifyAuth, createContextClient } from '@supabase/server/core'
 
-Deno.serve(async (req) => {
-  const url = new URL(req.url)
+export default {
+  fetch: async (req) => {
+    const url = new URL(req.url)
 
-  if (url.pathname === '/health') {
-    return Response.json({ status: 'ok' })
-  }
+    if (url.pathname === '/health') {
+      return Response.json({ status: 'ok' })
+    }
 
-  if (url.pathname === '/todos') {
-    const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
-    if (error)
-      return Response.json({ error: error.message }, { status: error.status })
+    if (url.pathname === '/todos') {
+      const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+      if (error)
+        return Response.json({ error: error.message }, { status: error.status })
 
-    const supabase = createContextClient(auth.token)
-    const { data } = await supabase.from('todos').select()
-    return Response.json(data)
-  }
+      const supabase = createContextClient(auth.token)
+      const { data } = await supabase.from('todos').select()
+      return Response.json(data)
+    }
 
-  return new Response('Not found', { status: 404 })
-})
+    return new Response('Not found', { status: 404 })
+  },
+}
 ```
 
 ## Environment Variables
@@ -267,7 +267,7 @@ Automatically available in Supabase Edge Functions:
 | `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                      |
 | `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)          |
 | `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}`                                              | JSON Web Key Set for JWT verification |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`                                   | JSON Web Key Set for JWT verification |
 
 Also supported (for local dev, self-hosted, or other runtimes):
 
