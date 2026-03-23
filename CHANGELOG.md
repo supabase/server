@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/supabase/edge-functions/compare/server-v0.1.3...server-v0.1.4) (2026-03-23)
+
+
+### Bug Fixes
+
+* key name resolution for client creation ([#9](https://github.com/supabase/edge-functions/issues/9)) ([e17bd4e](https://github.com/supabase/edge-functions/commit/e17bd4ecb1c46d0dc1468f363c884090d78ae86a))
+
 ## [0.1.3](https://github.com/supabase/edge-functions/compare/server-v0.1.2...server-v0.1.3) (2026-03-20)
 
 
