@@ -77,41 +77,21 @@ function parseJwks(raw: string | undefined): JsonWebKeySet | null {
 }
 
 /**
- * Resolves the Supabase environment configuration from environment variables.
+ * Resolves Supabase environment configuration from runtime environment variables.
  *
- * Reads from the following environment variables (works across Deno, Node.js, Bun,
- * and Cloudflare Workers):
+ * Reads `SUPABASE_URL`, keys (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`),
+ * and `SUPABASE_JWKS`. Works across Deno, Node.js, Bun, and Cloudflare Workers.
  *
- * | Variable                    | Required | Format                                |
- * | --------------------------- | -------- | ------------------------------------- |
- * | `SUPABASE_URL`              | Yes      | `"https://<ref>.supabase.co"`         |
- * | `SUPABASE_PUBLISHABLE_KEYS` | No       | JSON object: `{ "default": "..." }`   |
- * | `SUPABASE_PUBLISHABLE_KEY`  | No       | Single key string (fallback)          |
- * | `SUPABASE_SECRET_KEYS`      | No       | JSON object: `{ "default": "..." }`   |
- * | `SUPABASE_SECRET_KEY`       | No       | Single key string (fallback)          |
- * | `SUPABASE_JWKS`             | No       | JSON — `{ keys: [...] }` or `[...]`   |
- *
- * @param overrides - Partial environment values that take precedence over env vars.
- *   Useful for testing or when env vars aren't available.
- *
- * @returns A result tuple: `{ data, error }`.
- *   - On success: `{ data: SupabaseEnv, error: null }`
- *   - On failure: `{ data: null, error: EnvError }` (currently only when `SUPABASE_URL` is missing)
+ * @param overrides - Partial values that take precedence over env vars.
+ * @returns `{ data: SupabaseEnv, error: null }` on success, `{ data: null, error: EnvError }` on failure.
  *
  * @example
  * ```ts
- * import { resolveEnv } from '@supabase/server/core'
- *
- * // Auto-detect from environment
  * const { data: env, error } = resolveEnv()
  * if (error) throw error
- * console.log(env.url) // "https://abc123.supabase.co"
  *
- * // Override specific values (e.g., in tests)
- * const { data: env } = resolveEnv({
- *   url: 'http://localhost:54321',
- *   secretKeys: { default: 'test-secret-key' },
- * })
+ * // Override for tests
+ * const { data: env } = resolveEnv({ url: 'http://localhost:54321' })
  * ```
  */
 export function resolveEnv(

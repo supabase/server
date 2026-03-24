@@ -7,73 +7,27 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 /**
  * Hono middleware that creates a {@link SupabaseContext} and stores it in `c.var.supabaseContext`.
  *
- * Frameworks like Hono wrap the runtime's native `Request`/`Response` with their
- * own abstractions (context objects, middleware chains, typed variables). This adapter
- * bridges that gap — it performs the same auth and client creation as the top-level
- * {@link withSupabase}, but delivers the result through Hono's context variables
- * instead of a handler argument.
+ * Skips if a previous middleware already set the context, enabling route-level overrides.
+ * Throws a Hono `HTTPException` on auth failure.
  *
- * **Middleware stacking:** If a previous middleware already set `supabaseContext`,
- * this middleware is skipped. This enables route-level overrides — a route can use
- * `withSupabase({ allow: 'secret' })` while the app-wide middleware uses
- * `withSupabase({ allow: 'user' })`, without the app-wide one overwriting
- * the stricter context.
- *
- * **CORS:** The `cors` option from {@link WithSupabaseConfig} is intentionally excluded.
- * Use Hono's built-in `cors()` middleware instead.
- *
- * **Error handling:** On auth failure, throws a Hono `HTTPException` with the
- * appropriate status code, which Hono converts to an error response.
- *
- * @param config - Auth modes and optional environment overrides.
- *   The `cors` property is omitted — handle CORS with Hono's `cors()` middleware.
- *
+ * @param config - Auth modes and optional environment overrides. CORS is excluded — use Hono's `cors()`.
  * @returns A Hono middleware that sets `c.var.supabaseContext`.
  *
- * @example Basic usage — protect all routes
+ * @example
  * ```ts
  * import { Hono } from 'hono'
  * import { withSupabase } from '@supabase/server/adapters/hono'
  *
  * const app = new Hono()
- *
- * // Apply to all routes
  * app.use('*', withSupabase({ allow: 'user' }))
  *
  * app.get('/profile', async (c) => {
- *   const { supabase, userClaims } = c.var.supabaseContext
+ *   const { supabase } = c.var.supabaseContext
  *   const { data } = await supabase.rpc('get_profile')
- *   return c.json({ profile: data, userId: userClaims!.id })
+ *   return c.json(data)
  * })
  *
  * export default { fetch: app.fetch }
- * ```
- *
- * @example Route-level overrides
- * ```ts
- * const app = new Hono()
- *
- * // App-wide: require authenticated user
- * app.use('*', withSupabase({ allow: 'user' }))
- *
- * // This route requires a secret key instead
- * app.post('/webhooks/stripe', withSupabase({ allow: 'secret' }), async (c) => {
- *   const { supabaseAdmin } = c.var.supabaseContext
- *   // The route-level middleware ran first, so the app-wide one is skipped
- *   return c.json({ ok: true })
- * })
- * ```
- *
- * @example Multiple auth modes
- * ```ts
- * app.use('*', withSupabase({ allow: ['user', 'public'] }))
- *
- * app.get('/items', async (c) => {
- *   const { supabase, authType } = c.var.supabaseContext
- *   // authType is 'user' or 'public' depending on the request
- *   const { data } = await supabase.rpc('list_items')
- *   return c.json(data)
- * })
  * ```
  */
 export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>) {

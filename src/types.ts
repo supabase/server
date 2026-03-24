@@ -169,20 +169,6 @@ export interface JWTClaims {
  * Derived from {@link JWTClaims}. For the full Supabase `User` object
  * (including email confirmation status, providers, etc.), call
  * `supabase.auth.getUser()` using the context client.
- *
- * @example
- * ```ts
- * export default {
- *   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
- *     // Quick access — no network call
- *     const userId = ctx.userClaims!.id
- *
- *     // Full user object — requires a network call
- *     const { data: { user } } = await ctx.supabase.auth.getUser()
- *     return Response.json({ userId, email: user?.email })
- *   }),
- * }
- * ```
  */
 export interface UserClaims {
   /** User's unique ID (same as `JWTClaims.sub`). */
@@ -253,41 +239,14 @@ export interface WithSupabaseConfig {
 /**
  * The Supabase context created for each authenticated request.
  *
- * This is the main object your handler receives. It contains pre-configured
- * Supabase clients and the caller's identity.
- *
- * @example
- * ```ts
- * export default {
- *   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
- *     // RLS-scoped client — respects the caller's permissions
- *     const { data } = await ctx.supabase.rpc('get_my_items')
- *
- *     // Admin client — bypasses RLS for elevated operations
- *     await ctx.supabaseAdmin.from('audit_log').insert({ user_id: ctx.userClaims!.id })
- *
- *     return Response.json(data)
- *   }),
- * }
- * ```
+ * Contains pre-configured Supabase clients and the caller's identity.
+ * Identical regardless of which layer or adapter produced it.
  */
 export interface SupabaseContext {
-  /**
-   * Supabase client scoped to the caller's identity.
-   *
-   * For `"user"` auth, the client carries the user's JWT so RLS policies apply.
-   * For `"public"` auth, it uses the matched publishable key.
-   * For `"always"` auth, it uses the default publishable key with no JWT.
-   */
+  /** Supabase client scoped to the caller's identity. RLS policies apply. */
   supabase: SupabaseClient
 
-  /**
-   * Admin Supabase client that bypasses Row-Level Security.
-   *
-   * Uses a secret key, so it has full access to all data. Use sparingly
-   * and only for operations that legitimately require elevated privileges
-   * (e.g., writing audit logs, cross-tenant queries).
-   */
+  /** Admin Supabase client that bypasses Row-Level Security. */
   supabaseAdmin: SupabaseClient
 
   /** JWT-derived identity. For the full Supabase User object, call `supabase.auth.getUser()`. */

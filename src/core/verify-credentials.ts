@@ -189,41 +189,22 @@ async function tryMode(
 /**
  * Verifies pre-extracted credentials against one or more allowed auth modes.
  *
- * This is the core verification primitive. It resolves the environment, then tries
- * each allowed mode in order until one matches. Use {@link verifyAuth} if you want
- * to extract and verify in a single call.
- *
- * **Auth mode behavior:**
- *
- * | Mode       | Checks                                  | Result fields populated                |
- * | ---------- | --------------------------------------- | -------------------------------------- |
- * | `"always"` | Nothing — always succeeds               | `authType` only                        |
- * | `"public"` | `apikey` against publishable keys       | `authType`, `keyName`                  |
- * | `"secret"` | `apikey` against secret keys            | `authType`, `keyName`                  |
- * | `"user"`   | Bearer token as JWT (JWKS verification) | `authType`, `token`, `userClaims`, `claims` |
+ * Tries each mode in order — first match wins. Use {@link verifyAuth} to extract
+ * and verify in a single call.
  *
  * @param credentials - The credentials to verify (from {@link extractCredentials}).
- * @param options - Verification options including allowed auth modes and optional env overrides.
- *
- * @returns A result tuple: `{ data, error }`.
- *   - On success: `{ data: AuthResult, error: null }`
- *   - On failure: `{ data: null, error: AuthError }` with status `401` (invalid credentials)
- *     or `500` (env misconfiguration)
+ * @param options - Allowed auth modes and optional env overrides.
+ * @returns `{ data: AuthResult, error: null }` on success, `{ data: null, error: AuthError }` on failure.
  *
  * @example
  * ```ts
- * import { extractCredentials, verifyCredentials } from '@supabase/server/core'
- *
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {
  *   allow: ['user', 'public'],
  * })
- *
  * if (error) {
  *   return Response.json({ error: error.message }, { status: error.status })
  * }
- *
- * console.log(auth.authType) // "user" or "public"
  * ```
  */
 export async function verifyCredentials(
