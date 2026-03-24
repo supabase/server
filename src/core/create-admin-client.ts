@@ -8,39 +8,23 @@ import { resolveEnv } from './resolve-env.js'
  * Creates an admin Supabase client that bypasses Row-Level Security.
  *
  * Uses a secret key for authentication, giving full access to all data.
- * Use this for operations that legitimately require elevated privileges,
- * such as writing audit logs, managing user data, or cross-tenant queries.
- *
- * Session persistence is disabled since this is designed for stateless
- * server-side use (one client per request).
- *
- * **Security note:** This client bypasses RLS entirely. Never expose it to
- * end users or use it for operations that should respect user permissions.
+ * Session persistence is disabled (stateless, one client per request).
  *
  * @param env - Optional environment overrides (passed through to {@link resolveEnv}).
- * @param keyName - Name of the secret key to use (e.g. `"default"`).
- *   Falls back to `"default"`, then to the first available key.
- *
+ * @param keyName - Name of the secret key to use. Falls back to `"default"`, then first available.
  * @returns A configured {@link SupabaseClient} with admin (service-role) privileges.
- *
  * @throws {@link EnvError} If `SUPABASE_URL` is missing or the specified secret key is not found.
  *
  * @example
  * ```ts
- * import { createAdminClient } from '@supabase/server/core'
- *
  * const supabaseAdmin = createAdminClient()
- *
- * // Bypasses RLS — use with care
- * const { data } = await supabaseAdmin
- *   .from('audit_log')
- *   .insert({ action: 'user_login', user_id: userId })
+ * const { data } = await supabaseAdmin.from('audit_log').insert({ action: 'user_login' })
  * ```
  */
-export function createAdminClient(
+export function createAdminClient<Database = unknown>(
   env?: Partial<SupabaseEnv>,
   keyName?: string | null,
-): SupabaseClient {
+): SupabaseClient<Database> {
   const { data: resolved, error } = resolveEnv(env)
   if (error) throw error
 

@@ -242,12 +242,12 @@ export interface WithSupabaseConfig {
  * Contains pre-configured Supabase clients and the caller's identity.
  * Identical regardless of which layer or adapter produced it.
  */
-export interface SupabaseContext {
+export interface SupabaseContext<Database = unknown> {
   /** Supabase client scoped to the caller's identity. RLS policies apply. */
-  supabase: SupabaseClient
+  supabase: SupabaseClient<Database>
 
   /** Admin Supabase client that bypasses Row-Level Security. */
-  supabaseAdmin: SupabaseClient
+  supabaseAdmin: SupabaseClient<Database>
 
   /** JWT-derived identity. For the full Supabase User object, call `supabase.auth.getUser()`. */
   userClaims: UserClaims | null

@@ -7,59 +7,29 @@ import { verifyAuth } from './core/verify-auth.js'
 /**
  * Creates a {@link SupabaseContext} directly from a request.
  *
- * Use this when you need the Supabase context without the full {@link withSupabase}
- * wrapper — for example, inside framework route handlers, custom middleware, or
- * test setups where you want explicit control over error handling.
- *
- * Performs the same auth + client creation as `withSupabase`, but returns a
- * result tuple instead of producing a `Response`. You handle errors yourself.
+ * Use this when you need the context without the full {@link withSupabase} wrapper —
+ * e.g., inside framework route handlers or custom middleware. Returns a result tuple
+ * instead of producing a `Response`.
  *
  * @param request - The incoming HTTP request.
- * @param options - Configuration for auth modes, environment overrides, and CORS.
- *   The `cors` option is ignored here (only relevant in {@link withSupabase}).
+ * @param options - Auth modes, environment overrides. The `cors` option is ignored here.
+ * @returns `{ data: SupabaseContext, error: null }` on success, `{ data: null, error: AuthError }` on failure.
  *
- * @returns A result tuple: `{ data, error }`.
- *   - On success: `{ data: SupabaseContext, error: null }`
- *   - On failure: `{ data: null, error: AuthError }` with an appropriate status code
- *
- * @example Basic usage
+ * @example
  * ```ts
- * import { createSupabaseContext } from '@supabase/server'
- *
- * const { data: ctx, error } = await createSupabaseContext(request, {
- *   allow: 'user',
- * })
- *
+ * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
  * if (error) {
- *   return Response.json(
- *     { error: error.message, code: error.code },
- *     { status: error.status },
- *   )
+ *   return Response.json({ error: error.message }, { status: error.status })
  * }
- *
- * // ctx.supabase, ctx.supabaseAdmin, ctx.userClaims are ready
  * const { data } = await ctx.supabase.rpc('get_my_items')
  * ```
- *
- * @example Inside a framework route handler (e.g., SvelteKit)
- * ```ts
- * export async function GET({ request }) {
- *   const { data: ctx, error } = await createSupabaseContext(request, {
- *     allow: 'user',
- *   })
- *   if (error) {
- *     return new Response(error.message, { status: error.status })
- *   }
- *   const { data } = await ctx.supabase.rpc('get_user_settings')
- *   return Response.json(data)
- * }
- * ```
  */
-export async function createSupabaseContext(
+export async function createSupabaseContext<Database = unknown>(
   request: Request,
   options?: WithSupabaseConfig,
 ): Promise<
-  { data: SupabaseContext; error: null } | { data: null; error: AuthError }
+  | { data: SupabaseContext<Database>; error: null }
+  | { data: null; error: AuthError }
 > {
   const allow = options?.allow ?? 'user'
 
@@ -72,9 +42,16 @@ export async function createSupabaseContext(
   }
 
   try {
-    const supabase = createContextClient(auth.token, options?.env, auth.keyName)
+    const supabase = createContextClient<Database>(
+      auth.token,
+      options?.env,
+      auth.keyName,
+    )
     const adminKeyName = auth.authType === 'secret' ? auth.keyName : undefined
-    const supabaseAdmin = createAdminClient(options?.env, adminKeyName)
+    const supabaseAdmin = createAdminClient<Database>(
+      options?.env,
+      adminKeyName,
+    )
 
     return {
       data: {
