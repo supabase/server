@@ -24,7 +24,7 @@ import { verifyAuth } from './core/verify-auth.js'
  *
  * @example Basic usage
  * ```ts
- * import { createSupabaseContext } from '@supabase/edge-functions'
+ * import { createSupabaseContext } from '@supabase/server'
  *
  * const { data: ctx, error } = await createSupabaseContext(request, {
  *   allow: 'user',

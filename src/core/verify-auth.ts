@@ -34,7 +34,7 @@ interface VerifyAuthOptions {
  *
  * @example
  * ```ts
- * import { verifyAuth } from '@supabase/edge-functions/core'
+ * import { verifyAuth } from '@supabase/server/core'
  *
  * const { data: auth, error } = await verifyAuth(request, {
  *   allow: 'user',

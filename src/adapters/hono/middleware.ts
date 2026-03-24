@@ -7,9 +7,11 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 /**
  * Hono middleware that creates a {@link SupabaseContext} and stores it in `c.var.supabaseContext`.
  *
- * This is the Hono adapter equivalent of the top-level {@link withSupabase} wrapper.
- * It handles auth and client creation, then makes the context available to all
- * downstream handlers via Hono's context variables.
+ * Frameworks like Hono wrap the runtime's native `Request`/`Response` with their
+ * own abstractions (context objects, middleware chains, typed variables). This adapter
+ * bridges that gap — it performs the same auth and client creation as the top-level
+ * {@link withSupabase}, but delivers the result through Hono's context variables
+ * instead of a handler argument.
  *
  * **Middleware stacking:** If a previous middleware already set `supabaseContext`,
  * this middleware is skipped. This enables route-level overrides — a route can use
@@ -31,7 +33,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * @example Basic usage — protect all routes
  * ```ts
  * import { Hono } from 'hono'
- * import { withSupabase } from '@supabase/edge-functions/adapters/hono'
+ * import { withSupabase } from '@supabase/server/adapters/hono'
  *
  * const app = new Hono()
  *

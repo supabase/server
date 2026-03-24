@@ -212,7 +212,7 @@ async function tryMode(
  *
  * @example
  * ```ts
- * import { extractCredentials, verifyCredentials } from '@supabase/edge-functions/core'
+ * import { extractCredentials, verifyCredentials } from '@supabase/server/core'
  *
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {

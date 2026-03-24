@@ -1,9 +1,9 @@
 /**
- * Composable primitives for building custom Supabase auth flows.
+ * Composable primitives for constructing a {@link SupabaseContext}.
  *
  * These are the Layer 2 building blocks that {@link withSupabase} and
  * {@link createSupabaseContext} are built on. Use them when you need
- * fine-grained control over individual steps of the auth pipeline.
+ * fine-grained control over individual steps of the context creation pipeline.
  *
  * **Pipeline order:**
  * 1. {@link resolveEnv} — Read env vars into a {@link SupabaseEnv}

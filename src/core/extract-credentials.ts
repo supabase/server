@@ -15,7 +15,7 @@ import type { Credentials } from '../types.js'
  *
  * @example
  * ```ts
- * import { extractCredentials } from '@supabase/edge-functions/core'
+ * import { extractCredentials } from '@supabase/server/core'
  *
  * const creds = extractCredentials(request)
  * console.log(creds.token)  // "eyJhbGci..." or null

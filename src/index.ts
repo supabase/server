@@ -1,5 +1,5 @@
 /**
- * `@supabase/edge-functions` — Server-side Supabase utilities for modern runtimes.
+ * `@supabase/server` — Server-side Supabase utilities for modern runtimes.
  *
  * This package provides authentication, client creation, and context injection for
  * any server-side environment that supports the standard `fetch` handler pattern —
@@ -11,7 +11,7 @@
  * - {@link withSupabase} — Wraps a handler with auth + CORS + context creation.
  * - {@link createSupabaseContext} — Creates a context directly (for frameworks / custom middleware).
  *
- * **Layer 2 — Composable primitives** (`@supabase/edge-functions/core`):
+ * **Layer 2 — Composable primitives** (`@supabase/server/core`):
  * - {@link resolveEnv}, {@link extractCredentials}, {@link verifyCredentials},
  *   {@link verifyAuth}, {@link createContextClient}, {@link createAdminClient}
  *
@@ -20,7 +20,7 @@
  * ## Quick start
  *
  * ```ts
- * import { withSupabase } from '@supabase/edge-functions'
+ * import { withSupabase } from '@supabase/server'
  *
  * export default {
  *   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {

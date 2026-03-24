@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { EnvError } from '@supabase/edge-functions'
+ * import { EnvError } from '@supabase/server'
  *
  * try {
  *   const client = createAdminClient()
@@ -48,7 +48,7 @@ export class EnvError extends Error {
  *
  * @example
  * ```ts
- * import { AuthError, createSupabaseContext } from '@supabase/edge-functions'
+ * import { AuthError, createSupabaseContext } from '@supabase/server'
  *
  * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
  * if (error) {

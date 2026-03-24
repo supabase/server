@@ -5,8 +5,9 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 /**
  * Wraps a request handler with Supabase auth, client creation, and CORS handling.
  *
- * This is the **primary entry point** for server-side Supabase integration. It handles
- * the full lifecycle of an authenticated request:
+ * Built for the Web API `Request`/`Response` standard, which all modern runtimes
+ * (Supabase Edge Functions, Cloudflare Workers, Deno, Bun) implement natively.
+ * It handles the full lifecycle of an authenticated request:
  *
  * 1. **CORS** — Responds to `OPTIONS` preflight requests automatically (unless disabled).
  * 2. **Auth** — Extracts and verifies credentials based on the configured `allow` modes.
@@ -28,7 +29,7 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  *
  * @example Basic usage — authenticated users only (default)
  * ```ts
- * import { withSupabase } from '@supabase/edge-functions'
+ * import { withSupabase } from '@supabase/server'
  *
  * export default {
  *   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {

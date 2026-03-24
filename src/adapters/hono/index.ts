@@ -1,13 +1,15 @@
 /**
- * Hono framework adapter for `@supabase/edge-functions`.
+ * Hono framework adapter for `@supabase/server`.
  *
- * Provides a Hono middleware version of {@link withSupabase} that stores the
- * {@link SupabaseContext} in `c.var.supabaseContext`.
+ * The top-level {@link withSupabase} is built for the raw Web API `Request`/`Response`
+ * standard. Frameworks like Hono wrap that standard with their own abstractions
+ * (context objects, middleware chains, typed variables). This adapter bridges the
+ * gap — same auth and client creation, delivered through `c.var.supabaseContext`.
  *
  * @example
  * ```ts
  * import { Hono } from 'hono'
- * import { withSupabase } from '@supabase/edge-functions/adapters/hono'
+ * import { withSupabase } from '@supabase/server/adapters/hono'
  *
  * const app = new Hono()
  * app.use('*', withSupabase({ allow: 'user' }))

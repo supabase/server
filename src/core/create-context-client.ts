@@ -26,7 +26,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @example
  * ```ts
- * import { createContextClient, verifyAuth } from '@supabase/edge-functions/core'
+ * import { createContextClient, verifyAuth } from '@supabase/server/core'
  *
  * const { data: auth } = await verifyAuth(request, { allow: 'user' })
  * const supabase = createContextClient(auth.token)

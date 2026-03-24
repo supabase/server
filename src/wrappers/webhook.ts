@@ -21,8 +21,8 @@ const encoder = new TextEncoder()
  *
  * @example Verify a webhook from an external service
  * ```ts
- * import { withSupabase } from '@supabase/edge-functions'
- * import { verifyWebhookSignature } from '@supabase/edge-functions/wrappers'
+ * import { withSupabase } from '@supabase/server'
+ * import { verifyWebhookSignature } from '@supabase/server/wrappers'
  *
  * export default {
  *   fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {

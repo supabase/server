@@ -100,7 +100,7 @@ function parseJwks(raw: string | undefined): JsonWebKeySet | null {
  *
  * @example
  * ```ts
- * import { resolveEnv } from '@supabase/edge-functions/core'
+ * import { resolveEnv } from '@supabase/server/core'
  *
  * // Auto-detect from environment
  * const { data: env, error } = resolveEnv()

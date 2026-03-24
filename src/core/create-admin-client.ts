@@ -27,7 +27,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @example
  * ```ts
- * import { createAdminClient } from '@supabase/edge-functions/core'
+ * import { createAdminClient } from '@supabase/server/core'
  *
  * const supabaseAdmin = createAdminClient()
  *
