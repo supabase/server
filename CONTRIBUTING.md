@@ -187,7 +187,7 @@ Publishing is fully automated via GitHub Actions:
 
 ## Questions?
 
-- Open an [issue](https://github.com/supabase/edge-functions/issues) for bugs or feature requests
+- Open an [issue](https://github.com/supabase/server/issues) for bugs or feature requests
 - Check existing issues and PRs before creating new ones
 - Tag your issues appropriately (`bug`, `enhancement`, `documentation`, etc.)
 

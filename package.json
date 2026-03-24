@@ -7,13 +7,13 @@
     "functions",
     "supabase"
   ],
-  "homepage": "https://github.com/supabase/edge-functions#readme",
+  "homepage": "https://github.com/supabase/server#readme",
   "bugs": {
-    "url": "https://github.com/supabase/edge-functions/issues"
+    "url": "https://github.com/supabase/server/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/supabase/edge-functions.git"
+    "url": "git+https://github.com/supabase/server.git"
   },
   "license": "MIT",
   "author": "supabase",
