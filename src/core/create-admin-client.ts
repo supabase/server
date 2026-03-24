@@ -4,10 +4,10 @@ import { EnvError } from '../errors.js'
 import type { SupabaseEnv } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
 
-export function createAdminClient(
+export function createAdminClient<Database = any>(
   env?: Partial<SupabaseEnv>,
   keyName?: string | null,
-): SupabaseClient {
+): SupabaseClient<Database> {
   const { data: resolved, error } = resolveEnv(env)
   if (error) throw error
 
