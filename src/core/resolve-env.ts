@@ -2,7 +2,8 @@ import { EnvError } from '../errors.js'
 import type { JsonWebKeySet, SupabaseEnv } from '../types.js'
 
 /**
- * Reads an environment variable from the current runtime (Deno, Node.js, Bun, or Workers).
+ * Reads an environment variable from the current runtime (Deno, Node.js, or Bun).
+ * Cloudflare Workers require node-compat or passing values via `overrides`.
  * @internal
  */
 function getEnvVar(name: string): string | undefined {
@@ -80,7 +81,8 @@ function parseJwks(raw: string | undefined): JsonWebKeySet | null {
  * Resolves Supabase environment configuration from runtime environment variables.
  *
  * Reads `SUPABASE_URL`, keys (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`),
- * and `SUPABASE_JWKS`. Works across Deno, Node.js, Bun, and Cloudflare Workers.
+ * and `SUPABASE_JWKS`. Works across Deno, Node.js, and Bun. For Cloudflare Workers,
+ * use `overrides` or enable node-compat.
  *
  * @param overrides - Partial values that take precedence over env vars.
  * @returns `{ data: SupabaseEnv, error: null }` on success, `{ data: null, error: EnvError }` on failure.
