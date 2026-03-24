@@ -2,9 +2,9 @@ import { buildCorsHeaders, addCorsHeaders } from './cors.js'
 import { createSupabaseContext } from './create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 
-export function withSupabase(
+export function withSupabase<Database = unknown>(
   config: WithSupabaseConfig,
-  handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
+  handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (req: Request) => Promise<Response> {
   return async (req: Request) => {
     if (config.cors !== false && req.method === 'OPTIONS') {
@@ -14,7 +14,10 @@ export function withSupabase(
       })
     }
 
-    const { data: ctx, error } = await createSupabaseContext(req, config)
+    const { data: ctx, error } = await createSupabaseContext<Database>(
+      req,
+      config,
+    )
     if (error) {
       return Response.json(
         { error: error.message, code: error.code },

@@ -4,11 +4,12 @@ import { createAdminClient } from './core/create-admin-client.js'
 import { createContextClient } from './core/create-context-client.js'
 import { verifyAuth } from './core/verify-auth.js'
 
-export async function createSupabaseContext(
+export async function createSupabaseContext<Database = unknown>(
   request: Request,
   options?: WithSupabaseConfig,
 ): Promise<
-  { data: SupabaseContext; error: null } | { data: null; error: AuthError }
+  | { data: SupabaseContext<Database>; error: null }
+  | { data: null; error: AuthError }
 > {
   const allow = options?.allow ?? 'user'
 
@@ -21,9 +22,16 @@ export async function createSupabaseContext(
   }
 
   try {
-    const supabase = createContextClient(auth.token, options?.env, auth.keyName)
+    const supabase = createContextClient<Database>(
+      auth.token,
+      options?.env,
+      auth.keyName,
+    )
     const adminKeyName = auth.authType === 'secret' ? auth.keyName : undefined
-    const supabaseAdmin = createAdminClient(options?.env, adminKeyName)
+    const supabaseAdmin = createAdminClient<Database>(
+      options?.env,
+      adminKeyName,
+    )
 
     return {
       data: {
