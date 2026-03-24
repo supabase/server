@@ -13,11 +13,33 @@ import type {
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
 import { resolveEnv } from './resolve-env.js'
 
+/**
+ * Options for {@link verifyCredentials}.
+ */
 interface VerifyCredentialsOptions {
+  /**
+   * Auth mode(s) to try. Modes are attempted in order — the first match wins.
+   *
+   * @see {@link AllowWithKey} for the full syntax including named keys.
+   */
   allow: AllowWithKey | AllowWithKey[]
+
+  /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>
 }
 
+/**
+ * Parses an {@link AllowWithKey} string into its base mode and optional key name.
+ *
+ * @example
+ * ```
+ * parseAllowMode('user')         → { base: 'user',   keyName: null }
+ * parseAllowMode('public:web')   → { base: 'public', keyName: 'web' }
+ * parseAllowMode('secret:*')     → { base: 'secret', keyName: '*' }
+ * ```
+ *
+ * @internal
+ */
 function parseAllowMode(mode: AllowWithKey): {
   base: Allow
   keyName: string | null
@@ -37,6 +59,10 @@ function parseAllowMode(mode: AllowWithKey): {
   return { base, keyName }
 }
 
+/**
+ * Converts raw {@link JWTClaims} (snake_case) to a normalized {@link UserClaims} (camelCase).
+ * @internal
+ */
 function claimsToUserClaims(claims: JWTClaims): UserClaims {
   return {
     id: claims.sub,
@@ -47,6 +73,11 @@ function claimsToUserClaims(claims: JWTClaims): UserClaims {
   }
 }
 
+/**
+ * Attempts to authenticate credentials against a single auth mode.
+ * Returns the {@link AuthResult} on success, or `null` if the mode doesn't match.
+ * @internal
+ */
 async function tryMode(
   mode: AllowWithKey,
   credentials: Credentials,
@@ -155,6 +186,46 @@ async function tryMode(
   }
 }
 
+/**
+ * Verifies pre-extracted credentials against one or more allowed auth modes.
+ *
+ * This is the core verification primitive. It resolves the environment, then tries
+ * each allowed mode in order until one matches. Use {@link verifyAuth} if you want
+ * to extract and verify in a single call.
+ *
+ * **Auth mode behavior:**
+ *
+ * | Mode       | Checks                                  | Result fields populated                |
+ * | ---------- | --------------------------------------- | -------------------------------------- |
+ * | `"always"` | Nothing — always succeeds               | `authType` only                        |
+ * | `"public"` | `apikey` against publishable keys       | `authType`, `keyName`                  |
+ * | `"secret"` | `apikey` against secret keys            | `authType`, `keyName`                  |
+ * | `"user"`   | Bearer token as JWT (JWKS verification) | `authType`, `token`, `userClaims`, `claims` |
+ *
+ * @param credentials - The credentials to verify (from {@link extractCredentials}).
+ * @param options - Verification options including allowed auth modes and optional env overrides.
+ *
+ * @returns A result tuple: `{ data, error }`.
+ *   - On success: `{ data: AuthResult, error: null }`
+ *   - On failure: `{ data: null, error: AuthError }` with status `401` (invalid credentials)
+ *     or `500` (env misconfiguration)
+ *
+ * @example
+ * ```ts
+ * import { extractCredentials, verifyCredentials } from '@supabase/edge-functions/core'
+ *
+ * const credentials = extractCredentials(request)
+ * const { data: auth, error } = await verifyCredentials(credentials, {
+ *   allow: ['user', 'public'],
+ * })
+ *
+ * if (error) {
+ *   return Response.json({ error: error.message }, { status: error.status })
+ * }
+ *
+ * console.log(auth.authType) // "user" or "public"
+ * ```
+ */
 export async function verifyCredentials(
   credentials: Credentials,
   options: VerifyCredentialsOptions,
