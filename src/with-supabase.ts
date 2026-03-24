@@ -2,7 +2,7 @@ import { buildCorsHeaders, addCorsHeaders } from './cors.js'
 import { createSupabaseContext } from './create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 
-export function withSupabase<Database = any>(
+export function withSupabase<Database = unknown>(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (req: Request) => Promise<Response> {

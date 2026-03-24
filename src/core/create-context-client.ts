@@ -4,7 +4,7 @@ import { EnvError } from '../errors.js'
 import type { SupabaseEnv } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
 
-export function createContextClient<Database = any>(
+export function createContextClient<Database = unknown>(
   token?: string | null,
   env?: Partial<SupabaseEnv>,
   keyName?: string | null,

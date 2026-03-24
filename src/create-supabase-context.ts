@@ -4,7 +4,7 @@ import { createAdminClient } from './core/create-admin-client.js'
 import { createContextClient } from './core/create-context-client.js'
 import { verifyAuth } from './core/verify-auth.js'
 
-export async function createSupabaseContext<Database = any>(
+export async function createSupabaseContext<Database = unknown>(
   request: Request,
   options?: WithSupabaseConfig,
 ): Promise<

@@ -54,7 +54,7 @@ export interface WithSupabaseConfig {
   cors?: boolean | Record<string, string>
 }
 
-export interface SupabaseContext<Database = any> {
+export interface SupabaseContext<Database = unknown> {
   supabase: SupabaseClient<Database>
   supabaseAdmin: SupabaseClient<Database>
   /** JWT-derived identity. For the full Supabase User object, call `supabase.auth.getUser()`. */
