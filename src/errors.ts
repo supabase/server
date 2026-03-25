@@ -42,7 +42,10 @@ export class EnvError extends Error {
 
 export const MissingSupabaseURLError = 'MISSING_SUPABASE_URL'
 export const MissingPublishableKeyError = 'MISSING_PUBLISHABLE_KEY'
+export const MissingDefaultPublishableKeyError =
+  'MISSING_DEFAULT_PUBLISHABLE_KEY'
 export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
+export const MissingDefaultSecretKeyError = 'MISSING_DEFAULT_SECRET_KEY'
 export const EnvGenericError = 'ENV_ERROR'
 
 /**
