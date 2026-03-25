@@ -9,3 +9,9 @@ export { verifyCredentials } from './verify-credentials.js'
 export { verifyAuth } from './verify-auth.js'
 export { createContextClient } from './create-context-client.js'
 export { createAdminClient } from './create-admin-client.js'
+
+export type {
+  ClientAuth,
+  CreateAdminClientOptions,
+  CreateContextClientOptions,
+} from '../types.js'

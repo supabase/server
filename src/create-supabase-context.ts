@@ -47,16 +47,21 @@ export async function createSupabaseContext<Database = unknown>(
   }
 
   try {
-    const supabase = createContextClient<Database>(
-      auth.token,
-      options?.env,
-      auth.keyName,
-    )
+    const config = {
+      env: options?.env,
+      supabaseOptions: options?.supabaseOptions,
+    }
+
+    const supabase = createContextClient<Database>({
+      auth: { token: auth.token, keyName: auth.keyName },
+      ...config,
+    })
+
     const adminKeyName = auth.authType === 'secret' ? auth.keyName : undefined
-    const supabaseAdmin = createAdminClient<Database>(
-      options?.env,
-      adminKeyName,
-    )
+    const supabaseAdmin = createAdminClient<Database>({
+      auth: { keyName: adminKeyName },
+      ...config,
+    })
 
     return {
       data: {

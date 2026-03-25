@@ -16,17 +16,19 @@ const validEnv = {
 
 describe('createAdminClient', () => {
   it('creates client with valid env', () => {
-    const client = createAdminClient(validEnv)
+    const client = createAdminClient({ env: validEnv })
     expect(client).toBeDefined()
   })
 
   it('throws EnvError when SUPABASE_URL is missing', () => {
     expect(() =>
       createAdminClient({
-        url: '',
-        publishableKeys: { default: 'sb_publishable_xyz' },
-        secretKeys: { default: 'sb_secret_xyz' },
-        jwks: null,
+        env: {
+          url: '',
+          publishableKeys: { default: 'sb_publishable_xyz' },
+          secretKeys: { default: 'sb_secret_xyz' },
+          jwks: null,
+        },
       }),
     ).toThrow(EnvError)
   })
@@ -34,19 +36,23 @@ describe('createAdminClient', () => {
   it('throws EnvError when secret keys are empty', () => {
     expect(() =>
       createAdminClient({
-        url: 'https://test.supabase.co',
-        publishableKeys: { default: 'sb_publishable_xyz' },
-        secretKeys: {},
-        jwks: null,
+        env: {
+          url: 'https://test.supabase.co',
+          publishableKeys: { default: 'sb_publishable_xyz' },
+          secretKeys: {},
+          jwks: null,
+        },
       }),
     ).toThrow(EnvError)
 
     try {
       createAdminClient({
-        url: 'https://test.supabase.co',
-        publishableKeys: { default: 'sb_publishable_xyz' },
-        secretKeys: {},
-        jwks: null,
+        env: {
+          url: 'https://test.supabase.co',
+          publishableKeys: { default: 'sb_publishable_xyz' },
+          secretKeys: {},
+          jwks: null,
+        },
       })
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
@@ -65,15 +71,17 @@ describe('createAdminClient', () => {
       },
       jwks: null,
     }
-    const client = createAdminClient(env, 'web')
+    const client = createAdminClient({ auth: { keyName: 'web' }, env })
     expect(client).toBeDefined()
   })
 
   it('throws when named key does not exist', () => {
-    expect(() => createAdminClient(validEnv, 'nonexistent')).toThrow(EnvError)
+    expect(() =>
+      createAdminClient({ auth: { keyName: 'nonexistent' }, env: validEnv }),
+    ).toThrow(EnvError)
 
     try {
-      createAdminClient(validEnv, 'nonexistent')
+      createAdminClient({ auth: { keyName: 'nonexistent' }, env: validEnv })
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
       expect((e as EnvError).code).toBe(MissingSecretKeyError)
@@ -90,7 +98,7 @@ describe('createAdminClient', () => {
       },
       jwks: null,
     }
-    const client = createAdminClient(env, null)
+    const client = createAdminClient({ auth: { keyName: null }, env })
     expect(client).toBeDefined()
   })
 
@@ -104,7 +112,7 @@ describe('createAdminClient', () => {
       },
       jwks: null,
     }
-    const client = createAdminClient(env, null)
+    const client = createAdminClient({ auth: { keyName: null }, env })
     expect(client).toBeDefined()
   })
 
@@ -115,6 +123,16 @@ describe('createAdminClient', () => {
       secretKeys: {},
       jwks: null,
     }
-    expect(() => createAdminClient(env, null)).toThrow(EnvError)
+    expect(() => createAdminClient({ auth: { keyName: null }, env })).toThrow(
+      EnvError,
+    )
+  })
+
+  it('creates admin client with custom supabaseOptions', () => {
+    const client = createAdminClient({
+      env: validEnv,
+      supabaseOptions: { db: { schema: 'api' } },
+    })
+    expect(client).toBeDefined()
   })
 })

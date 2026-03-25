@@ -16,37 +16,49 @@ const validEnv = {
 
 describe('createContextClient', () => {
   it('creates client with valid env', () => {
-    const client = createContextClient('test-token', validEnv)
+    const client = createContextClient({
+      auth: { token: 'test-token' },
+      env: validEnv,
+    })
     expect(client).toBeDefined()
   })
 
   it('throws EnvError when SUPABASE_URL is missing', () => {
     expect(() =>
-      createContextClient('test-token', {
-        url: '',
-        publishableKeys: { default: 'sb_publishable_xyz' },
-        secretKeys: { default: 'sb_secret_xyz' },
-        jwks: null,
+      createContextClient({
+        auth: { token: 'test-token' },
+        env: {
+          url: '',
+          publishableKeys: { default: 'sb_publishable_xyz' },
+          secretKeys: { default: 'sb_secret_xyz' },
+          jwks: null,
+        },
       }),
     ).toThrow(EnvError)
   })
 
   it('throws EnvError when publishable keys are empty', () => {
     expect(() =>
-      createContextClient('test-token', {
-        url: 'https://test.supabase.co',
-        publishableKeys: {},
-        secretKeys: { default: 'sb_secret_xyz' },
-        jwks: null,
+      createContextClient({
+        auth: { token: 'test-token' },
+        env: {
+          url: 'https://test.supabase.co',
+          publishableKeys: {},
+          secretKeys: { default: 'sb_secret_xyz' },
+          jwks: null,
+        },
       }),
     ).toThrow(EnvError)
 
     try {
-      createContextClient('test-token', {
-        url: 'https://test.supabase.co',
-        publishableKeys: {},
-        secretKeys: { default: 'sb_secret_xyz' },
-        jwks: null,
+      createContextClient({
+        auth: { token: 'test-token' },
+        env: {
+          url: 'https://test.supabase.co',
+          publishableKeys: {},
+          secretKeys: { default: 'sb_secret_xyz' },
+          jwks: null,
+        },
       })
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
@@ -65,17 +77,26 @@ describe('createContextClient', () => {
       secretKeys: { default: 'sb_secret_xyz' },
       jwks: null,
     }
-    const client = createContextClient('test-token', env, 'web')
+    const client = createContextClient({
+      auth: { token: 'test-token', keyName: 'web' },
+      env,
+    })
     expect(client).toBeDefined()
   })
 
   it('throws when named key does not exist', () => {
     expect(() =>
-      createContextClient('test-token', validEnv, 'nonexistent'),
+      createContextClient({
+        auth: { token: 'test-token', keyName: 'nonexistent' },
+        env: validEnv,
+      }),
     ).toThrow(EnvError)
 
     try {
-      createContextClient('test-token', validEnv, 'nonexistent')
+      createContextClient({
+        auth: { token: 'test-token', keyName: 'nonexistent' },
+        env: validEnv,
+      })
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
       expect((e as EnvError).code).toBe(MissingPublishableKeyError)
@@ -92,7 +113,10 @@ describe('createContextClient', () => {
       secretKeys: { default: 'sb_secret_xyz' },
       jwks: null,
     }
-    const client = createContextClient('test-token', env, null)
+    const client = createContextClient({
+      auth: { token: 'test-token', keyName: null },
+      env,
+    })
     expect(client).toBeDefined()
   })
 
@@ -106,7 +130,10 @@ describe('createContextClient', () => {
       secretKeys: { default: 'sb_secret_xyz' },
       jwks: null,
     }
-    const client = createContextClient('test-token', env, null)
+    const client = createContextClient({
+      auth: { token: 'test-token', keyName: null },
+      env,
+    })
     expect(client).toBeDefined()
   })
 
@@ -117,6 +144,28 @@ describe('createContextClient', () => {
       secretKeys: { default: 'sb_secret_xyz' },
       jwks: null,
     }
-    expect(() => createContextClient('test-token', env, null)).toThrow(EnvError)
+    expect(() =>
+      createContextClient({
+        auth: { token: 'test-token', keyName: null },
+        env,
+      }),
+    ).toThrow(EnvError)
+  })
+
+  it('creates client with custom supabaseOptions', () => {
+    const client = createContextClient({
+      auth: { token: 'test-token' },
+      env: validEnv,
+      supabaseOptions: { db: { schema: 'api' } },
+    })
+    expect(client).toBeDefined()
+  })
+
+  it('creates client with supabaseOptions without token', () => {
+    const client = createContextClient({
+      env: validEnv,
+      supabaseOptions: { db: { schema: 'api' } },
+    })
+    expect(client).toBeDefined()
   })
 })

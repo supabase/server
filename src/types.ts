@@ -1,4 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type {
+  SupabaseClient,
+  SupabaseClientOptions,
+} from '@supabase/supabase-js'
 
 /**
  * Authentication mode that determines what credentials a request must provide.
@@ -234,6 +237,59 @@ export interface WithSupabaseConfig {
    * @defaultValue `true`
    */
   cors?: boolean | Record<string, string>
+
+  /**
+   * Options forwarded to both internal `createClient()` calls.
+   *
+   * `accessToken` is stripped, and auth settings (`persistSession`, `autoRefreshToken`,
+   * `detectSessionInUrl`) are force-overwritten to server-safe values.
+   *
+   * @example
+   * ```ts
+   * withSupabase({
+   *   allow: 'user',
+   *   supabaseOptions: { db: { schema: 'api' } },
+   * }, handler)
+   * ```
+   */
+  supabaseOptions?: SupabaseClientOptions<string>
+}
+
+/**
+ * Auth identity for client creation functions.
+ *
+ * @see {@link verifyAuth}, {@link verifyCredentials}
+ */
+export interface ClientAuth {
+  /** The caller's JWT, or `null` for anonymous access. */
+  token?: string | null
+
+  /** Name of the API key to use. Falls back to `"default"`, then first available. */
+  keyName?: string | null
+}
+
+/** Options for {@link createContextClient}. */
+export interface CreateContextClientOptions {
+  /** Auth identity — token and key name from the verified request. */
+  auth?: ClientAuth
+
+  /** Override auto-detected environment variables. */
+  env?: Partial<SupabaseEnv>
+
+  /** Options forwarded to `createClient()`. `accessToken` is stripped; auth settings are force-overwritten. */
+  supabaseOptions?: SupabaseClientOptions<string>
+}
+
+/** Options for {@link createAdminClient}. */
+export interface CreateAdminClientOptions {
+  /** Auth identity — key name from the verified request. */
+  auth?: Pick<ClientAuth, 'keyName'>
+
+  /** Override auto-detected environment variables. */
+  env?: Partial<SupabaseEnv>
+
+  /** Options forwarded to `createClient()`. `accessToken` is stripped; auth settings are force-overwritten. */
+  supabaseOptions?: SupabaseClientOptions<string>
 }
 
 /**
