@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 import {
   EnvError,
+  Errors,
   MissingDefaultPublishableKeyError,
   MissingPublishableKeyError,
 } from '../errors.js'
@@ -41,18 +42,9 @@ export function createContextClient<Database = unknown>(
   const anonKey =
     keys[name] ?? (keyName == null ? Object.values(keys)[0] : undefined)
   if (!anonKey) {
-    const error =
-      name === 'default'
-        ? new EnvError(
-            'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
-            MissingDefaultPublishableKeyError,
-          )
-        : new EnvError(
-            `No "${name}" publishable key found. Include a "${name}" entry in SUPABASE_PUBLISHABLE_KEYS.`,
-            MissingPublishableKeyError,
-          )
-
-    throw error
+    throw name === 'default'
+      ? Errors[MissingDefaultPublishableKeyError]()
+      : Errors[MissingPublishableKeyError](name)
   }
 
   return createClient(resolved.url, anonKey, {

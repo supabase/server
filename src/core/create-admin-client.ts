@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 import {
   EnvError,
+  Errors,
   MissingDefaultSecretKeyError,
   MissingSecretKeyError,
 } from '../errors.js'
@@ -37,18 +38,9 @@ export function createAdminClient<Database = unknown>(
   const secretKey =
     keys[name] ?? (keyName == null ? Object.values(keys)[0] : undefined)
   if (!secretKey) {
-    const error =
-      name === 'default'
-        ? new EnvError(
-            'No default secret key found. Set SUPABASE_SECRET_KEY or include a "default" entry in SUPABASE_SECRET_KEYS.',
-            MissingDefaultSecretKeyError,
-          )
-        : new EnvError(
-            `No "${name}" secret key found. Include a "${name}" entry in SUPABASE_SECRET_KEYS.`,
-            MissingSecretKeyError,
-          )
-
-    throw error
+    throw name === 'default'
+      ? Errors[MissingDefaultSecretKeyError]()
+      : Errors[MissingSecretKeyError](name)
   }
 
   return createClient(resolved.url, secretKey, {

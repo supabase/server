@@ -40,13 +40,42 @@ export class EnvError extends Error {
   }
 }
 
+export const EnvGenericError = 'ENV_ERROR'
 export const MissingSupabaseURLError = 'MISSING_SUPABASE_URL'
 export const MissingPublishableKeyError = 'MISSING_PUBLISHABLE_KEY'
 export const MissingDefaultPublishableKeyError =
   'MISSING_DEFAULT_PUBLISHABLE_KEY'
 export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
 export const MissingDefaultSecretKeyError = 'MISSING_DEFAULT_SECRET_KEY'
-export const EnvGenericError = 'ENV_ERROR'
+
+const EnvErrorMap = {
+  [MissingSupabaseURLError]: () =>
+    new EnvError(
+      'SUPABASE_URL is required but not set',
+      MissingSupabaseURLError,
+    ),
+  [MissingSecretKeyError]: (name: string) =>
+    new EnvError(
+      `No "${name}" secret key found. Include a "${name}" entry in SUPABASE_SECRET_KEYS.`,
+      MissingSecretKeyError,
+    ),
+  [MissingDefaultSecretKeyError]: () =>
+    new EnvError(
+      'No default secret key found. Set SUPABASE_SECRET_KEY or include a "default" entry in SUPABASE_SECRET_KEYS.',
+      MissingDefaultSecretKeyError,
+    ),
+
+  [MissingPublishableKeyError]: (name: string) =>
+    new EnvError(
+      `No "${name}" publishable key found. Include a "${name}" entry in SUPABASE_PUBLISHABLE_KEYS.`,
+      MissingPublishableKeyError,
+    ),
+  [MissingDefaultPublishableKeyError]: () =>
+    new EnvError(
+      'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
+      MissingDefaultSecretKeyError,
+    ),
+}
 
 /**
  * Thrown when authentication or authorization fails.
@@ -96,6 +125,22 @@ export class AuthError extends Error {
   }
 }
 
-export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
-export const ClientError = 'CLIENT_ERROR'
 export const AuthGenericError = 'AUTH_ERROR'
+export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
+export const CreateSupabaseClientError = 'CREATE_SUPABASE_CLIENT_ERROR'
+
+const AuthErrorMap = {
+  [InvalidCredentialsError]: () =>
+    new AuthError('Invalid credentials', InvalidCredentialsError, 401),
+  [CreateSupabaseClientError]: () =>
+    new AuthError(
+      'Failed to create Supabase client',
+      CreateSupabaseClientError,
+      500,
+    ),
+}
+
+export const Errors = {
+  ...EnvErrorMap,
+  ...AuthErrorMap,
+}
