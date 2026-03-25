@@ -45,6 +45,11 @@ export function createContextClient<Database = unknown>(
       : Errors[MissingPublishableKeyError](name)
   }
 
+  // Sanitize auth headers — only verified credentials control Authorization and apikey.
+  const safeHeaders = { ...supabaseOptions?.global?.headers }
+  delete safeHeaders.Authorization
+  delete safeHeaders.apikey
+
   // supabaseOptions uses `string` for schema; createClient<Database> expects a narrower type.
   return createClient<Database>(resolved.url, anonKey, {
     ...supabaseOptions,
@@ -53,7 +58,7 @@ export function createContextClient<Database = unknown>(
     global: {
       ...supabaseOptions?.global,
       headers: {
-        ...supabaseOptions?.global?.headers,
+        ...safeHeaders,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     },

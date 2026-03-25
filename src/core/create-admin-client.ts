@@ -41,6 +41,11 @@ export function createAdminClient<Database = unknown>(
       : Errors[MissingSecretKeyError](name)
   }
 
+  // Sanitize auth headers — only the service-role key controls Authorization and apikey.
+  const safeHeaders = { ...supabaseOptions?.global?.headers }
+  delete safeHeaders.Authorization
+  delete safeHeaders.apikey
+
   // supabaseOptions uses `string` for schema; createClient<Database> expects a narrower type.
   return createClient<Database>(resolved.url, secretKey, {
     ...supabaseOptions,
@@ -48,6 +53,7 @@ export function createAdminClient<Database = unknown>(
     accessToken: undefined,
     global: {
       ...supabaseOptions?.global,
+      headers: safeHeaders,
     },
     auth: {
       ...supabaseOptions?.auth,
