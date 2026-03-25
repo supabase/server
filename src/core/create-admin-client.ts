@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-import { EnvError } from '../errors.js'
+import { EnvError, MissingSecretKeyError } from '../errors.js'
 import type { SupabaseEnv } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
 
@@ -37,7 +37,7 @@ export function createAdminClient<Database = unknown>(
       name === 'default'
         ? 'No default secret key found. Set SUPABASE_SECRET_KEY or include a "default" entry in SUPABASE_SECRET_KEYS.'
         : `No "${name}" secret key found. Include a "${name}" entry in SUPABASE_SECRET_KEYS.`
-    throw new EnvError(msg, 'MISSING_SECRET_KEY')
+    throw new EnvError(msg, MissingSecretKeyError)
   }
 
   return createClient(resolved.url, secretKey, {

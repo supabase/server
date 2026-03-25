@@ -1,6 +1,6 @@
 import { createLocalJWKSet, jwtVerify } from 'jose'
 
-import { AuthError } from '../errors.js'
+import { AuthError, InvalidCredentialsError } from '../errors.js'
 import type {
   Allow,
   AllowWithKey,
@@ -232,6 +232,6 @@ export async function verifyCredentials(
 
   return {
     data: null,
-    error: new AuthError('Invalid credentials', 'INVALID_CREDENTIALS', 401),
+    error: new AuthError('Invalid credentials', InvalidCredentialsError, 401),
   }
 }

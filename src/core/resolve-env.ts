@@ -1,4 +1,4 @@
-import { EnvError } from '../errors.js'
+import { EnvError, MissingSupabaseURLError } from '../errors.js'
 import type { JsonWebKeySet, SupabaseEnv } from '../types.js'
 
 /**
@@ -106,7 +106,7 @@ export function resolveEnv(
       data: null,
       error: new EnvError(
         'SUPABASE_URL is required but not set',
-        'MISSING_SUPABASE_URL',
+        MissingSupabaseURLError,
       ),
     }
   }

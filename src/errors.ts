@@ -33,12 +33,17 @@ export class EnvError extends Error {
    */
   readonly code: string
 
-  constructor(message: string, code = 'ENV_ERROR') {
+  constructor(message: string, code = EnvGenericError) {
     super(message)
     this.name = 'EnvError'
     this.code = code
   }
 }
+
+export const MissingSupabaseURLError = 'MISSING_SUPABASE_URL'
+export const MissingPublishableKeyError = 'MISSING_PUBLISHABLE_KEY'
+export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
+export const EnvGenericError = 'ENV_ERROR'
 
 /**
  * Thrown when authentication or authorization fails.
@@ -80,10 +85,14 @@ export class AuthError extends Error {
    */
   readonly code: string
 
-  constructor(message: string, code = 'AUTH_ERROR', status = 401) {
+  constructor(message: string, code = AuthGenericError, status = 401) {
     super(message)
     this.name = 'AuthError'
     this.code = code
     this.status = status
   }
 }
+
+export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
+export const ClientError = 'CLIENT_ERROR'
+export const AuthGenericError = 'AUTH_ERROR'
