@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { EnvError } from '../errors.js'
+import {
+  EnvError,
+  MissingDefaultPublishableKeyError,
+  MissingPublishableKeyError,
+} from '../errors.js'
 import { createContextClient } from './create-context-client.js'
 
 const validEnv = {
@@ -46,7 +50,7 @@ describe('createContextClient', () => {
       })
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
-      expect((e as EnvError).code).toBe('MISSING_PUBLISHABLE_KEY')
+      expect((e as EnvError).code).toBe(MissingDefaultPublishableKeyError)
     }
   })
 
@@ -74,7 +78,7 @@ describe('createContextClient', () => {
       createContextClient('test-token', validEnv, 'nonexistent')
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
-      expect((e as EnvError).code).toBe('MISSING_PUBLISHABLE_KEY')
+      expect((e as EnvError).code).toBe(MissingPublishableKeyError)
     }
   })
 

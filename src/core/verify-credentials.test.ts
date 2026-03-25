@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 import type { Credentials, JsonWebKeySet, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
+import { InvalidCredentialsError } from '../errors.js'
 
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
   return {
@@ -50,7 +51,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('only matches default key when bare public is used', async () => {
@@ -66,7 +67,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('matches named key with colon syntax and returns keyName', async () => {
@@ -101,7 +102,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('rejects wrong named key type', async () => {
@@ -117,7 +118,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('matches any key with wildcard syntax', async () => {
@@ -179,7 +180,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('only matches default key when bare secret is used', async () => {
@@ -192,7 +193,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('matches secret named key with colon syntax and returns keyName', async () => {
@@ -218,7 +219,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('rejects wrong secret named key type', async () => {
@@ -231,7 +232,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('matches any key with wildcard syntax', async () => {
@@ -309,7 +310,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('fails with no token', async () => {
@@ -319,7 +320,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
     it('fails with expired JWT', async () => {
@@ -341,7 +342,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks: expiredJwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
   })
 
@@ -386,7 +387,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe('INVALID_CREDENTIALS')
+      expect(result.error!.code).toBe(InvalidCredentialsError)
     })
   })
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { EnvError } from '../errors.js'
+import {
+  EnvError,
+  MissingDefaultSecretKeyError,
+  MissingSecretKeyError,
+} from '../errors.js'
 import { createAdminClient } from './create-admin-client.js'
 
 const validEnv = {
@@ -46,7 +50,7 @@ describe('createAdminClient', () => {
       })
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
-      expect((e as EnvError).code).toBe('MISSING_SECRET_KEY')
+      expect((e as EnvError).code).toBe(MissingDefaultSecretKeyError)
     }
   })
 
@@ -72,7 +76,7 @@ describe('createAdminClient', () => {
       createAdminClient(validEnv, 'nonexistent')
     } catch (e) {
       expect(e).toBeInstanceOf(EnvError)
-      expect((e as EnvError).code).toBe('MISSING_SECRET_KEY')
+      expect((e as EnvError).code).toBe(MissingSecretKeyError)
     }
   })
 

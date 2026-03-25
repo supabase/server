@@ -27,8 +27,10 @@ export class EnvError extends Error {
    *
    * Known codes:
    * - `"MISSING_SUPABASE_URL"` — `SUPABASE_URL` not set
-   * - `"MISSING_PUBLISHABLE_KEY"` — No publishable key found
-   * - `"MISSING_SECRET_KEY"` — No secret key found
+   * - `"MISSING_PUBLISHABLE_KEY"` — No publishable key found for the given keyname
+   * - `"MISSING_DEFATUL_PUBLISHABLE_KEY"` — No default publishable key found
+   * - `"MISSING_SECRET_KEY"` — No secret key found for the given keyname
+   * - `"MISSING_DEFAULT_SECRET_KEY"` — No defatult secret key found
    * - `"ENV_ERROR"` — Generic environment error
    */
   readonly code: string
