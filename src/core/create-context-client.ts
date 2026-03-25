@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 import {
-  EnvError,
   Errors,
   MissingDefaultPublishableKeyError,
   MissingPublishableKeyError,
