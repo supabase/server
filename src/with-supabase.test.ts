@@ -62,7 +62,7 @@ describe('withSupabase', () => {
     const res = await handler(req)
     expect(res.status).toBe(401)
     const body = await res.json()
-    expect(body.error).toBeDefined()
+    expect(body.message).toBeDefined()
     expect(body.code).toBeDefined()
   })
 
