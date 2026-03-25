@@ -1,8 +1,7 @@
 /**
  * Thrown when a required environment variable is missing or malformed.
  *
- * Has a fixed `status` of `500` since environment errors are server-side
- * configuration issues, not client errors.
+ * Always has `status: 500` — environment errors are server-side configuration issues.
  *
  * @example
  * ```ts
@@ -25,19 +24,65 @@ export class EnvError extends Error {
   /**
    * Machine-readable error code.
    *
-   * Known codes:
-   * - `"MISSING_SUPABASE_URL"` — `SUPABASE_URL` not set
-   * - `"MISSING_PUBLISHABLE_KEY"` — No publishable key found
-   * - `"MISSING_SECRET_KEY"` — No secret key found
-   * - `"ENV_ERROR"` — Generic environment error
+   * @see {@link EnvGenericError}, {@link MissingSupabaseURLError},
+   *   {@link MissingPublishableKeyError}, {@link MissingDefaultPublishableKeyError},
+   *   {@link MissingSecretKeyError}, {@link MissingDefaultSecretKeyError}
    */
   readonly code: string
 
-  constructor(message: string, code = 'ENV_ERROR') {
+  constructor(message: string, code = EnvGenericError) {
     super(message)
     this.name = 'EnvError'
     this.code = code
   }
+}
+
+/** Generic environment error code. */
+export const EnvGenericError = 'ENV_ERROR'
+
+/** `SUPABASE_URL` is not set. */
+export const MissingSupabaseURLError = 'MISSING_SUPABASE_URL'
+
+/** Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS`. */
+export const MissingPublishableKeyError = 'MISSING_PUBLISHABLE_KEY'
+
+/** No default publishable key found. */
+export const MissingDefaultPublishableKeyError =
+  'MISSING_DEFAULT_PUBLISHABLE_KEY'
+
+/** Named secret key not found in `SUPABASE_SECRET_KEYS`. */
+export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
+
+/** No default secret key found. */
+export const MissingDefaultSecretKeyError = 'MISSING_DEFAULT_SECRET_KEY'
+
+const EnvErrorMap = {
+  [MissingSupabaseURLError]: () =>
+    new EnvError(
+      'SUPABASE_URL is required but not set',
+      MissingSupabaseURLError,
+    ),
+  [MissingSecretKeyError]: (name: string) =>
+    new EnvError(
+      `No "${name}" secret key found. Include a "${name}" entry in SUPABASE_SECRET_KEYS.`,
+      MissingSecretKeyError,
+    ),
+  [MissingDefaultSecretKeyError]: () =>
+    new EnvError(
+      'No default secret key found. Set SUPABASE_SECRET_KEY or include a "default" entry in SUPABASE_SECRET_KEYS.',
+      MissingDefaultSecretKeyError,
+    ),
+
+  [MissingPublishableKeyError]: (name: string) =>
+    new EnvError(
+      `No "${name}" publishable key found. Include a "${name}" entry in SUPABASE_PUBLISHABLE_KEYS.`,
+      MissingPublishableKeyError,
+    ),
+  [MissingDefaultPublishableKeyError]: () =>
+    new EnvError(
+      'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
+      MissingDefaultPublishableKeyError,
+    ),
 }
 
 /**
@@ -54,7 +99,7 @@ export class EnvError extends Error {
  * if (error) {
  *   // error is an AuthError
  *   return Response.json(
- *     { error: error.message, code: error.code },
+ *     { message: error.message, code: error.code },
  *     { status: error.status },
  *   )
  * }
@@ -72,18 +117,50 @@ export class AuthError extends Error {
   /**
    * Machine-readable error code.
    *
-   * Known codes:
-   * - `"INVALID_CREDENTIALS"` — No credential matched any allowed auth mode
-   * - `"CLIENT_ERROR"` — Failed to create a Supabase client after auth succeeded
-   * - `"AUTH_ERROR"` — Generic authentication error
-   * - Any `EnvError` code (propagated when env resolution fails during auth)
+   * @see {@link AuthGenericError}, {@link InvalidCredentialsError},
+   *   {@link CreateSupabaseClientError}
    */
   readonly code: string
 
-  constructor(message: string, code = 'AUTH_ERROR', status = 401) {
+  constructor(message: string, code = AuthGenericError, status = 401) {
     super(message)
     this.name = 'AuthError'
     this.code = code
     this.status = status
   }
+}
+
+/** Generic authentication error code. */
+export const AuthGenericError = 'AUTH_ERROR'
+
+/** No credential matched any allowed auth mode. */
+export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
+
+/** Failed to create a Supabase client after auth succeeded. */
+export const CreateSupabaseClientError = 'CREATE_SUPABASE_CLIENT_ERROR'
+
+const AuthErrorMap = {
+  [InvalidCredentialsError]: () =>
+    new AuthError('Invalid credentials', InvalidCredentialsError, 401),
+  [CreateSupabaseClientError]: () =>
+    new AuthError(
+      'Failed to create Supabase client',
+      CreateSupabaseClientError,
+      500,
+    ),
+}
+
+/**
+ * Factory map for all error types. Keyed by error code constant, each entry
+ * returns a pre-configured {@link EnvError} or {@link AuthError}.
+ *
+ * @example
+ * ```ts
+ * throw Errors[MissingSupabaseURLError]()
+ * throw Errors[MissingPublishableKeyError]('mobile')
+ * ```
+ */
+export const Errors = {
+  ...EnvErrorMap,
+  ...AuthErrorMap,
 }

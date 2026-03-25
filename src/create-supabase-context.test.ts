@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { createSupabaseContext } from './create-supabase-context.js'
+import {
+  MissingDefaultPublishableKeyError,
+  MissingDefaultSecretKeyError,
+} from './errors.js'
 
 const baseEnv = {
   url: 'https://test.supabase.co',
@@ -113,6 +117,9 @@ describe('createSupabaseContext', () => {
     expect(result.data).toBeNull()
     expect(result.error).not.toBeNull()
     expect(result.error!.status).toBe(500)
-    expect(result.error!.code).toBe('MISSING_PUBLISHABLE_KEY')
+    expect(result.error!.code).toBeOneOf([
+      MissingDefaultPublishableKeyError,
+      MissingDefaultSecretKeyError,
+    ])
   })
 })

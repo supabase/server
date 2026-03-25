@@ -17,4 +17,18 @@ export type {
   UserClaims,
   WithSupabaseConfig,
 } from './types.js'
-export { AuthError, EnvError } from './errors.js'
+
+export {
+  AuthError,
+  AuthGenericError,
+  CreateSupabaseClientError,
+  EnvError,
+  EnvGenericError,
+  Errors,
+  InvalidCredentialsError,
+  MissingDefaultPublishableKeyError,
+  MissingDefaultSecretKeyError,
+  MissingPublishableKeyError,
+  MissingSecretKeyError,
+  MissingSupabaseURLError,
+} from './errors.js'

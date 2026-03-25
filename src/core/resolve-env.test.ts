@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveEnv } from './resolve-env.js'
+import { MissingSupabaseURLError } from '../errors.js'
 
 describe('resolveEnv', () => {
   afterEach(() => {
@@ -10,7 +11,7 @@ describe('resolveEnv', () => {
   it('returns error when SUPABASE_URL is missing', () => {
     const result = resolveEnv()
     expect(result.error).not.toBeNull()
-    expect(result.error!.code).toBe('MISSING_SUPABASE_URL')
+    expect(result.error!.code).toBe(MissingSupabaseURLError)
   })
 
   it('reads SUPABASE_URL from process.env', () => {

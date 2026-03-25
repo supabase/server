@@ -1,4 +1,9 @@
-import { AuthError, EnvError } from './errors.js'
+import {
+  AuthError,
+  CreateSupabaseClientError,
+  EnvError,
+  Errors,
+} from './errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 import { createAdminClient } from './core/create-admin-client.js'
 import { createContextClient } from './core/create-context-client.js'
@@ -19,7 +24,7 @@ import { verifyAuth } from './core/verify-auth.js'
  * ```ts
  * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
  * if (error) {
- *   return Response.json({ error: error.message }, { status: error.status })
+ *   return Response.json({ message: error.message }, { status: error.status })
  * }
  * const { data } = await ctx.supabase.rpc('get_my_items')
  * ```
@@ -67,7 +72,7 @@ export async function createSupabaseContext<Database = unknown>(
     const error =
       e instanceof EnvError
         ? new AuthError(e.message, e.code, 500)
-        : new AuthError('Failed to create Supabase client', 'CLIENT_ERROR', 500)
+        : Errors[CreateSupabaseClientError]()
     return { data: null, error }
   }
 }

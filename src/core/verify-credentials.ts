@@ -1,6 +1,6 @@
 import { createLocalJWKSet, jwtVerify } from 'jose'
 
-import { AuthError } from '../errors.js'
+import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
 import type {
   Allow,
   AllowWithKey,
@@ -203,7 +203,7 @@ async function tryMode(
  *   allow: ['user', 'public'],
  * })
  * if (error) {
- *   return Response.json({ error: error.message }, { status: error.status })
+ *   return Response.json({ message: error.message }, { status: error.status })
  * }
  * ```
  */
@@ -232,6 +232,6 @@ export async function verifyCredentials(
 
   return {
     data: null,
-    error: new AuthError('Invalid credentials', 'INVALID_CREDENTIALS', 401),
+    error: Errors[InvalidCredentialsError](),
   }
 }
