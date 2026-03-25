@@ -73,7 +73,7 @@ const EnvErrorMap = {
   [MissingDefaultPublishableKeyError]: () =>
     new EnvError(
       'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
-      MissingDefaultSecretKeyError,
+      MissingDefaultPublishableKeyError,
     ),
 }
 
