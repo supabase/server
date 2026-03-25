@@ -54,7 +54,7 @@ export class EnvError extends Error {
  * if (error) {
  *   // error is an AuthError
  *   return Response.json(
- *     { error: error.message, code: error.code },
+ *     { message: error.message, code: error.code },
  *     { status: error.status },
  *   )
  * }

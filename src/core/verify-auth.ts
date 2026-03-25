@@ -41,7 +41,7 @@ interface VerifyAuthOptions {
  * })
  *
  * if (error) {
- *   return Response.json({ error: error.message }, { status: error.status })
+ *   return Response.json({ message: error.message }, { status: error.status })
  * }
  *
  * console.log(auth.userClaims!.id) // "d0f1a2b3-..."

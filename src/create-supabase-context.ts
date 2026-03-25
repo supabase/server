@@ -19,7 +19,7 @@ import { verifyAuth } from './core/verify-auth.js'
  * ```ts
  * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
  * if (error) {
- *   return Response.json({ error: error.message }, { status: error.status })
+ *   return Response.json({ message: error.message }, { status: error.status })
  * }
  * const { data } = await ctx.supabase.rpc('get_my_items')
  * ```

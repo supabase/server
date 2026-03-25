@@ -43,7 +43,7 @@ export function withSupabase<Database = unknown>(
     )
     if (error) {
       return Response.json(
-        { error: error.message, code: error.code },
+        { message: error.message, code: error.code },
         {
           status: error.status,
           headers: config.cors !== false ? buildCorsHeaders(config.cors) : {},

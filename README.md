@@ -189,7 +189,7 @@ Extracts credentials from a Request and validates against the allow config.
 ```ts
 const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
 if (error) {
-  return Response.json({ error: error.message }, { status: error.status })
+  return Response.json({ message: error.message }, { status: error.status })
 }
 ```
 
@@ -246,7 +246,10 @@ export default {
     if (url.pathname === '/todos') {
       const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
       if (error)
-        return Response.json({ error: error.message }, { status: error.status })
+        return Response.json(
+          { message: error.message },
+          { status: error.status },
+        )
 
       const supabase = createContextClient(auth.token)
       const { data } = await supabase.from('todos').select()

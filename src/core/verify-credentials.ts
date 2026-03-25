@@ -203,7 +203,7 @@ async function tryMode(
  *   allow: ['user', 'public'],
  * })
  * if (error) {
- *   return Response.json({ error: error.message }, { status: error.status })
+ *   return Response.json({ message: error.message }, { status: error.status })
  * }
  * ```
  */
