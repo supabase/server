@@ -4,6 +4,26 @@ import { EnvError } from '../errors.js'
 import type { SupabaseEnv } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
 
+/**
+ * Creates a Supabase client scoped to the caller's context.
+ *
+ * Configured with a publishable key and (optionally) the caller's JWT,
+ * so Row-Level Security policies apply. Session persistence is disabled
+ * (stateless, one client per request).
+ *
+ * @param token - The caller's JWT, or `null` for anonymous access.
+ * @param env - Optional environment overrides (passed through to {@link resolveEnv}).
+ * @param keyName - Name of the publishable key to use. Falls back to `"default"`, then first available.
+ * @returns A configured {@link SupabaseClient} with RLS enforced.
+ * @throws {@link EnvError} If `SUPABASE_URL` is missing or the specified publishable key is not found.
+ *
+ * @example
+ * ```ts
+ * const { data: auth } = await verifyAuth(request, { allow: 'user' })
+ * const supabase = createContextClient(auth.token)
+ * const { data } = await supabase.rpc('get_my_items')
+ * ```
+ */
 export function createContextClient<Database = unknown>(
   token?: string | null,
   env?: Partial<SupabaseEnv>,

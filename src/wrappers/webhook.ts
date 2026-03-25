@@ -1,5 +1,24 @@
 const encoder = new TextEncoder()
 
+/**
+ * Verifies a webhook signature using HMAC-SHA256 with timing-safe comparison.
+ *
+ * @param payload - The raw request body as a string.
+ * @param signature - The hex-encoded signature from the webhook header.
+ * @param secret - The shared secret used to sign webhooks.
+ * @returns `true` if the signature is valid, `false` otherwise.
+ *
+ * @example
+ * ```ts
+ * const payload = await req.text()
+ * const signature = req.headers.get('x-webhook-signature') ?? ''
+ *
+ * const isValid = await verifyWebhookSignature(payload, signature, secret)
+ * if (!isValid) {
+ *   return Response.json({ error: 'Invalid signature' }, { status: 401 })
+ * }
+ * ```
+ */
 export async function verifyWebhookSignature(
   payload: string,
   signature: string,

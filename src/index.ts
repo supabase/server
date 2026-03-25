@@ -1,3 +1,8 @@
+/**
+ * Server-side Supabase utilities for modern runtimes.
+ * @packageDocumentation
+ */
+
 export { withSupabase } from './with-supabase.js'
 export { createSupabaseContext } from './create-supabase-context.js'
 export { resolveEnv } from './core/resolve-env.js'

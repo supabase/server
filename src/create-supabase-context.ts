@@ -4,6 +4,26 @@ import { createAdminClient } from './core/create-admin-client.js'
 import { createContextClient } from './core/create-context-client.js'
 import { verifyAuth } from './core/verify-auth.js'
 
+/**
+ * Creates a {@link SupabaseContext} directly from a request.
+ *
+ * Use this when you need the context without the full {@link withSupabase} wrapper —
+ * e.g., inside framework route handlers or custom middleware. Returns a result tuple
+ * instead of producing a `Response`.
+ *
+ * @param request - The incoming HTTP request.
+ * @param options - Auth modes, environment overrides. The `cors` option is ignored here.
+ * @returns `{ data: SupabaseContext, error: null }` on success, `{ data: null, error: AuthError }` on failure.
+ *
+ * @example
+ * ```ts
+ * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
+ * if (error) {
+ *   return Response.json({ error: error.message }, { status: error.status })
+ * }
+ * const { data } = await ctx.supabase.rpc('get_my_items')
+ * ```
+ */
 export async function createSupabaseContext<Database = unknown>(
   request: Request,
   options?: WithSupabaseConfig,

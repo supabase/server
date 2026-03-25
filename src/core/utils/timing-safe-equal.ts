@@ -1,5 +1,11 @@
 const encoder = new TextEncoder()
 
+/**
+ * Compares two strings in constant time to prevent timing attacks.
+ * Uses the double-HMAC technique with a random ephemeral key.
+ *
+ * @internal
+ */
 export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const key = crypto.getRandomValues(new Uint8Array(32))
   const cryptoKey = await crypto.subtle.importKey(

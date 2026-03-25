@@ -29,8 +29,8 @@ TBD
 1. Fork and clone the repository:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/edge-functions.git
-cd edge-functions
+git clone https://github.com/YOUR_USERNAME/server.git
+cd server
 ```
 
 2. Install dependencies:

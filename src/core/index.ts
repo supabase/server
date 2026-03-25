@@ -1,3 +1,8 @@
+/**
+ * Composable primitives for constructing a {@link SupabaseContext}.
+ * @packageDocumentation
+ */
+
 export { resolveEnv } from './resolve-env.js'
 export { extractCredentials } from './extract-credentials.js'
 export { verifyCredentials } from './verify-credentials.js'
