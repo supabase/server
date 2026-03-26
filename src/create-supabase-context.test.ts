@@ -122,4 +122,18 @@ describe('createSupabaseContext', () => {
       MissingDefaultSecretKeyError,
     ])
   })
+
+  it('passes supabaseOptions through to clients', async () => {
+    const req = new Request('http://localhost')
+    const result = await createSupabaseContext(req, {
+      allow: 'always',
+      env: baseEnv,
+      supabaseOptions: { db: { schema: 'api' } },
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data).not.toBeNull()
+    expect(result.data!.supabase).toBeDefined()
+    expect(result.data!.supabaseAdmin).toBeDefined()
+  })
 })
