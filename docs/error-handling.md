@@ -88,6 +88,7 @@ The Hono adapter throws an `HTTPException` when auth fails. Access the original 
 
 ```ts
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
