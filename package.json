@@ -45,7 +45,9 @@
   "types": "./dist/index.d.cts",
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "docs",
+    "SKILL.md"
   ],
   "engines": {
     "node": ">=20"

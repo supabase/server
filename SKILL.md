@@ -36,16 +36,21 @@ export default {
 }
 ```
 
-## Where to look
+## Documentation
 
-| Question                                                 | Doc                                                            |
-| -------------------------------------------------------- | -------------------------------------------------------------- |
-| How do I create a basic Edge Function?                   | [docs/getting-started.md](docs/getting-started.md)             |
-| What auth modes are available? Array syntax? Named keys? | [docs/auth-modes.md](docs/auth-modes.md)                       |
-| How do I use this with Hono?                             | [docs/hono-adapter.md](docs/hono-adapter.md)                   |
-| How do I use low-level primitives for custom flows?      | [docs/core-primitives.md](docs/core-primitives.md)             |
-| How do environment variables work across runtimes?       | [docs/environment-variables.md](docs/environment-variables.md) |
-| How do I handle errors? What codes exist?                | [docs/error-handling.md](docs/error-handling.md)               |
-| How do I verify webhook signatures?                      | [docs/webhooks.md](docs/webhooks.md)                           |
-| How do I get typed database queries?                     | [docs/typescript-generics.md](docs/typescript-generics.md)     |
-| What's the complete API surface?                         | [docs/api-reference.md](docs/api-reference.md)                 |
+The full documentation lives in the `docs/` directory of the `@supabase/server` package. To read a doc, find the package location first:
+
+- **If working inside the SDK repo:** `docs/` is at the project root.
+- **If the package is installed as a dependency:** look in `node_modules/@supabase/server/docs/`.
+
+| Question                                                 | Doc file                        |
+| -------------------------------------------------------- | ------------------------------- |
+| How do I create a basic Edge Function?                   | `docs/getting-started.md`       |
+| What auth modes are available? Array syntax? Named keys? | `docs/auth-modes.md`            |
+| How do I use this with Hono?                             | `docs/hono-adapter.md`          |
+| How do I use low-level primitives for custom flows?      | `docs/core-primitives.md`       |
+| How do environment variables work across runtimes?       | `docs/environment-variables.md` |
+| How do I handle errors? What codes exist?                | `docs/error-handling.md`        |
+| How do I verify webhook signatures?                      | `docs/webhooks.md`              |
+| How do I get typed database queries?                     | `docs/typescript-generics.md`   |
+| What's the complete API surface?                         | `docs/api-reference.md`         |
