@@ -233,50 +233,8 @@ export default {
 }
 ```
 
-## Full example: SSR adapter with cookie-extracted token
+## SSR frameworks (Next.js, Nuxt, SvelteKit, Remix)
 
-Using `verifyCredentials` when the JWT comes from a cookie instead of the `Authorization` header:
+In SSR frameworks, the JWT lives in session cookies rather than the `Authorization` header. Use `verifyCredentials` with a token extracted from cookies, then create clients as usual. This is the key primitive that enables SSR integration — it accepts pre-extracted credentials from any source.
 
-```ts
-import {
-  verifyCredentials,
-  createContextClient,
-  createAdminClient,
-} from '@supabase/server/core'
-
-function getTokenFromCookie(request: Request): string | null {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const match = cookie.match(/sb-access-token=([^;]+)/)
-  return match ? match[1] : null
-}
-
-export async function createServerContext(request: Request) {
-  const token = getTokenFromCookie(request)
-
-  const { data: auth, error } = await verifyCredentials(
-    { token, apikey: null },
-    { allow: 'user' },
-  )
-
-  if (error) {
-    return { auth: null, error }
-  }
-
-  const supabase = createContextClient({
-    auth: { token: auth!.token },
-  })
-  const supabaseAdmin = createAdminClient()
-
-  return {
-    auth: {
-      supabase,
-      supabaseAdmin,
-      userClaims: auth!.userClaims,
-      claims: auth!.claims,
-      authType: auth!.authType,
-    },
-    error: null,
-  }
-}
-```
+For a complete guide with cookie parsing, JWKS caching, env bridging, and full framework adapters, see [ssr-frameworks.md](ssr-frameworks.md).

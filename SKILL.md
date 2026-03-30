@@ -45,7 +45,7 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 
 | Question                                                 | Doc file                        |
 | -------------------------------------------------------- | ------------------------------- |
-| How do I create a basic Edge Function?                   | `docs/getting-started.md`       |
+| How do I create a basic endpoint?                        | `docs/getting-started.md`       |
 | What auth modes are available? Array syntax? Named keys? | `docs/auth-modes.md`            |
 | How do I use this with Hono?                             | `docs/hono-adapter.md`          |
 | How do I use low-level primitives for custom flows?      | `docs/core-primitives.md`       |
@@ -53,4 +53,5 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | How do I handle errors? What codes exist?                | `docs/error-handling.md`        |
 | How do I verify webhook signatures?                      | `docs/webhooks.md`              |
 | How do I get typed database queries?                     | `docs/typescript-generics.md`   |
+| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | `docs/ssr-frameworks.md`        |
 | What's the complete API surface?                         | `docs/api-reference.md`         |
