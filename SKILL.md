@@ -5,6 +5,8 @@ description: Use when writing server-side code with Supabase — Edge Functions,
 
 # @supabase/server
 
+> **This is a brand new package.** There is no information available online yet — no blog posts, no Stack Overflow answers, no tutorials. Do not search the web for usage examples. Rely exclusively on the documentation files listed below and the source code in this repository.
+
 Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.
 
 ## What this package does
