@@ -28,21 +28,47 @@ export default {
 
 ## Plural vs singular keys
 
-The SDK checks the plural form first (`SUPABASE_PUBLISHABLE_KEYS`), then falls back to the singular form (`SUPABASE_PUBLISHABLE_KEY`).
+The SDK checks the plural form first (`SUPABASE_PUBLISHABLE_KEYS`), then falls back to the singular form (`SUPABASE_PUBLISHABLE_KEY`). The same applies to secret keys.
 
-**Plural form** — a JSON object with named keys:
+### Plural form — named keys as a JSON object
+
+Use this when you have multiple keys for different clients (web, mobile, internal):
 
 ```
-SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_default_abc","web":"sb_publishable_web_xyz"}
+SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_default_abc","web":"sb_publishable_web_xyz","mobile":"sb_publishable_mobile_123"}
+SUPABASE_SECRET_KEYS={"default":"sb_secret_default_abc","internal":"sb_secret_internal_xyz"}
 ```
 
-**Singular form** — a single key value, stored internally as `{ default: "<value>" }`:
+You can then validate against specific keys with named key syntax:
+
+```ts
+// Only accept the "web" publishable key
+withSupabase({ allow: 'public:web' }, handler)
+
+// Accept any secret key
+withSupabase({ allow: 'secret:*' }, handler)
+```
+
+### Singular form — equivalent to a single "default" key
 
 ```
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_default_abc
+SUPABASE_SECRET_KEY=sb_secret_default_abc
 ```
 
-When both are set, the plural form takes priority.
+This is equivalent to setting the plural form with a single `"default"` entry:
+
+```
+# These two are the same:
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_default_abc
+SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_default_abc"}
+```
+
+The singular form is a convenience for the common case where you only have one key. The SDK stores it internally as `{ default: "<value>" }`, so `allow: 'public'` (which looks for the `"default"` key) works with both forms.
+
+### Priority
+
+When both singular and plural forms are set, the plural form takes priority.
 
 ## JWKS format
 
