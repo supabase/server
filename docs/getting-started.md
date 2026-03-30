@@ -25,7 +25,7 @@ pnpm add @supabase/supabase-js
 
 ## Your first authenticated endpoint
 
-The fastest way to get a working Edge Function with auth:
+The fastest way to get a working authenticated endpoint:
 
 ```ts
 import { withSupabase } from '@supabase/server'
@@ -37,6 +37,8 @@ export default {
   }),
 }
 ```
+
+> The `export default { fetch }` pattern is the standard module worker interface supported by Deno (including Supabase Edge Functions), Bun, and Cloudflare Workers. For Node.js, use the [Hono adapter](hono-adapter.md) or [core primitives](core-primitives.md) with your framework of choice.
 
 This single wrapper does four things for every request:
 
@@ -126,8 +128,13 @@ withSupabase(
 withSupabase({ allow: 'user', cors: false }, handler)
 ```
 
-## Deploying to Supabase Edge Functions
+## Runtimes
 
-On Supabase Edge Functions, environment variables (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`, `SUPABASE_JWKS`) are automatically available. No configuration needed — your function works out of the box.
+`withSupabase` and `createSupabaseContext` work with any runtime that supports the Web API `Request`/`Response` standard. The [core primitives](core-primitives.md) go further — they work in any environment where you can extract headers, regardless of the request/response model (Express, Fastify, etc.).
 
-For other runtimes (Node.js, Bun, Cloudflare Workers), see [environment-variables.md](environment-variables.md).
+- **Supabase Edge Functions** — environment variables are automatically injected by the platform. Zero config needed.
+- **Deno / Bun** — works out of the box with the module worker pattern.
+- **Node.js** — set variables via `.env` files or your hosting platform. Use the [Hono adapter](hono-adapter.md) or [core primitives](core-primitives.md) to integrate with any framework.
+- **Cloudflare Workers** — enable `nodejs_compat` or pass env overrides via the `env` config option.
+
+For full details on environment setup per runtime, see [environment-variables.md](environment-variables.md).

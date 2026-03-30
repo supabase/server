@@ -6,7 +6,7 @@ Use `withSupabase` or `createSupabaseContext` for standard use cases. Drop down 
 
 - Multiple routes with different auth in a single handler
 - Custom response headers or error formats
-- Integration with frameworks other than Hono
+- Integration with frameworks other than the ones provided
 - Pre-extracted credentials (e.g., from cookies, custom headers)
 - Just auth verification without client creation
 

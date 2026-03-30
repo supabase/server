@@ -57,13 +57,13 @@ export interface SupabaseEnv {
   url: string
 
   /**
-   * Named publishable (anon) keys. Sourced from `SUPABASE_PUBLISHABLE_KEYS` (JSON object)
+   * Named publishable keys. Sourced from `SUPABASE_PUBLISHABLE_KEYS` (JSON object)
    * or `SUPABASE_PUBLISHABLE_KEY` (single key, stored as `{ default: "<value>" }`).
    */
   publishableKeys: Record<string, string>
 
   /**
-   * Named secret (service-role) keys. Sourced from `SUPABASE_SECRET_KEYS` (JSON object)
+   * Named secret keys. Sourced from `SUPABASE_SECRET_KEYS` (JSON object)
    * or `SUPABASE_SECRET_KEY` (single key, stored as `{ default: "<value>" }`).
    */
   secretKeys: Record<string, string>

@@ -2,18 +2,18 @@
 
 ## Variables
 
-| Variable                    | Format                             | Description                                     |
-| --------------------------- | ---------------------------------- | ----------------------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                       |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable (anon) keys as JSON object    |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret (service-role) keys as JSON object |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification           |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)               |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                    |
+| Variable                    | Format                             | Description                           | Auto-injected in       |
+| --------------------------- | ---------------------------------- | ------------------------------------- | ---------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL             | Platform, Local CLI    |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | Platform               |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | Platform               |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | Platform, Local CLI    |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Local CLI, Self-hosted |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Local CLI, Self-hosted |
 
-## Supabase Edge Functions (zero config)
+## Supabase Platform (zero config)
 
-On Supabase Edge Functions, all environment variables are automatically injected. Your function works with no configuration:
+When running on the Supabase platform (Edge Functions) your function works with no configuration:
 
 ```ts
 import { withSupabase } from '@supabase/server'
@@ -62,7 +62,7 @@ When `SUPABASE_JWKS` is not set, JWT verification (`allow: 'user'`) is unavailab
 
 The SDK reads environment variables using this priority:
 
-1. `Deno.env.get(name)` — Deno runtime (Supabase Edge Functions)
+1. `Deno.env.get(name)` — Deno (including Supabase Edge Functions)
 2. `process.env[name]` — Node.js, Bun, Cloudflare Workers (with node-compat)
 
 ### Deno / Supabase Edge Functions

@@ -64,7 +64,7 @@ export default {
 The caller must send:
 
 ```
-apikey: sb_publishable_default_abc123...
+apikey: sb_publishable_abc123...
 ```
 
 By default, `public` mode validates against the `"default"` key in `SUPABASE_PUBLISHABLE_KEYS`. Use named key syntax to target a specific key (see below).
@@ -88,7 +88,7 @@ export default {
 The caller must send:
 
 ```
-apikey: sb_secret_default_xyz789...
+apikey: sb_secret_xyz789...
 ```
 
 ## Always mode
@@ -147,9 +147,9 @@ Keys are stored as a JSON object in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SEC
 
 ```json
 {
-  "default": "sb_publishable_default_...",
-  "web": "sb_publishable_web_...",
-  "mobile": "sb_publishable_mobile_..."
+  "default": "sb_publishable_123...",
+  "web": "sb_publishable_abc...",
+  "mobile": "sb_publishable_a1b2..."
 }
 ```
 

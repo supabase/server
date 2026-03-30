@@ -27,13 +27,13 @@ The function:
 3. Compares with the provided signature using timing-safe double-HMAC comparison
 4. Returns `true` if valid, `false` otherwise
 
-## Complete webhook Edge Function
+## Complete webhook handler
 
 ```ts
 import { withSupabase } from '@supabase/server'
 import { verifyWebhookSignature } from '@supabase/server/wrappers'
 
-const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!
 
 export default {
   fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
@@ -71,7 +71,7 @@ If you don't need Supabase clients:
 ```ts
 import { verifyWebhookSignature } from '@supabase/server/wrappers'
 
-const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!
 
 export default {
   fetch: async (req: Request) => {
