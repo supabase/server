@@ -76,7 +76,7 @@ export default {
       )
     }
 
-    const { data } = await ctx.supabase.from('todos').select()
+    const { data } = await ctx!.supabase.from('todos').select()
     return Response.json({ success: true, data })
   },
 }
@@ -130,11 +130,18 @@ if (envError) {
 Client factories throw — wrap them in try/catch:
 
 ```ts
-import { createContextClient, createAdminClient } from '@supabase/server/core'
+import {
+  verifyAuth,
+  createContextClient,
+  createAdminClient,
+} from '@supabase/server/core'
 import { EnvError } from '@supabase/server'
 
+const { data: auth, error } = await verifyAuth(request, { allow: 'user' })
+// ... handle error ...
+
 try {
-  const supabase = createContextClient({ auth: { token: auth.token } })
+  const supabase = createContextClient({ auth: { token: auth!.token } })
   const supabaseAdmin = createAdminClient()
 } catch (e) {
   if (e instanceof EnvError) {

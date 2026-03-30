@@ -97,7 +97,7 @@ export default {
       )
     }
 
-    const { data } = await ctx.supabase.from('todos').select()
+    const { data } = await ctx!.supabase.from('todos').select()
     return Response.json(data)
   },
 }

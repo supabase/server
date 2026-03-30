@@ -131,7 +131,7 @@ if (error) {
 }
 
 // With overrides
-const { data: env } = resolveEnv({
+const { data: envOverridden } = resolveEnv({
   url: 'http://localhost:54321',
   publishableKeys: { default: 'test-key' },
 })

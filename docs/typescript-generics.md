@@ -43,20 +43,28 @@ const { data: ctx, error } = await createSupabaseContext<Database>(request, {
   allow: 'user',
 })
 
-if (!error) {
-  // ctx.supabase and ctx.supabaseAdmin are both SupabaseClient<Database>
-  const { data } = await ctx.supabase.from('profiles').select('id, email')
+if (error) {
+  throw error
 }
+
+// ctx.supabase and ctx.supabaseAdmin are both SupabaseClient<Database>
+const { data } = await ctx!.supabase.from('profiles').select('id, email')
 ```
 
 ## Using with core primitives
 
 ```ts
-import { createContextClient, createAdminClient } from '@supabase/server/core'
+import {
+  verifyAuth,
+  createContextClient,
+  createAdminClient,
+} from '@supabase/server/core'
 import type { Database } from './database.types.ts'
 
+const { data: auth } = await verifyAuth(request, { allow: 'user' })
+
 const supabase = createContextClient<Database>({
-  auth: { token: auth.token },
+  auth: { token: auth!.token },
 })
 
 const supabaseAdmin = createAdminClient<Database>()

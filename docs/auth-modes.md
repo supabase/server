@@ -21,13 +21,13 @@ import { withSupabase } from '@supabase/server'
 export default {
   fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
     // ctx.userClaims has the caller's identity
-    console.log(ctx.userClaims.id) // "d0f1a2b3-..."
-    console.log(ctx.userClaims.email) // "user@example.com"
-    console.log(ctx.userClaims.role) // "authenticated"
+    console.log(ctx.userClaims!.id) // "d0f1a2b3-..."
+    console.log(ctx.userClaims!.email) // "user@example.com"
+    console.log(ctx.userClaims!.role) // "authenticated"
 
     // ctx.claims has the raw JWT payload
-    console.log(ctx.claims.sub) // same as userClaims.id
-    console.log(ctx.claims.exp) // token expiration (epoch seconds)
+    console.log(ctx.claims!.sub) // same as userClaims.id
+    console.log(ctx.claims!.exp) // token expiration (epoch seconds)
 
     // ctx.supabase is scoped to this user — RLS applies
     const { data } = await ctx.supabase.from('todos').select()

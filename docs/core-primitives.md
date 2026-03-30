@@ -42,9 +42,12 @@ if (error) {
   // error is an EnvError — e.g., SUPABASE_URL not set
   console.error(error.message)
 }
+```
 
-// With partial overrides
-const { data: env } = resolveEnv({
+With partial overrides:
+
+```ts
+const { data: envOverridden } = resolveEnv({
   url: 'http://localhost:54321',
 })
 ```
@@ -81,8 +84,8 @@ if (error) {
   return Response.json({ message: error.message }, { status: error.status })
 }
 
-console.log(auth.authType) // 'user'
-console.log(auth.userClaims) // { id: '...', email: '...', role: 'authenticated' }
+console.log(auth!.authType) // 'user'
+console.log(auth!.userClaims) // { id: '...', email: '...', role: 'authenticated' }
 ```
 
 Supports all auth mode syntax — single mode, arrays, and named keys:
@@ -128,15 +131,18 @@ console.log(auth.token) // the verified JWT string
 Creates a Supabase client scoped to the caller's identity. RLS policies apply.
 
 ```ts
-import { createContextClient } from '@supabase/server/core'
+import { verifyAuth, createContextClient } from '@supabase/server/core'
 
 // With a user's token (from verifyAuth)
+const { data: auth } = await verifyAuth(request, { allow: 'user' })
 const supabase = createContextClient({
-  auth: { token: auth.token, keyName: auth.keyName },
+  auth: { token: auth!.token, keyName: auth!.keyName },
 })
+```
 
+```ts
 // Anonymous (no token) — RLS as anon role
-const supabase = createContextClient()
+const anonClient = createContextClient()
 ```
 
 The client is configured with:
@@ -155,9 +161,11 @@ Creates a Supabase client that bypasses Row-Level Security using a secret key.
 import { createAdminClient } from '@supabase/server/core'
 
 const supabaseAdmin = createAdminClient()
+```
 
+```ts
 // With a specific named key
-const supabaseAdmin = createAdminClient({
+const supabaseAdminInternal = createAdminClient({
   auth: { keyName: 'internal' },
 })
 ```
@@ -195,7 +203,7 @@ export default {
       }
 
       const supabase = createContextClient({
-        auth: { token: auth.token, keyName: auth.keyName },
+        auth: { token: auth!.token, keyName: auth!.keyName },
       })
       const { data } = await supabase.from('todos').select()
       return Response.json(data)
@@ -214,7 +222,7 @@ export default {
       }
 
       const supabaseAdmin = createAdminClient({
-        auth: { keyName: auth.keyName },
+        auth: { keyName: auth!.keyName },
       })
       const { data } = await supabaseAdmin.from('profiles').select()
       return Response.json(data)
@@ -256,7 +264,7 @@ export async function createServerContext(request: Request) {
   }
 
   const supabase = createContextClient({
-    auth: { token: auth.token },
+    auth: { token: auth!.token },
   })
   const supabaseAdmin = createAdminClient()
 
@@ -264,9 +272,9 @@ export async function createServerContext(request: Request) {
     auth: {
       supabase,
       supabaseAdmin,
-      userClaims: auth.userClaims,
-      claims: auth.claims,
-      authType: auth.authType,
+      userClaims: auth!.userClaims,
+      claims: auth!.claims,
+      authType: auth!.authType,
     },
     error: null,
   }
