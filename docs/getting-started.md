@@ -3,14 +3,15 @@
 ## Installation
 
 ```bash
+# Deno (import directly)
+import { withSupabase } from 'npm:@supabase/server'
+
 # npm
 npm install @supabase/server
 
 # pnpm
 pnpm add @supabase/server
 
-# Deno (import directly)
-import { withSupabase } from 'npm:@supabase/server'
 ```
 
 `@supabase/server` requires `@supabase/supabase-js` as a peer dependency:
