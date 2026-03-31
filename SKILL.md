@@ -18,14 +18,55 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 ## Entry points
 
-| Import                           | Provides                                                                                                          |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
-| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
-| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
-| `@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
+| Import                           | Deno / Edge Functions                | Provides                                                                                                          |
+| -------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
+| `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
+| `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
+| `@supabase/server/wrappers`      | `npm:@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
 
-## Quick example
+## Quick starts
+
+### Supabase Edge Functions (Deno)
+
+Environment variables are auto-injected by the platform — zero config. **All imports must use the `npm:` specifier.**
+
+```ts
+// withSupabase — high-level wrapper
+import { withSupabase } from 'npm:@supabase/server'
+
+export default {
+  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+    const { data } = await ctx.supabase.from('todos').select()
+    return Response.json(data)
+  }),
+}
+```
+
+```ts
+// createSupabaseContext — returns { data, error } for custom response control
+import { createSupabaseContext } from 'npm:@supabase/server'
+
+export default {
+  fetch: async (req: Request) => {
+    const { data: ctx, error } = await createSupabaseContext(req, {
+      allow: 'user',
+    })
+    if (error) {
+      return Response.json(
+        { message: error.message, code: error.code },
+        { status: error.status },
+      )
+    }
+    const { data } = await ctx.supabase.from('todos').select()
+    return Response.json(data)
+  },
+}
+```
+
+### Cloudflare Workers
+
+Requires `nodejs_compat` compatibility flag in `wrangler.toml`, or pass env overrides via the `env` config option. See `docs/environment-variables.md`.
 
 ```ts
 import { withSupabase } from '@supabase/server'
@@ -36,6 +77,57 @@ export default {
     return Response.json(data)
   }),
 }
+```
+
+### Hono
+
+CORS is not handled by the adapter — use `hono/cors` middleware. See `docs/hono-adapter.md`.
+
+```ts
+// Node.js / Bun
+import { Hono } from 'hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
+
+const app = new Hono()
+app.use('*', withSupabase({ allow: 'user' }))
+
+app.get('/todos', async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data } = await supabase.from('todos').select()
+  return c.json(data)
+})
+
+export default app
+```
+
+```ts
+// Deno / Supabase Edge Functions
+import { Hono } from 'npm:hono'
+import { withSupabase } from 'npm:@supabase/server/adapters/hono'
+
+const app = new Hono()
+app.use('*', withSupabase({ allow: 'user' }))
+
+app.get('/todos', async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data } = await supabase.from('todos').select()
+  return c.json(data)
+})
+
+export default { fetch: app.fetch }
+```
+
+### SSR Frameworks (Next.js, Nuxt, SvelteKit, Remix)
+
+In SSR frameworks the JWT lives in session cookies, not the `Authorization` header. Use `@supabase/server/core` primitives to build a framework adapter. The pattern: extract token from cookies, call `verifyCredentials`, then `createContextClient`. See `docs/ssr-frameworks.md` for the full adapter pattern.
+
+```ts
+// Key imports for building the adapter
+import {
+  verifyCredentials,
+  createContextClient,
+  createAdminClient,
+} from '@supabase/server/core'
 ```
 
 ## Documentation
