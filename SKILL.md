@@ -390,3 +390,4 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | How do I get typed database queries?                     | `docs/typescript-generics.md`   |
 | How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | `docs/ssr-frameworks.md`        |
 | What's the complete API surface?                         | `docs/api-reference.md`         |
+| What security decisions does this package make?          | `docs/security.md`              |
