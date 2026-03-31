@@ -136,6 +136,13 @@ Array syntax (`allow: ["user", "secret"]`) accepts multiple auth methods — fir
 
 Named key validation: `allow: "public:web_app"` or `allow: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
 
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+>
+> ```toml
+> [functions.my-function]
+> verify_jwt = false
+> ```
+
 ## Context
 
 Every handler receives a `SupabaseContext`:

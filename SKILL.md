@@ -35,6 +35,15 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 ## Quick starts
 
+> **Supabase Edge Functions: disable `verify_jwt` for non-user auth.** By default, Supabase Edge Functions require a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, you must disable the platform-level JWT check in `supabase/config.toml`, otherwise the request will be rejected before it reaches your handler:
+>
+> ```toml
+> [functions.my-function]
+> verify_jwt = false
+> ```
+>
+> Functions using `allow: 'user'` can leave `verify_jwt` enabled (the default) since callers already provide a valid JWT.
+
 ### Supabase Edge Functions (Deno)
 
 Environment variables are auto-injected by the platform — zero config. **All imports must use the `npm:` specifier.**
