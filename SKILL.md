@@ -31,7 +31,6 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 | -------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
 | `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
-| `@supabase/server/wrappers`      | `npm:@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
 | `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
 
 ## Quick starts
@@ -342,31 +341,6 @@ export default {
       }
     }
 
-    return Response.json({ received: true })
-  }),
-}
-```
-
-### Generic webhook with signature verification
-
-For webhook providers that send a plain HMAC-SHA256 hex signature, use `verifyWebhookSignature` from `@supabase/server/wrappers`:
-
-```ts
-import { withSupabase } from 'npm:@supabase/server'
-import { verifyWebhookSignature } from 'npm:@supabase/server/wrappers'
-
-export default {
-  fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
-    const payload = await req.text()
-    const signature = req.headers.get('x-webhook-signature') ?? ''
-    const secret = Deno.env.get('WEBHOOK_SECRET')!
-
-    if (!(await verifyWebhookSignature(payload, signature, secret))) {
-      return Response.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-
-    const event = JSON.parse(payload)
-    // Handle the event using ctx.supabaseAdmin for DB operations
     return Response.json({ received: true })
   }),
 }
