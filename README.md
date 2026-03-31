@@ -22,11 +22,22 @@ One import. One line of config. Auth is validated, clients are scoped, CORS is h
 ## Installation
 
 ```bash
-# Deno
-import { withSupabase } from "npm:@supabase/server";
-
 # npm
+npm install @supabase/server
+
+# pnpm
 pnpm add @supabase/server
+
+# Deno / Supabase Edge Functions (no install — import directly)
+import { withSupabase } from "npm:@supabase/server";
+```
+
+### AI coding skills
+
+Install the skill so your AI coding agent (Claude Code, Cursor, etc.) knows how to use this package:
+
+```bash
+npx skills add supabase/server
 ```
 
 ## Quick Start
@@ -84,6 +95,34 @@ export default {
 }
 ```
 
+### Server-to-server
+
+```ts
+// Only accept the "automations" named secret key
+export default {
+  fetch: withSupabase({ allow: 'secret:automations' }, async (req, ctx) => {
+    const body = await req.json()
+    const { data } = await ctx.supabaseAdmin
+      .from('scheduled_tasks')
+      .insert({ name: body.taskName })
+    return Response.json({ success: true, data })
+  }),
+}
+```
+
+The caller sends the secret key in the `apikey` header:
+
+```ts
+await fetch('https://<project>.supabase.co/functions/v1/my-function', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    apikey: 'sb_secret_...', // the "automations" secret key
+  },
+  body: JSON.stringify({ taskName: 'cleanup' }),
+})
+```
+
 ## Auth Modes
 
 | Mode               | Credential            | Use case                                            |
@@ -95,7 +134,14 @@ export default {
 
 Array syntax (`allow: ["user", "secret"]`) accepts multiple auth methods — first match wins.
 
-Named key validation: `allow: "public:web_app"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS`.
+Named key validation: `allow: "public:web_app"` or `allow: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
+
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+>
+> ```toml
+> [functions.my-function]
+> verify_jwt = false
+> ```
 
 ## Context
 
@@ -281,7 +327,15 @@ Also supported (for local dev, self-hosted, or other runtimes):
 
 When both singular and plural forms are set, plural takes priority.
 
-For other environments, pass overrides via the `env` config option or `resolveEnv()`.
+For other environments, pass overrides via the `env` config option or `resolveEnv()`. See [`docs/environment-variables.md`](docs/environment-variables.md) for details.
+
+## Runtimes
+
+- **Supabase Edge Functions** — environment variables are auto-injected. Zero config.
+- **Deno / Bun** — works out of the box with the `export default { fetch }` pattern.
+- **Node.js** — use the [Hono adapter](#hono) or [core primitives](#primitives) with your framework of choice.
+- **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
+- **Next.js / Nuxt / SvelteKit / Remix** — use core primitives to build a cookie-based auth adapter. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
 
 ## Exports
 
@@ -289,8 +343,21 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
 | `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
 | `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
+
+## Documentation
+
+| Question                                                 | Doc file                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| How do I create a basic endpoint?                        | [`docs/getting-started.md`](docs/getting-started.md)             |
+| What auth modes are available? Array syntax? Named keys? | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
+| How do I use this with Hono?                             | [`docs/hono-adapter.md`](docs/hono-adapter.md)                   |
+| How do I use low-level primitives for custom flows?      | [`docs/core-primitives.md`](docs/core-primitives.md)             |
+| How do environment variables work across runtimes?       | [`docs/environment-variables.md`](docs/environment-variables.md) |
+| How do I handle errors? What codes exist?                | [`docs/error-handling.md`](docs/error-handling.md)               |
+| How do I get typed database queries?                     | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
+| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
+| What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                 |
 
 ## Development
 

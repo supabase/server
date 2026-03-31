@@ -1,0 +1,185 @@
+# Hono Adapter
+
+## Setup
+
+Install Hono as a peer dependency:
+
+```bash
+pnpm add hono
+```
+
+The adapter exports its own `withSupabase` that returns Hono middleware instead of a fetch handler.
+
+## Basic app with auth
+
+```ts
+import { Hono } from 'hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
+
+const app = new Hono()
+
+// Apply auth to all routes
+app.use('*', withSupabase({ allow: 'user' }))
+
+app.get('/todos', async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data } = await supabase.from('todos').select()
+  return c.json(data)
+})
+
+app.get('/profile', async (c) => {
+  const { supabase, userClaims } = c.var.supabaseContext
+  const { data } = await supabase
+    .from('profiles')
+    .select()
+    .eq('id', userClaims!.id)
+  return c.json(data)
+})
+
+export default { fetch: app.fetch }
+```
+
+The context is stored in `c.var.supabaseContext` and contains the same `SupabaseContext` fields as the main `withSupabase` wrapper: `supabase`, `supabaseAdmin`, `userClaims`, `claims`, and `authType`.
+
+## Per-route auth
+
+Apply different auth modes to different routes by using the middleware inline:
+
+```ts
+import { Hono } from 'hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
+
+const app = new Hono()
+
+// Public route — no auth
+app.get('/health', (c) => c.json({ status: 'ok' }))
+
+// User-authenticated route
+app.get('/todos', withSupabase({ allow: 'user' }), async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data } = await supabase.from('todos').select()
+  return c.json(data)
+})
+
+// Secret-key-protected admin route
+app.post('/admin/sync', withSupabase({ allow: 'secret' }), async (c) => {
+  const { supabaseAdmin } = c.var.supabaseContext
+  const { data } = await supabaseAdmin
+    .from('audit_log')
+    .insert({ action: 'sync' })
+  return c.json(data)
+})
+
+// Dual auth — users or services
+app.get('/reports', withSupabase({ allow: ['user', 'secret'] }), async (c) => {
+  const { supabase, authType } = c.var.supabaseContext
+  return c.json({ authType })
+})
+
+export default { fetch: app.fetch }
+```
+
+## Skip behavior
+
+If a previous middleware already set `c.var.supabaseContext`, subsequent `withSupabase` calls skip auth. This enables a pattern where route-level middleware overrides the app-wide default:
+
+```ts
+const app = new Hono()
+
+// App-wide: require user auth
+app.use('*', withSupabase({ allow: 'user' }))
+
+// This route needs secret auth instead.
+// The route-level middleware runs first, sets the context,
+// and the app-wide middleware skips.
+app.post('/webhook', withSupabase({ allow: 'secret' }), async (c) => {
+  const { supabaseAdmin } = c.var.supabaseContext
+  // ...
+})
+```
+
+## CORS
+
+The Hono adapter does not handle CORS — the `cors` option is excluded from its config type. Use Hono's built-in CORS middleware:
+
+```ts
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { withSupabase } from '@supabase/server/adapters/hono'
+
+const app = new Hono()
+
+app.use('*', cors())
+app.use('*', withSupabase({ allow: 'user' }))
+
+app.get('/todos', async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data } = await supabase.from('todos').select()
+  return c.json(data)
+})
+
+export default { fetch: app.fetch }
+```
+
+## Error handling
+
+When auth fails, the adapter throws a Hono `HTTPException`. The original `AuthError` is available via `cause`:
+
+```ts
+import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
+import { withSupabase } from '@supabase/server/adapters/hono'
+import { AuthError } from '@supabase/server'
+
+const app = new Hono()
+
+app.use('*', withSupabase({ allow: 'user' }))
+
+// Custom error handler
+app.onError((err, c) => {
+  if (err instanceof HTTPException && err.cause instanceof AuthError) {
+    const authError = err.cause
+    return c.json(
+      { error: authError.message, code: authError.code },
+      authError.status as 401 | 500,
+    )
+  }
+  return c.json({ error: 'Internal server error' }, 500)
+})
+
+app.get('/todos', async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data } = await supabase.from('todos').select()
+  return c.json(data)
+})
+
+export default { fetch: app.fetch }
+```
+
+## Environment overrides
+
+Pass `env` to override auto-detected environment variables, same as the main wrapper:
+
+```ts
+app.use(
+  '*',
+  withSupabase({
+    allow: 'user',
+    env: { url: 'http://localhost:54321' },
+  }),
+)
+```
+
+## Supabase client options
+
+Forward options to the underlying `createClient()` calls:
+
+```ts
+app.use(
+  '*',
+  withSupabase({
+    allow: 'user',
+    supabaseOptions: { db: { schema: 'api' } },
+  }),
+)
+```
