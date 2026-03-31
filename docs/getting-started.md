@@ -62,6 +62,13 @@ export default {
 }
 ```
 
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+>
+> ```toml
+> [functions.my-function]
+> verify_jwt = false
+> ```
+
 ## What's in the context
 
 Every handler receives a `SupabaseContext` with these fields:

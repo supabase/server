@@ -11,6 +11,14 @@ Every request is validated against one or more auth modes before your handler ru
 | `'secret'` | Valid secret key in `apikey` header          | Server-to-server, internal calls       |
 | `'always'` | None                                         | Open endpoints, custom auth wrappers   |
 
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request same as `'user'`.
+> If your function uses `'public'`, `'secret'` or `'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+>
+> ```toml
+> [functions.my-function]
+> verify_jwt = false
+> ```
+
 ## User mode
 
 The default. Verifies the JWT using your project's JWKS (JSON Web Key Set).
