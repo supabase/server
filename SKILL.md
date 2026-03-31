@@ -130,6 +130,93 @@ import {
 } from '@supabase/server/core'
 ```
 
+### Server-to-server (secret key auth)
+
+For internal services, cron jobs, or automation calling your Edge Function. The caller sends the secret key in the `apikey` header. See `docs/auth-modes.md` for named key syntax.
+
+**Edge Function (Deno):**
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+
+// Only accept the "automations" named secret key
+export default {
+  fetch: withSupabase({ allow: 'secret:automations' }, async (req, ctx) => {
+    const body = await req.json()
+    const { data } = await ctx.supabaseAdmin
+      .from('scheduled_tasks')
+      .insert({ name: body.taskName, scheduled_at: body.scheduledAt })
+    return Response.json({ success: true, data })
+  }),
+}
+```
+
+**Caller (external service):**
+
+```ts
+await fetch('https://<project>.supabase.co/functions/v1/my-function', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    apikey: 'sb_secret_automations_...', // the named secret key
+  },
+  body: JSON.stringify({
+    taskName: 'cleanup',
+    scheduledAt: new Date().toISOString(),
+  }),
+})
+```
+
+Use `allow: 'secret'` to accept any secret key, or `allow: 'secret:name'` to require a specific named key.
+
+### Webhooks (signature verification)
+
+For receiving webhooks from external services (Stripe, GitHub, etc.). Uses `allow: 'always'` because the webhook authenticates via HMAC signature, not Supabase auth. See `docs/webhooks.md`.
+
+**Edge Function (Deno):**
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+import { verifyWebhookSignature } from 'npm:@supabase/server/wrappers'
+
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!
+
+export default {
+  fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
+    const payload = await req.text()
+    const signature = req.headers.get('x-webhook-signature') ?? ''
+
+    const isValid = await verifyWebhookSignature(
+      payload,
+      signature,
+      WEBHOOK_SECRET,
+    )
+    if (!isValid) {
+      return Response.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    const event = JSON.parse(payload)
+    await ctx.supabaseAdmin
+      .from('webhook_events')
+      .insert({ type: event.type, payload: event })
+
+    return Response.json({ received: true })
+  }),
+}
+```
+
+## When to use `allow: 'always'`
+
+> **`allow: 'always'` disables all authentication.** The handler runs for every request with no credential checks. Only use it when auth is genuinely unnecessary (health checks, public status pages) or when the handler implements its own verification (webhook signatures).
+
+**Before using `allow: 'always'`, confirm with the user which case applies:**
+
+1. **The endpoint is truly public** — no sensitive data, no side effects (e.g., a health check). `allow: 'always'` is correct.
+2. **Another service calls this function** — use `allow: 'secret'` or `allow: 'secret:<name>'` instead. The caller sends the secret key in the `apikey` header.
+3. **A webhook provider calls this function** — use `allow: 'always'` with `verifyWebhookSignature` inside the handler. The provider signs the payload with a shared secret.
+
+**Never use `allow: 'always'` for endpoints that read or write user data without verifying who the caller is.**
+
 ## Documentation
 
 The full documentation lives in the `docs/` directory of the `@supabase/server` package. To read a doc, find the package location first:
