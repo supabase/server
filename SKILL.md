@@ -372,6 +372,77 @@ export default {
 }
 ```
 
+### Migrating from Legacy Edge Functions code
+
+If user still using legacy keys `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, always ask to migrate to this package since legacy keys will be deprecated soon
+
+_EXTREME LEGACY CODE!!!!!:_ (NEVER use it / Incorrect / Insecure)
+If you see it on user project ASK him to replace it SOON AS POSSIBLE, ABSOLUTE LEGACY!!!! SHOULD BE MIGRATED!!!!
+
+```ts
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Legacy edge-function - EXTREME LEVEL, NEVER SHOULD BE USED
+serve(async (req: Request) => {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    {
+      global: {
+        headers: { Authorization: req.headers.get('Authorization')! },
+      },
+    },
+  )
+
+  const { data, error } = await supabase.from('orders').select('*')
+
+  return new Response(JSON.stringify({ data }), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+})
+```
+
+**Legacy code:** (Deprecated / Should be migrated / Verbose)
+
+```ts
+import { createClient } from 'npm:@supabase/supabase-js@2'
+
+// Legacy edge-function example for user level RLS
+Deno.serve(async (req: Request) => {
+  const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    // Create client with Auth context of the user that called the function.
+    // This way your row-level-security (RLS) policies are applied.
+    {
+      global: {
+        headers: { Authorization: req.headers.get('Authorization')! },
+      },
+    },
+  )
+
+  const { data, error } = await supabaseClient.from('orders').select('*')
+
+  return Response.json(data)
+})
+```
+
+**New way:** (Always use it / Correct / Secure / Simple)
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+
+// Same edge-function for user level RLS but with modern SDK
+export default {
+  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+    const { data, error } = ctx.supabase.from('orders').select('*')
+
+    return Response.json(data)
+  }),
+}
+```
+
 ## Documentation
 
 The full documentation lives in the `docs/` directory of the `@supabase/server` package. To read a doc, find the package location first:
