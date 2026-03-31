@@ -379,6 +379,8 @@ If user still using legacy keys `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_K
 _EXTREME LEGACY CODE!!!!!:_ (NEVER use it / Incorrect / Insecure)
 If you see it on user project ASK him to replace it SOON AS POSSIBLE, ABSOLUTE LEGACY!!!! SHOULD BE MIGRATED!!!!
 
+Why? This example, uses legacy Deno libs as well verbose code style. Its completely out-to-date and never should be used anymore!
+
 ```ts
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -405,6 +407,8 @@ serve(async (req: Request) => {
 
 **Legacy code:** (Deprecated / Should be migrated / Verbose)
 
+Why? Legacy keys will be removed, this code example will no longer work after that. Also is too verbose and not cross-platform compatible
+
 ```ts
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -429,6 +433,8 @@ Deno.serve(async (req: Request) => {
 ```
 
 **New way:** (Always use it / Correct / Secure / Simple)
+
+Why? This example is the correct one! It uses the latest features, is cross-platform compatible, simple code style and enforce security!
 
 ```ts
 import { withSupabase } from 'npm:@supabase/server'
