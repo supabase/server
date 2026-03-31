@@ -327,7 +327,7 @@ Also supported (for local dev, self-hosted, or other runtimes):
 
 When both singular and plural forms are set, plural takes priority.
 
-For other environments, pass overrides via the `env` config option or `resolveEnv()`.
+For other environments, pass overrides via the `env` config option or `resolveEnv()`. See [`docs/environment-variables.md`](docs/environment-variables.md) for details.
 
 ## Runtimes
 

@@ -1,29 +1,36 @@
 # Environment Variables
 
-## Variables
+## Supabase environments (zero config)
 
-| Variable                    | Format                             | Description                           | Auto-injected in       |
-| --------------------------- | ---------------------------------- | ------------------------------------- | ---------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL             | Platform, Local CLI    |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | Platform               |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | Platform               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | Platform, Local CLI    |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Local CLI, Self-hosted |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Local CLI, Self-hosted |
+On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed.
 
-## Supabase Platform (zero config)
+| Variable                    | Format                             | Description                           | Available in                         |
+| --------------------------- | ---------------------------------- | ------------------------------------- | ------------------------------------ |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL             | All                                  |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | Platform                             |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | Platform                             |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | Platform                             |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Local Development (CLI), Self-hosted |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Local Development (CLI), Self-hosted |
 
-When running on the Supabase platform (Edge Functions) your function works with no configuration:
+## Non-Supabase environments (Node.js, Bun, Cloudflare, self-hosted)
 
-```ts
-import { withSupabase } from '@supabase/server'
+Set these based on which auth modes your app uses:
 
-export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
-    const { data } = await ctx.supabase.from('todos').select()
-    return Response.json(data)
-  }),
-}
+| Variable                   | Required when                              |
+| -------------------------- | ------------------------------------------ |
+| `SUPABASE_URL`             | Always                                     |
+| `SUPABASE_SECRET_KEY`      | `allow: 'secret'` or using `supabaseAdmin` |
+| `SUPABASE_PUBLISHABLE_KEY` | `allow: 'public'`                          |
+| `SUPABASE_JWKS`            | `allow: 'user'` (JWT verification)         |
+
+### Minimal `.env` example
+
+```env
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_...
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_JWKS={"keys":[...]}
 ```
 
 ## Plural vs singular keys

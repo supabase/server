@@ -31,6 +31,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 | -------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
 | `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
+| `@supabase/server/wrappers`      | `npm:@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
 | `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
 
 ## Quick starts
@@ -196,6 +197,180 @@ Use `allow: 'secret'` to accept any secret key, or `allow: 'secret:name'` to req
 - **An external webhook provider calls this function** — use `allow: 'secret'` and have the provider send the secret key, or implement the provider's own signature verification inside the handler.
 
 **Never use `allow: 'always'` for endpoints that read or write user data without verifying who the caller is.**
+
+## Edge Function recipes
+
+### Function-to-function calls
+
+One Edge Function can call another using the admin client. The called function uses `allow: 'secret'` and the caller invokes it via `ctx.supabaseAdmin.functions.invoke()`.
+
+**Config** (`supabase/config.toml`):
+
+```toml
+[functions.process-order]
+verify_jwt = false  # called with secret key, not a user JWT
+```
+
+**Called function** (`supabase/functions/process-order/index.ts`):
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+
+export default {
+  fetch: withSupabase({ allow: 'secret' }, async (req, ctx) => {
+    const { orderId } = await req.json()
+    const { data } = await ctx.supabaseAdmin
+      .from('orders')
+      .update({ status: 'processing' })
+      .eq('id', orderId)
+      .select()
+      .single()
+    return Response.json(data)
+  }),
+}
+```
+
+**Calling function** (`supabase/functions/checkout/index.ts`):
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+
+export default {
+  fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
+    const { orderId } = await req.json()
+
+    // Calls process-order with the secret key automatically
+    const { data, error } = await ctx.supabaseAdmin.functions.invoke(
+      'process-order',
+      { body: { orderId } },
+    )
+
+    if (error) {
+      return Response.json({ error: error.message }, { status: 500 })
+    }
+    return Response.json(data)
+  }),
+}
+```
+
+### Calling from database with pg_net
+
+Use `pg_net` to call Edge Functions directly from SQL. The secret key is stored in Vault so it never appears in queries.
+
+**Prerequisites:**
+
+```sql
+-- 1. Enable the pg_net extension
+create extension if not exists pg_net with schema extensions;
+
+-- 2. Store your secret key in Vault
+select vault.create_secret(
+  'sb_secret_...',        -- your secret key value
+  'supabase_secret_key'   -- a name to reference it by
+);
+```
+
+**Call the function:**
+
+```sql
+select net.http_post(
+  url := 'https://<project-ref>.supabase.co/functions/v1/process-order',
+  headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'apikey', (
+      select decrypted_secret
+      from vault.decrypted_secrets
+      where name = 'supabase_secret_key'
+    )
+  ),
+  body := jsonb_build_object('orderId', 'order_123')
+);
+```
+
+The receiving function uses `allow: 'secret'` (see example above). `pg_net` is asynchronous — the HTTP request is queued and executed in the background. Check `net._http_response` for results.
+
+### Stripe webhook
+
+External webhook providers like Stripe cannot send your Supabase API keys. Use `allow: 'always'` to skip credential checks, then verify the webhook signature inside the handler.
+
+**Config** (`supabase/config.toml`):
+
+```toml
+[functions.stripe-webhook]
+verify_jwt = false
+```
+
+**Set secrets:**
+
+```bash
+supabase secrets set STRIPE_SECRET_KEY=sk_live_...
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+**Function** (`supabase/functions/stripe-webhook/index.ts`):
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+import Stripe from 'npm:stripe'
+
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!)
+
+export default {
+  fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
+    const body = await req.text()
+    const sig = req.headers.get('stripe-signature')!
+
+    let event: Stripe.Event
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        sig,
+        Deno.env.get('STRIPE_WEBHOOK_SECRET')!,
+      )
+    } catch {
+      return Response.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        await ctx.supabaseAdmin
+          .from('orders')
+          .update({ status: 'paid' })
+          .eq('stripe_session_id', session.id)
+        break
+      }
+    }
+
+    return Response.json({ received: true })
+  }),
+}
+```
+
+### Generic webhook with signature verification
+
+For webhook providers that send a plain HMAC-SHA256 hex signature, use `verifyWebhookSignature` from `@supabase/server/wrappers`:
+
+```ts
+import { withSupabase } from 'npm:@supabase/server'
+import { verifyWebhookSignature } from 'npm:@supabase/server/wrappers'
+
+export default {
+  fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
+    const payload = await req.text()
+    const signature = req.headers.get('x-webhook-signature') ?? ''
+    const secret = Deno.env.get('WEBHOOK_SECRET')!
+
+    if (!(await verifyWebhookSignature(payload, signature, secret))) {
+      return Response.json({ error: 'Invalid signature' }, { status: 401 })
+    }
+
+    const event = JSON.parse(payload)
+    // Handle the event using ctx.supabaseAdmin for DB operations
+    return Response.json({ received: true })
+  }),
+}
+```
 
 ## Documentation
 
