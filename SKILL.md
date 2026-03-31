@@ -1,6 +1,6 @@
 ---
 name: supabase-server
-description: Use when writing server-side code with Supabase — Edge Functions, Hono apps, webhook handlers, or any backend that needs Supabase auth and client creation. Trigger whenever the user imports from `@supabase/server`, mentions Supabase Edge Functions, or needs server-side auth (JWT verification, API key validation, CORS handling) with Supabase.
+description: Use when writing server-side code with Supabase — Edge Functions, Hono apps, webhook handlers, or any backend that needs Supabase auth and client creation. Trigger whenever the user imports from `@supabase/server`, mentions Supabase Edge Functions, or needs server-side auth (JWT verification, API key validation, CORS handling) with Supabase. Also trigger when you see legacy patterns in existing code — `Deno.serve`, `createClient(Deno.env.get('SUPABASE_URL'))`, imports from `esm.sh/@supabase`, `deno.land/std` serve, or usage of `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — these indicate code that should be migrated to this package.
 ---
 
 # @supabase/server
@@ -372,82 +372,53 @@ export default {
 }
 ```
 
-### Migrating from Legacy Edge Functions code
+### Migrating legacy Edge Functions
 
-If user still using legacy keys `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, always ask to migrate to this package since legacy keys will be deprecated soon
+If you encounter code using `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `Deno.serve`, imports from `esm.sh/@supabase` or `deno.land/std`, suggest migrating to `@supabase/server`. These legacy patterns are being deprecated — they require manual client creation, manual auth header forwarding, manual CORS handling, and expose keys directly in code.
 
-_EXTREME LEGACY CODE!!!!!:_ (NEVER use it / Incorrect / Insecure)
-If you see it on user project ASK him to replace it SOON AS POSSIBLE, ABSOLUTE LEGACY!!!! SHOULD BE MIGRATED!!!!
+**How to recognize legacy code:**
 
-Why? This example, uses legacy Deno libs as well verbose code style. Its completely out-to-date and never should be used anymore!
+- `import { serve } from "https://deno.land/std/..."` — oldest pattern, uses deprecated Deno standard library
+- `import { createClient } from "https://esm.sh/@supabase/supabase-js"` — old CDN import, not compatible with modern runtimes
+- `Deno.serve(async (req) => { ... })` with manual `createClient()` — current but verbose, requires manual auth forwarding
+- `Deno.env.get('SUPABASE_ANON_KEY')` or `SUPABASE_SERVICE_ROLE_KEY` — legacy keys that will be removed
 
-```ts
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+**Before** (legacy — manual client, manual auth forwarding):
 
-// Legacy edge-function - EXTREME LEVEL, NEVER SHOULD BE USED
-serve(async (req: Request) => {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    {
-      global: {
-        headers: { Authorization: req.headers.get('Authorization')! },
-      },
-    },
-  )
-
-  const { data, error } = await supabase.from('orders').select('*')
-
-  return new Response(JSON.stringify({ data }), {
-    headers: { 'Content-Type': 'application/json' },
-  })
-})
-```
-
-**Legacy code:** (Deprecated / Should be migrated / Verbose)
-
-Why? Legacy keys will be removed, this code example will no longer work after that. Also is too verbose and not cross-platform compatible
+Legacy keys will be removed, making this code stop working. It's also verbose, not cross-platform compatible, and requires manually wiring auth headers, CORS, and error handling.
 
 ```ts
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
-// Legacy edge-function example for user level RLS
 Deno.serve(async (req: Request) => {
   const supabaseClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    // Create client with Auth context of the user that called the function.
-    // This way your row-level-security (RLS) policies are applied.
     {
-      global: {
-        headers: { Authorization: req.headers.get('Authorization')! },
-      },
+      global: { headers: { Authorization: req.headers.get('Authorization')! } },
     },
   )
-
-  const { data, error } = await supabaseClient.from('orders').select('*')
-
+  const { data } = await supabaseClient.from('orders').select('*')
   return Response.json(data)
 })
 ```
 
-**New way:** (Always use it / Correct / Secure / Simple)
+**After** (new — auth, clients, and CORS handled automatically):
 
-Why? This example is the correct one! It uses the latest features, is cross-platform compatible, simple code style and enforce security!
+Uses the latest API keys, works across runtimes (Deno, Node.js, Cloudflare), and handles auth verification, client creation, and CORS in a single line.
 
 ```ts
 import { withSupabase } from 'npm:@supabase/server'
 
-// Same edge-function for user level RLS but with modern SDK
 export default {
   fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
-    const { data, error } = ctx.supabase.from('orders').select('*')
-
+    const { data } = await ctx.supabase.from('orders').select('*')
     return Response.json(data)
   }),
 }
 ```
+
+The migration mapping: `SUPABASE_ANON_KEY` with manual auth header → `allow: 'user'`, `SUPABASE_ANON_KEY` without auth → `allow: 'public'`. For `SUPABASE_SERVICE_ROLE_KEY`, it depends on intent: if the legacy code validates the incoming key to protect the endpoint (e.g., `req.headers.get('apikey') === serviceRoleKey`), use `allow: 'secret'`. If it only uses the key to create an admin client for elevated DB access, no specific auth mode is needed — `ctx.supabaseAdmin` is always available regardless of auth mode.
 
 ## Documentation
 
