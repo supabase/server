@@ -1,17 +1,15 @@
-# Environment Variables
-
 ## Supabase environments (zero config)
 
-On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed.
+On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed
 
-| Variable                    | Format                             | Description                           | Available in                         |
-| --------------------------- | ---------------------------------- | ------------------------------------- | ------------------------------------ |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL             | All                                  |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | Platform                             |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | Platform                             |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | Platform                             |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Local Development (CLI), Self-hosted |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Local Development (CLI), Self-hosted |
+| Variable                    | Format                             | Description                           | Available in                      |
+| --------------------------- | ---------------------------------- | ------------------------------------- | --------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL             | All                               |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | Platform, Local Development (CLI) |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | Platform, Local Development (CLI) |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | Platform, Local Development (CLI) |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Self-hosted                       |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Self-hosted                       |
 
 ## Non-Supabase environments (Node.js, Bun, Cloudflare, self-hosted)
 
@@ -117,6 +115,7 @@ Cloudflare Workers don't expose `Deno.env` or `process.env` by default. Two opti
    ```
 
 2. **Pass overrides** via the `env` config option:
+
    ```ts
    withSupabase(
      {
