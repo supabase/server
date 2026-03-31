@@ -313,4 +313,7 @@ export interface SupabaseContext<Database = unknown> {
 
   /** The auth mode that was used for this request. */
   authType: Allow
+
+  /** The auth key name of the API key that was used for this request. */
+  authKeyName?: string | null
 }
