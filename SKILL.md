@@ -7,6 +7,15 @@ description: Use when writing server-side code with Supabase — Edge Functions,
 
 > **This is a brand new package.** There is no information available online yet — no blog posts, no Stack Overflow answers, no tutorials. Do not search the web for usage examples. Rely exclusively on the documentation files listed below and the source code in this repository.
 
+> **Do not use legacy Supabase keys.** The `anon` key and `service_role` key (env vars `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are legacy and will be deprecated. Do not use them unless the user explicitly asks. Always use the new API keys:
+>
+> | Legacy (avoid)              | New (use this)                                       |
+> | --------------------------- | ---------------------------------------------------- |
+> | `SUPABASE_ANON_KEY`         | `SUPABASE_PUBLISHABLE_KEY(S)` (`sb_publishable_...`) |
+> | `SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SECRET_KEY(S)` (`sb_secret_...`)           |
+>
+> Do not call `createClient(url, anonKey)` directly — use `@supabase/server` auth modes (`allow: 'user'`, `allow: 'secret'`, etc.) which handle key resolution automatically. If migrating existing code, replace `SUPABASE_ANON_KEY` usage with `allow: 'public'` and `SUPABASE_SERVICE_ROLE_KEY` usage with `allow: 'secret'`.
+
 Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.
 
 ## What this package does
@@ -14,7 +23,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 - Wraps fetch handlers with credential verification, CORS, and pre-configured Supabase clients
 - Supports 4 auth modes: `user` (JWT), `public` (publishable key), `secret` (secret key), `always` (none)
 - Provides composable core primitives for custom auth flows and framework integration
-- Includes a Hono adapter and webhook signature verification
+- Includes a Hono adapter for per-route auth
 
 ## Entry points
 
@@ -23,7 +32,6 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 | `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
 | `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
 | `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
-| `@supabase/server/wrappers`      | `npm:@supabase/server/wrappers`      | `verifyWebhookSignature`                                                                                          |
 
 ## Quick starts
 
@@ -169,51 +177,14 @@ await fetch('https://<project>.supabase.co/functions/v1/my-function', {
 
 Use `allow: 'secret'` to accept any secret key, or `allow: 'secret:name'` to require a specific named key.
 
-### Webhooks (signature verification)
-
-For receiving webhooks from external services (Stripe, GitHub, etc.). Uses `allow: 'always'` because the webhook authenticates via HMAC signature, not Supabase auth. See `docs/webhooks.md`.
-
-**Edge Function (Deno):**
-
-```ts
-import { withSupabase } from 'npm:@supabase/server'
-import { verifyWebhookSignature } from 'npm:@supabase/server/wrappers'
-
-const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')!
-
-export default {
-  fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
-    const payload = await req.text()
-    const signature = req.headers.get('x-webhook-signature') ?? ''
-
-    const isValid = await verifyWebhookSignature(
-      payload,
-      signature,
-      WEBHOOK_SECRET,
-    )
-    if (!isValid) {
-      return Response.json({ error: 'Invalid signature' }, { status: 401 })
-    }
-
-    const event = JSON.parse(payload)
-    await ctx.supabaseAdmin
-      .from('webhook_events')
-      .insert({ type: event.type, payload: event })
-
-    return Response.json({ received: true })
-  }),
-}
-```
-
 ## When to use `allow: 'always'`
 
-> **`allow: 'always'` disables all authentication.** The handler runs for every request with no credential checks. Only use it when auth is genuinely unnecessary (health checks, public status pages) or when the handler implements its own verification (webhook signatures).
+> **`allow: 'always'` disables all authentication.** The handler runs for every request with no credential checks. Only use it when auth is genuinely unnecessary — health checks, public status pages, or endpoints with no sensitive data and no side effects.
 
-**Before using `allow: 'always'`, confirm with the user which case applies:**
+**Before using `allow: 'always'`, confirm with the user whether the endpoint is truly public.** If not, propose an alternative:
 
-1. **The endpoint is truly public** — no sensitive data, no side effects (e.g., a health check). `allow: 'always'` is correct.
-2. **Another service calls this function** — use `allow: 'secret'` or `allow: 'secret:<name>'` instead. The caller sends the secret key in the `apikey` header.
-3. **A webhook provider calls this function** — use `allow: 'always'` with `verifyWebhookSignature` inside the handler. The provider signs the payload with a shared secret.
+- **Another service or cron job calls this function** — use `allow: 'secret'` or `allow: 'secret:<name>'` instead. The caller sends the secret key in the `apikey` header.
+- **An external webhook provider calls this function** — use `allow: 'secret'` and have the provider send the secret key, or implement the provider's own signature verification inside the handler.
 
 **Never use `allow: 'always'` for endpoints that read or write user data without verifying who the caller is.**
 
@@ -232,7 +203,6 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | How do I use low-level primitives for custom flows?      | `docs/core-primitives.md`       |
 | How do environment variables work across runtimes?       | `docs/environment-variables.md` |
 | How do I handle errors? What codes exist?                | `docs/error-handling.md`        |
-| How do I verify webhook signatures?                      | `docs/webhooks.md`              |
 | How do I get typed database queries?                     | `docs/typescript-generics.md`   |
 | How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | `docs/ssr-frameworks.md`        |
 | What's the complete API surface?                         | `docs/api-reference.md`         |

@@ -128,26 +128,6 @@ Defaults to `allow: 'user'` when config is omitted.
 
 ---
 
-## @supabase/server/wrappers
-
-### verifyWebhookSignature
-
-```ts
-function verifyWebhookSignature(
-  payload: string,
-  signature: string,
-  secret: string,
-): Promise<boolean>
-```
-
-Verifies an HMAC-SHA256 webhook signature. Timing-safe via double-HMAC comparison.
-
-- `payload` — raw request body as string
-- `signature` — hex-encoded HMAC-SHA256 from the webhook header
-- `secret` — shared secret
-
----
-
 ## Types
 
 ### Allow
