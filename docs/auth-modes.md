@@ -46,7 +46,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ## Public mode
 
-Validates that the `apikey` header contains a recognized publishable key. Uses timing-safe comparison to prevent timing attacks.
+Validates that the `apikey` header contains a recognized publishable key. Uses timing-safe comparison to prevent timing attacks. See [`security.md`](security.md) for details.
 
 ```ts
 import { withSupabase } from '@supabase/server'
@@ -71,7 +71,7 @@ By default, `public` mode validates against the `"default"` key in `SUPABASE_PUB
 
 ## Secret mode
 
-Validates that the `apikey` header contains a recognized secret key. Same timing-safe comparison as public mode.
+Validates that the `apikey` header contains a recognized secret key. Same timing-safe comparison as public mode. See [`security.md`](security.md) for details.
 
 ```ts
 import { withSupabase } from '@supabase/server'
