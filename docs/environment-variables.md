@@ -96,13 +96,13 @@ The SDK reads environment variables using this priority:
 1. `Deno.env.get(name)` — Deno (including Supabase Edge Functions)
 2. `process.env[name]` — Node.js, Bun, Cloudflare Workers (with node-compat)
 
-### Deno / Supabase Edge Functions
+### Supabase Edge Functions
 
-Environment variables are automatically available. Nothing to configure.
+Environment variables are auto-provisioned by the platform. Nothing to configure.
 
-### Node.js / Bun
+### Deno / Node.js / Bun
 
-Set variables via `.env` files (with a loader like `dotenv`) or your hosting platform's environment configuration.
+Set variables via `.env` files (with a loader like `dotenv` for Node.js) or your deployment platform's environment configuration.
 
 ### Cloudflare Workers
 
