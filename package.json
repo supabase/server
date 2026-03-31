@@ -29,11 +29,6 @@
       "import": "./dist/core/index.mjs",
       "require": "./dist/core/index.cjs"
     },
-    "./wrappers": {
-      "types": "./dist/wrappers/index.d.mts",
-      "import": "./dist/wrappers/index.mjs",
-      "require": "./dist/wrappers/index.cjs"
-    },
     "./adapters/hono": {
       "types": "./dist/adapters/hono/index.d.mts",
       "import": "./dist/adapters/hono/index.mjs",

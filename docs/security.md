@@ -14,9 +14,8 @@ This applies to:
 
 - **Publishable key verification** (`allow: 'public'`) — compares the `apikey` header against stored publishable keys
 - **Secret key verification** (`allow: 'secret'`) — compares the `apikey` header against stored secret keys
-- **Webhook signature verification** (`verifyWebhookSignature`) — compares the computed HMAC against the provided signature
 
-See `src/core/utils/timing-safe-equal.ts` and `src/wrappers/webhook.ts` for the implementations.
+See `src/core/utils/timing-safe-equal.ts` for the implementation.
 
 ## Auth mode security model
 
@@ -60,16 +59,6 @@ JWT verification in `user` mode works as follows:
 5. On success, the decoded claims are available as `ctx.user` and `ctx.claims`
 
 If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
-
-## Webhook signature verification
-
-`verifyWebhookSignature` from `@supabase/server/wrappers` verifies HMAC-SHA256 webhook signatures:
-
-1. Computes `HMAC-SHA256(payload, secret)` to get the expected signature
-2. Compares the expected signature against the provided signature using the double-HMAC timing-safe technique
-3. Returns `true` only if both signatures match
-
-This works for webhook providers that send a plain hex-encoded HMAC-SHA256 signature. Providers with custom signature formats (e.g., Stripe's `t=timestamp,v1=signature` scheme) require their own verification — use the provider's SDK instead.
 
 ## CORS handling
 
