@@ -43,7 +43,7 @@ npx skills add supabase/server
 
 ## Quick Start
 
-Imagine you're building an app where users track their favorite games. They sign in and manage their own list. An admin dashboard curates featured titles. A cron job archives old entries. Here's how each piece looks:
+Imagine you're building an app where users track their favorite games. They sign in and manage their own list. An admin dashboard curates featured titles. A cron job refreshes the "popular this week" rankings. Here's how each piece looks:
 
 ### Authenticated endpoint
 
