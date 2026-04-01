@@ -80,6 +80,7 @@ Every handler receives a `SupabaseContext` with these fields:
 | `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
 | `claims`        | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
 | `authType`      | `Allow`              | Which auth mode matched: `'user'`, `'public'`, `'secret'`, or `'always'`.                              |
+| `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
 
 The `supabase` client respects Row-Level Security. When `authType` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
 

@@ -52,8 +52,9 @@ export async function createSupabaseContext<Database = unknown>(
       supabaseOptions: options?.supabaseOptions,
     }
 
+    const publicKeyName = auth.authType === 'public' ? auth.keyName : undefined
     const supabase = createContextClient<Database>({
-      auth: { token: auth.token, keyName: auth.keyName },
+      auth: { token: auth.token, keyName: publicKeyName },
       ...config,
     })
 
@@ -70,6 +71,7 @@ export async function createSupabaseContext<Database = unknown>(
         userClaims: auth.userClaims,
         claims: auth.claims,
         authType: auth.authType,
+        authKeyName: auth.keyName,
       },
       error: null,
     }

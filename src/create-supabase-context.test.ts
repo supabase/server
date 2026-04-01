@@ -26,6 +26,7 @@ describe('createSupabaseContext', () => {
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
     expect(result.data!.authType).toBe('always')
+    expect(result.data!.authKeyName).toBeNull()
   })
 
   it('returns user and claims as null for non-user auth', async () => {
@@ -72,6 +73,28 @@ describe('createSupabaseContext', () => {
 
     expect(result.error).toBeNull()
     expect(result.data!.authType).toBe('public')
+    expect(result.data!.authKeyName).toBe('default')
+    expect(result.data!.supabase).toBeDefined()
+    expect(result.data!.supabaseAdmin).toBeDefined()
+  })
+
+  it('accepts public named key auth', async () => {
+    const req = new Request('http://localhost', {
+      headers: { apikey: 'sb_publishable_web' },
+    })
+    const result = await createSupabaseContext(req, {
+      allow: 'public:web',
+      env: {
+        ...baseEnv,
+        publishableKeys: {
+          web: 'sb_publishable_web',
+        },
+      },
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data!.authType).toBe('public')
+    expect(result.data!.authKeyName).toBe('web')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
   })
@@ -87,6 +110,28 @@ describe('createSupabaseContext', () => {
 
     expect(result.error).toBeNull()
     expect(result.data!.authType).toBe('secret')
+    expect(result.data!.authKeyName).toBe('default')
+  })
+
+  it('accepts secret named key auth', async () => {
+    const req = new Request('http://localhost', {
+      headers: { apikey: 'sb_secret_web' },
+    })
+    const result = await createSupabaseContext(req, {
+      allow: 'secret:web',
+      env: {
+        ...baseEnv,
+        secretKeys: {
+          web: 'sb_secret_web',
+        },
+      },
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data!.authType).toBe('secret')
+    expect(result.data!.authKeyName).toBe('web')
+    expect(result.data!.supabase).toBeDefined()
+    expect(result.data!.supabaseAdmin).toBeDefined()
   })
 
   it('rejects invalid secret key', async () => {
