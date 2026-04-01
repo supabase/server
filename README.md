@@ -11,8 +11,9 @@ import { withSupabase } from '@supabase/server'
 
 export default {
   fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
-    const { data } = await ctx.supabase.from('todos').select()
-    return Response.json(data)
+    // RLS-scoped — this user only sees their own favorites
+    const { data: myGames } = await ctx.supabase.from('favorite_games').select()
+    return Response.json(myGames)
   }),
 }
 ```
@@ -42,19 +43,24 @@ npx skills add supabase/server
 
 ## Quick Start
 
+Imagine you're building an app where users track their favorite games. They sign in and manage their own list. An admin dashboard curates featured titles. A cron job archives old entries. Here's how each piece looks:
+
 ### Authenticated endpoint
 
 ```ts
+// A signed-in user fetches their favorite games.
 export default {
   fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
-    // ctx.supabase — RLS-scoped to the authenticated user
-    // ctx.supabaseAdmin — bypasses RLS (service role)
-    // ctx.userClaims — user identity from JWT (id, email, role)
-    // ctx.claims — JWT claims
-    // ctx.authType — which auth mode matched
+    const { supabase, supabaseAdmin, userClaims, claims, authType } = ctx
+    // supabase       — RLS-scoped to the authenticated user
+    // supabaseAdmin  — bypasses RLS (service role)
+    // userClaims     — user identity from JWT (id, email, role)
+    // claims         — full JWT claims
+    // authType       — which auth mode matched
 
-    const { data } = await ctx.supabase.from('todos').select()
-    return Response.json(data)
+    // RLS-scoped — this user only sees their own favorites
+    const { data: myGames } = await supabase.from('favorite_games').select()
+    return Response.json(myGames)
   }),
 }
 ```
@@ -62,6 +68,8 @@ export default {
 ### Public endpoint (no auth)
 
 ```ts
+// The frontend hits this before showing the login screen.
+// allow: 'always' means no credentials required.
 export default {
   fetch: withSupabase({ allow: 'always' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok' })
@@ -72,10 +80,14 @@ export default {
 ### API key protected
 
 ```ts
+// An admin dashboard fetches the list of featured games to curate.
+// Secret key auth (not a user JWT) — supabaseAdmin bypasses RLS.
 export default {
   fetch: withSupabase({ allow: 'secret' }, async (_req, ctx) => {
-    const { data } = await ctx.supabaseAdmin.from('config').select()
-    return Response.json(data)
+    const { data: featuredGames } = await ctx.supabaseAdmin
+      .from('featured_games')
+      .select()
+    return Response.json(featuredGames)
   }),
 }
 ```
@@ -83,14 +95,20 @@ export default {
 ### Dual auth (user or service)
 
 ```ts
+// Users view their own play stats from the app (JWT).
+// A backend service pulls stats for any user (secret key + user_id in body).
 export default {
   fetch: withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
-    const userId = ctx.userClaims?.id ?? (await req.json()).user_id
-    const { data } = await ctx.supabaseAdmin
-      .from('reports')
+    const callerIsUser = ctx.authType === 'user'
+    const targetUserId = callerIsUser
+      ? ctx.userClaims!.id
+      : (await req.json()).user_id
+
+    const { data: playStats } = await ctx.supabaseAdmin
+      .from('play_stats')
       .select()
-      .eq('user_id', userId)
-    return Response.json(data)
+      .eq('user_id', targetUserId)
+    return Response.json(playStats)
   }),
 }
 ```
@@ -98,28 +116,35 @@ export default {
 ### Server-to-server
 
 ```ts
-// Only accept the "automations" named secret key
+// A cron job refreshes the "popular this week" list every hour.
+// Named key ("cron") so it can be rotated without touching other services.
 export default {
-  fetch: withSupabase({ allow: 'secret:automations' }, async (req, ctx) => {
-    const body = await req.json()
-    const { data } = await ctx.supabaseAdmin
-      .from('scheduled_tasks')
-      .insert({ name: body.taskName })
-    return Response.json({ success: true, data })
+  fetch: withSupabase({ allow: 'secret:cron' }, async (_req, ctx) => {
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const { data: popularThisWeek } = await ctx.supabaseAdmin.rpc(
+      'get_most_favorited_since',
+      { since: oneWeekAgo.toISOString(), limit_count: 10 },
+    )
+    await ctx.supabaseAdmin
+      .from('featured_games')
+      .upsert(
+        popularThisWeek.map((g) => ({ game_id: g.id, reason: 'popular' })),
+      )
+    return Response.json({ popularThisWeek })
   }),
 }
 ```
 
-The caller sends the secret key in the `apikey` header:
+The cron job sends the named secret key in the `apikey` header:
 
 ```ts
-await fetch('https://<project>.supabase.co/functions/v1/my-function', {
+const refreshEndpoint =
+  'https://<project>.supabase.co/functions/v1/refresh-popular'
+const cronKey = 'sb_secret_...' // the "cron" named secret key
+
+await fetch(refreshEndpoint, {
   method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    apikey: 'sb_secret_...', // the "automations" secret key
-  },
-  body: JSON.stringify({ taskName: 'cleanup' }),
+  headers: { apikey: cronKey },
 })
 ```
 
@@ -201,12 +226,14 @@ import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
 
-app.get('/todos', withSupabase({ allow: 'user' }), async (c) => {
-  const { supabase: sb } = c.var.supabaseContext
-  const { data } = await sb.from('todos').select()
-  return c.json(data)
+// Protected — withSupabase middleware validates the JWT before the handler runs
+app.get('/games', withSupabase({ allow: 'user' }), async (c) => {
+  const { supabase } = c.var.supabaseContext
+  const { data: myGames } = await supabase.from('favorite_games').select()
+  return c.json(myGames)
 })
 
+// Public — no middleware means no auth
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
 export default { fetch: app.fetch }
@@ -253,9 +280,9 @@ const { data: auth, error } = await verifyCredentials(credentials, {
 ### createContextClient / createAdminClient
 
 ```ts
-const supabase = createContextClient(auth.token) // user-scoped, RLS applies
-const supabase = createContextClient() // anonymous, RLS as anon
-const supabaseAdmin = createAdminClient() // bypasses RLS
+const userScopedClient = createContextClient(auth.token) // RLS applies as this user
+const anonClient = createContextClient() // RLS applies as anon role
+const adminClient = createAdminClient() // bypasses RLS entirely
 ```
 
 ### createSupabaseContext
@@ -278,6 +305,8 @@ const { data: env, error } = resolveEnv({
 
 ### Example: custom multi-route handler
 
+The same games API and health check from the Hono example, built from primitives instead of a framework:
+
 ```ts
 import { verifyAuth, createContextClient } from '@supabase/server/core'
 
@@ -285,11 +314,13 @@ export default {
   fetch: async (req) => {
     const url = new URL(req.url)
 
+    // Public — no auth needed
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok' })
     }
 
-    if (url.pathname === '/todos') {
+    // Protected — verify the JWT, then create a user-scoped client
+    if (url.pathname === '/games') {
       const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
       if (error)
         return Response.json(
@@ -297,9 +328,11 @@ export default {
           { status: error.status },
         )
 
-      const supabase = createContextClient(auth.token)
-      const { data } = await supabase.from('todos').select()
-      return Response.json(data)
+      const userScopedClient = createContextClient(auth.token)
+      const { data: myGames } = await userScopedClient
+        .from('favorite_games')
+        .select()
+      return Response.json(myGames)
     }
 
     return new Response('Not found', { status: 404 })
