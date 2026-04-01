@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/supabase/server/compare/server-v0.1.2...server-v0.1.3) (2026-04-01)
+
+
+### Bug Fixes
+
+* move SKILL.md into skills/ subdirectory to align with agentskills spec ([#24](https://github.com/supabase/server/issues/24)) ([10c8780](https://github.com/supabase/server/commit/10c8780cc21de3bb860d2ec8bf5589f69d4ea447))
+
 ## [0.1.2](https://github.com/supabase/server/compare/server-v0.1.1...server-v0.1.2) (2026-04-01)
 
 
