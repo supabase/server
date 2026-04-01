@@ -100,14 +100,19 @@ export default {
 export default {
   fetch: withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
     const callerIsUser = ctx.authType === 'user'
-    const targetUserId = callerIsUser
-      ? ctx.userClaims!.id
-      : (await req.json()).user_id
 
+    if (callerIsUser) {
+      // RLS-scoped — the database enforces "own stats only"
+      const { data: myStats } = await ctx.supabase.from('play_stats').select()
+      return Response.json(myStats)
+    }
+
+    // Service path — bypass RLS to pull stats for any user
+    const { user_id } = await req.json()
     const { data: playStats } = await ctx.supabaseAdmin
       .from('play_stats')
       .select()
-      .eq('user_id', targetUserId)
+      .eq('user_id', user_id)
     return Response.json(playStats)
   }),
 }
