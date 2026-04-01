@@ -1,6 +1,6 @@
 ---
 name: supabase-server
-description: Use when writing server-side code with Supabase — Edge Functions, Hono apps, webhook handlers, or any backend that needs Supabase auth and client creation. Trigger whenever the user imports from `@supabase/server`, mentions Supabase Edge Functions, or needs server-side auth (JWT verification, API key validation, CORS handling) with Supabase. Also trigger when you see legacy patterns in existing code — `Deno.serve`, `createClient(Deno.env.get('SUPABASE_URL'))`, imports from `esm.sh/@supabase`, `deno.land/std` serve, or usage of `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — these indicate code that should be migrated to this package.
+description: Use when writing server-side code with Supabase — Edge Functions, Hono apps, webhook handlers, or any backend that needs Supabase auth and client creation. Trigger whenever the user imports from `@supabase/server`, mentions `supabase/server`, Supabase Edge Functions, or needs server-side auth (JWT verification, API key validation, CORS handling) with Supabase. Also trigger when you see legacy patterns in existing code — `Deno.serve`, `createClient(Deno.env.get('SUPABASE_URL'))`, imports from `esm.sh/@supabase`, `deno.land/std` serve, or usage of `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — these indicate code that should be migrated to this package.
 ---
 
 # @supabase/server

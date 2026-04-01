@@ -42,7 +42,7 @@
   "files": [
     "dist",
     "docs",
-    "SKILL.md"
+    "skills"
   ],
   "engines": {
     "node": ">=20"
