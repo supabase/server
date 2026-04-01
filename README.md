@@ -4,7 +4,10 @@
 [![Package](https://img.shields.io/npm/v/@supabase/server)](https://www.npmjs.com/package/@supabase/server)
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 
-Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.
+`@supabase/server` gives you batteries included access to the
+[supabase-js SDK](https://github.com/supabase/supabase-js), including client
+creation and authentication automatically scoped to the inbound requests to your
+Edge Functions and APIs.
 
 ```ts
 import { withSupabase } from '@supabase/server'
@@ -18,7 +21,7 @@ export default {
 }
 ```
 
-One import. One line of config. Auth is validated, clients are scoped, CORS is handled. Your handler only runs on successful auth.
+One import. One line of config. Auth is validated, clients are ready, CORS is handled. Your handler only runs on successful auth.
 
 ## Installation
 
