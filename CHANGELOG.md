@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/supabase/server/compare/server-v0.1.1...server-v0.1.2) (2026-04-01)
+
+
+### Features
+
+* exposing `keyName` to `SupabaseContext` ([#22](https://github.com/supabase/server/issues/22)) ([7f1b1a7](https://github.com/supabase/server/commit/7f1b1a75cc98d08a63275131481e5df825c10afb))
+
 ## [0.1.1](https://github.com/supabase/server/compare/server-v0.1.0...server-v0.1.1) (2026-03-26)
 
 ### Features
