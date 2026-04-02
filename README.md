@@ -26,14 +26,14 @@ One import. One line of config. Auth is validated, clients are ready, CORS is ha
 ## Installation
 
 ```bash
+# Deno / Supabase Edge Functions (no install — import directly)
+import { withSupabase } from "npm:@supabase/server";
+
 # npm
 npm install @supabase/server
 
 # pnpm
 pnpm add @supabase/server
-
-# Deno / Supabase Edge Functions (no install — import directly)
-import { withSupabase } from "npm:@supabase/server";
 ```
 
 ### AI coding skills
