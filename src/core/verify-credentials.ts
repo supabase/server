@@ -73,16 +73,23 @@ function claimsToUserClaims(claims: JWTClaims): UserClaims {
   }
 }
 
+const INVALID = Symbol('invalid')
+
 /**
  * Attempts to authenticate credentials against a single auth mode.
- * Returns the {@link AuthResult} on success, or `null` if the mode doesn't match.
+ *
+ * Returns:
+ * - `AuthResult` on success.
+ * - `null` if the mode doesn't apply (no relevant credential present — safe to try the next mode).
+ * - `INVALID` if a credential was present but failed verification (must reject immediately).
+ *
  * @internal
  */
 async function tryMode(
   mode: AllowWithKey,
   credentials: Credentials,
   env: SupabaseEnv,
-): Promise<AuthResult | null> {
+): Promise<AuthResult | typeof INVALID | null> {
   const { base, keyName } = parseAllowMode(mode)
 
   switch (base) {
@@ -166,7 +173,7 @@ async function tryMode(
         const jwkSet = createLocalJWKSet(env.jwks)
         const { payload } = await jwtVerify(credentials.token, jwkSet)
         if (typeof payload.sub !== 'string') {
-          return null
+          return INVALID
         }
         const claims = payload as unknown as JWTClaims
         return {
@@ -177,7 +184,7 @@ async function tryMode(
           keyName: null,
         }
       } catch {
-        return null
+        return INVALID
       }
     }
 
@@ -225,6 +232,9 @@ export async function verifyCredentials(
 
   for (const mode of modes) {
     const result = await tryMode(mode, credentials, env)
+    if (result === INVALID) {
+      return { data: null, error: Errors[InvalidCredentialsError]() }
+    }
     if (result) {
       return { data: result, error: null }
     }
