@@ -416,4 +416,106 @@ describe('verifyCredentials', () => {
       expect(result.data!.authType).toBe('always')
     })
   })
+
+  describe('invalid credential rejection (no silent fallthrough)', () => {
+    let jwks: JsonWebKeySet
+
+    beforeAll(async () => {
+      const { publicKey } = await generateKeyPair('RS256')
+      const publicJwk = await exportJWK(publicKey)
+      publicJwk.alg = 'RS256'
+      publicJwk.use = 'sig'
+      jwks = { keys: [publicJwk] }
+    })
+
+    it('rejects invalid JWT instead of falling through to always mode', async () => {
+      const creds: Credentials = { token: 'garbage.jwt.token', apikey: null }
+      const result = await verifyCredentials(creds, {
+        allow: ['user', 'always'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('rejects expired JWT instead of falling through to always mode', async () => {
+      const { privateKey, publicKey } = await generateKeyPair('RS256')
+      const publicJwk = await exportJWK(publicKey)
+      publicJwk.alg = 'RS256'
+      publicJwk.use = 'sig'
+      const expiredJwks = { keys: [publicJwk] }
+
+      const expiredToken = await new SignJWT({ sub: 'user-123' })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setIssuedAt(Math.floor(Date.now() / 1000) - 7200)
+        .setExpirationTime(Math.floor(Date.now() / 1000) - 3600)
+        .sign(privateKey)
+
+      const creds: Credentials = { token: expiredToken, apikey: null }
+      const result = await verifyCredentials(creds, {
+        allow: ['user', 'always'],
+        env: makeEnv({ jwks: expiredJwks }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('falls through to always when no token is present', async () => {
+      const creds: Credentials = { token: null, apikey: null }
+      const result = await verifyCredentials(creds, {
+        allow: ['user', 'always'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('always')
+    })
+
+    it('rejects invalid JWT even when public mode follows', async () => {
+      const creds: Credentials = {
+        token: 'garbage.jwt.token',
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        allow: ['user', 'public'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('rejects invalid JWT instead of falling through to secret mode', async () => {
+      const creds: Credentials = {
+        token: 'garbage.jwt.token',
+        apikey: 'sb_secret_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        allow: ['user', 'secret'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('rejects JWT with missing sub claim', async () => {
+      const { privateKey, publicKey } = await generateKeyPair('RS256')
+      const publicJwk = await exportJWK(publicKey)
+      publicJwk.alg = 'RS256'
+      publicJwk.use = 'sig'
+      const noSubJwks = { keys: [publicJwk] }
+
+      const noSubToken = await new SignJWT({ role: 'authenticated' })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+      const creds: Credentials = { token: noSubToken, apikey: null }
+      const result = await verifyCredentials(creds, {
+        allow: 'user',
+        env: makeEnv({ jwks: noSubJwks }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+  })
 })
