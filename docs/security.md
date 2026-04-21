@@ -56,7 +56,7 @@ JWT verification in `user` mode works as follows:
 2. The token is verified against the JWKS from the `SUPABASE_JWKS` environment variable
 3. Verification uses `jose`'s `jwtVerify` with a **local** key set — there are no network calls to a JWKS endpoint
 4. The token must contain a `sub` (subject) claim to be considered valid
-5. On success, the decoded claims are available as `ctx.user` and `ctx.claims`
+5. On success, the decoded claims are available as `ctx.userClaims` and `ctx.claims`
 
 If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
 
