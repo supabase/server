@@ -252,6 +252,44 @@ export default { fetch: app.fetch }
 
 The adapter does not handle CORS — use `hono/cors` for that. Per-route auth works naturally by applying the middleware to specific routes.
 
+### H3 / Nuxt
+
+```ts
+import { H3 } from 'h3'
+import { withSupabase } from '@supabase/server/adapters/h3'
+
+const app = new H3()
+
+// Protected — withSupabase validates the JWT before the handler runs
+app.use(withSupabase({ allow: 'user' }))
+
+app.get('/games', async (event) => {
+  const { supabase } = event.context.supabaseContext
+  const { data: myGames } = await supabase.from('favorite_games').select()
+  return myGames
+})
+
+// Public — no middleware means no auth
+app.get('/health', () => ({ status: 'ok' }))
+
+export default { fetch: app.fetch }
+```
+
+For **Nuxt**, register it as a server middleware in `server/middleware/`:
+
+```ts
+// server/middleware/supabase.ts
+import { withSupabase } from '@supabase/server/adapters/h3'
+
+const middleware = withSupabase({ allow: 'user' })
+
+export default defineEventHandler(async (event) => {
+  await middleware(event)
+})
+```
+
+The adapter does not handle CORS — use H3's CORS utilities for that.
+
 ## Primitives
 
 For when you need more control than `withSupabase` provides — multiple routes with different auth, custom response headers, or building your own wrapper.
@@ -377,9 +415,10 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 - **Supabase Edge Functions** — environment variables are auto-injected. Zero config.
 - **Deno / Bun** — works out of the box with the `export default { fetch }` pattern.
-- **Node.js** — use the [Hono adapter](#hono) or [core primitives](#primitives) with your framework of choice.
+- **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), or [core primitives](#primitives) with your framework of choice.
 - **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
-- **Next.js / Nuxt / SvelteKit / Remix** — use core primitives to build a cookie-based auth adapter. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
+- **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
+- **Next.js / SvelteKit / Remix** — use core primitives to build a cookie-based auth adapter. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
 
 ## Exports
 
@@ -388,6 +427,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
 | `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
 | `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
 
 ## Documentation
 
