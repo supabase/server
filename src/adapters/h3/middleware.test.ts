@@ -95,3 +95,59 @@ describe('h3 supabase middleware', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 })
+
+describe('h3 supabase handler form', () => {
+  const env = {
+    url: 'https://test.supabase.co',
+    publishableKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_publishable_xyz' },
+    jwks: null,
+  }
+
+  it('calls handler with supabase context on successful auth', async () => {
+    const handler = withSupabase({ allow: 'always', env }, (event) => {
+      const ctx = event.context.supabaseContext
+      return {
+        authType: ctx.authType,
+        hasSupabase: !!ctx.supabase,
+        hasAdmin: !!ctx.supabaseAdmin,
+      }
+    })
+
+    const app = new H3()
+    app.get('/', handler)
+
+    const res = await app.request('/')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.authType).toBe('always')
+    expect(body.hasSupabase).toBe(true)
+    expect(body.hasAdmin).toBe(true)
+  })
+
+  it('returns 401 when auth fails', async () => {
+    const handler = withSupabase({ allow: 'user', env }, (event) => {
+      return event.context.supabaseContext.authType
+    })
+
+    const app = new H3()
+    app.get('/', handler)
+
+    const res = await app.request('/')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns handler result', async () => {
+    const handler = withSupabase({ allow: 'always', env }, () => {
+      return { message: 'hello' }
+    })
+
+    const app = new H3()
+    app.get('/', handler)
+
+    const res = await app.request('/')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.message).toBe('hello')
+  })
+})

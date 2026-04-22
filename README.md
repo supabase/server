@@ -275,17 +275,25 @@ app.get('/health', () => ({ status: 'ok' }))
 export default { fetch: app.fetch }
 ```
 
-For **Nuxt**, register it as a server middleware in `server/middleware/`:
+For **Nuxt**, use the handler form for file routes — no `defineEventHandler` wrapper needed:
+
+```ts
+// server/api/games.get.ts
+import { withSupabase } from '@supabase/server/adapters/h3'
+
+export default withSupabase({ allow: 'user' }, async (event) => {
+  const { supabase } = event.context.supabaseContext
+  return supabase.from('favorite_games').select()
+})
+```
+
+For app-wide auth via a server middleware, use the middleware form:
 
 ```ts
 // server/middleware/supabase.ts
 import { withSupabase } from '@supabase/server/adapters/h3'
 
-const middleware = withSupabase({ allow: 'user' })
-
-export default defineEventHandler(async (event) => {
-  await middleware(event)
-})
+export default withSupabase({ allow: 'user' })
 ```
 
 The adapter does not handle CORS — use H3's CORS utilities for that.
