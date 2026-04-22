@@ -129,6 +129,11 @@ jobs:
           # TODO(@mandarini): add back --provenance once repo is OSS
           npm publish --access public --tag "${{ steps.version.outputs.tag }}"
 
+      - name: Publish to JSR
+        if: ${{ steps.version.outputs.skip != 'true' }}
+        continue-on-error: true
+        run: npx jsr publish --allow-dirty
+
       - name: Create GitHub pre-release
         if: ${{ steps.version.outputs.tag == 'rc' }}
         env:

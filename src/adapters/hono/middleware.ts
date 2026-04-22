@@ -1,3 +1,4 @@
+import type { MiddlewareHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { createMiddleware } from 'hono/factory'
 
@@ -30,7 +31,9 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * export default { fetch: app.fetch }
  * ```
  */
-export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
+export function withSupabase(
+  config?: Omit<WithSupabaseConfig, 'cors'>,
+): MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }> {
   return createMiddleware<{
     Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
