@@ -57,28 +57,28 @@ export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
 export const MissingDefaultSecretKeyError = 'MISSING_DEFAULT_SECRET_KEY'
 
 const EnvErrorMap = {
-  [MissingSupabaseURLError]: () =>
+  [MissingSupabaseURLError]: (): EnvError =>
     new EnvError(
       'SUPABASE_URL is required but not set',
       MissingSupabaseURLError,
     ),
-  [MissingSecretKeyError]: (name: string) =>
+  [MissingSecretKeyError]: (name: string): EnvError =>
     new EnvError(
       `No "${name}" secret key found. Include a "${name}" entry in SUPABASE_SECRET_KEYS.`,
       MissingSecretKeyError,
     ),
-  [MissingDefaultSecretKeyError]: () =>
+  [MissingDefaultSecretKeyError]: (): EnvError =>
     new EnvError(
       'No default secret key found. Set SUPABASE_SECRET_KEY or include a "default" entry in SUPABASE_SECRET_KEYS.',
       MissingDefaultSecretKeyError,
     ),
 
-  [MissingPublishableKeyError]: (name: string) =>
+  [MissingPublishableKeyError]: (name: string): EnvError =>
     new EnvError(
       `No "${name}" publishable key found. Include a "${name}" entry in SUPABASE_PUBLISHABLE_KEYS.`,
       MissingPublishableKeyError,
     ),
-  [MissingDefaultPublishableKeyError]: () =>
+  [MissingDefaultPublishableKeyError]: (): EnvError =>
     new EnvError(
       'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
       MissingDefaultPublishableKeyError,
@@ -140,9 +140,9 @@ export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
 export const CreateSupabaseClientError = 'CREATE_SUPABASE_CLIENT_ERROR'
 
 const AuthErrorMap = {
-  [InvalidCredentialsError]: () =>
+  [InvalidCredentialsError]: (): AuthError =>
     new AuthError('Invalid credentials', InvalidCredentialsError, 401),
-  [CreateSupabaseClientError]: () =>
+  [CreateSupabaseClientError]: (): AuthError =>
     new AuthError(
       'Failed to create Supabase client',
       CreateSupabaseClientError,

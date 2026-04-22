@@ -27,3 +27,6 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm lint
+
+      - name: Verify JSR packaging
+        run: pnpm dlx jsr publish --dry-run --allow-dirty
