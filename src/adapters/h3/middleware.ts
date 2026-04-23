@@ -1,35 +1,19 @@
-import { defineEventHandler, defineMiddleware, HTTPError } from 'h3'
-import type { EventHandler, Middleware } from 'h3'
+import { defineMiddleware, HTTPError } from 'h3'
+import type { Middleware } from 'h3'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
-type Config = Omit<WithSupabaseConfig, 'cors'>
-
-function createAuthMiddleware(config?: Config): Middleware {
-  return async (event, next) => {
-    const { data: ctx, error } = await createSupabaseContext(event.req, config)
-    if (error) {
-      throw new HTTPError(error.message, { status: error.status, cause: error })
-    }
-    event.context.supabaseContext = ctx
-    return next()
-  }
-}
-
 /**
  * H3 middleware that creates a {@link SupabaseContext} and stores it in `event.context.supabaseContext`.
  *
- * Two forms:
- * - **Middleware form** (`app.use()`): skips if context is already set, enabling chained middleware.
- * - **Handler form** (Nuxt file routes): wraps your handler directly — no `defineEventHandler` needed.
- *
+ * Skips if a previous middleware already set the context, enabling chained middleware via `app.use()`.
  * Throws an `HTTPError` on auth failure.
  *
  * @param config - Auth modes and optional environment overrides. CORS is excluded — use H3's CORS utilities.
- * @returns An H3 middleware (no handler) or an H3 event handler (with handler).
+ * @returns An H3 middleware.
  *
- * @example Middleware form — app-wide auth via `app.use()`
+ * @example App-wide auth via `app.use()`
  * ```ts
  * import { H3 } from 'h3'
  * import { withSupabase } from '@supabase/server/adapters/h3'
@@ -45,34 +29,31 @@ function createAuthMiddleware(config?: Config): Middleware {
  * export default { fetch: app.fetch }
  * ```
  *
- * @example Handler form — Nuxt/Nitro file routes
+ * @example Per-route auth via `defineHandler`
  * ```ts
- * // server/api/games.get.ts
+ * import { defineHandler } from 'h3'
  * import { withSupabase } from '@supabase/server/adapters/h3'
  *
- * export default withSupabase({ allow: 'user' }, async (event) => {
- *   const { supabase } = event.context.supabaseContext
- *   return supabase.from('favorite_games').select()
+ * export default defineHandler({
+ *   middleware: [withSupabase({ allow: 'user' })],
+ *   handler: async (event) => {
+ *     const { supabase } = event.context.supabaseContext
+ *     return supabase.from('favorite_games').select()
+ *   },
  * })
  * ```
  */
-export function withSupabase(config?: Config): Middleware
 export function withSupabase(
-  config: Config | undefined,
-  handler: EventHandler,
-): ReturnType<typeof defineEventHandler>
-export function withSupabase(config?: Config, handler?: EventHandler) {
-  const m = createAuthMiddleware(config)
-
-  if (handler) {
-    return defineEventHandler({ middleware: [m], handler })
-  }
-
-  // Middleware form: skip if a prior middleware already set the context.
-  // Allows chaining: a second app.use(withSupabase(...)) won't overwrite the first.
+  config?: Omit<WithSupabaseConfig, 'cors'>,
+): Middleware {
   return defineMiddleware(async (event, next) => {
     if (event.context.supabaseContext) return next()
-    return m(event, next)
+    const { data: ctx, error } = await createSupabaseContext(event.req, config)
+    if (error) {
+      throw new HTTPError(error.message, { status: error.status, cause: error })
+    }
+    event.context.supabaseContext = ctx
+    return next()
   })
 }
 

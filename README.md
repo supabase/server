@@ -275,19 +275,23 @@ app.get('/health', () => ({ status: 'ok' }))
 export default { fetch: app.fetch }
 ```
 
-For **Nuxt**, use the handler form for file routes — no `defineEventHandler` wrapper needed:
+For **Nuxt**, use `defineHandler` for file routes:
 
 ```ts
 // server/api/games.get.ts
+import { defineHandler } from 'h3'
 import { withSupabase } from '@supabase/server/adapters/h3'
 
-export default withSupabase({ allow: 'user' }, async (event) => {
-  const { supabase } = event.context.supabaseContext
-  return supabase.from('favorite_games').select()
+export default defineHandler({
+  middleware: [withSupabase({ allow: 'user' })],
+  handler: async (event) => {
+    const { supabase } = event.context.supabaseContext
+    return supabase.from('favorite_games').select()
+  },
 })
 ```
 
-For app-wide auth via a server middleware, use the middleware form:
+For app-wide auth, register it as a server middleware:
 
 ```ts
 // server/middleware/supabase.ts
