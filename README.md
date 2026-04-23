@@ -167,7 +167,7 @@ await fetch(refreshEndpoint, {
 | `"secret"`         | Valid secret key      | Server-to-server, internal calls                    |
 | `"always"`         | None                  | Open endpoints, wrappers that handle their own auth |
 
-Array syntax (`allow: ["user", "secret"]`) accepts multiple auth methods — first match wins.
+Array syntax (`allow: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
 
 Named key validation: `allow: "public:web_app"` or `allow: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
 

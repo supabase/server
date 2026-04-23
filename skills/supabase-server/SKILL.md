@@ -24,6 +24,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 - Wraps fetch handlers with credential verification, CORS, and pre-configured Supabase clients
 - Supports 4 auth modes: `user` (JWT), `public` (publishable key), `secret` (secret key), `always` (none)
+- Array syntax (`allow: ['user', 'secret']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidCredentialsError` — it does not silently downgrade to the next mode.
 - Provides composable core primitives for custom auth flows and framework integration
 - Includes a Hono adapter for per-route auth
 
@@ -198,6 +199,8 @@ Use `allow: 'secret'` to accept any secret key, or `allow: 'secret:name'` to req
 - **An external webhook provider calls this function** — use `allow: 'secret'` and have the provider send the secret key, or implement the provider's own signature verification inside the handler.
 
 **Never use `allow: 'always'` for endpoints that read or write user data without verifying who the caller is.**
+
+**On `allow: ['user', 'always']`.** A stale or malformed JWT on such an endpoint is rejected with `InvalidCredentialsError` — it is not silently downgraded to anonymous. Callers that might hold a cached/expired token should either omit the `Authorization` header entirely or refresh before calling. If the goal is "anonymous unless a valid user is signed in," this is the correct behavior; if the goal is truly "accept anything," use `allow: 'always'` on its own.
 
 ## Edge Function recipes
 

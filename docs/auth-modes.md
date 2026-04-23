@@ -147,6 +147,8 @@ export default {
 
 A request with a valid JWT matches `'user'`. A request with a valid secret key matches `'secret'`. A request with neither is rejected.
 
+**Fallthrough vs rejection.** A mode is only "tried" when its credential is actually present. A request with no `Authorization` header moves on to the next mode. But if a JWT _is_ present and fails verification (malformed, expired, wrong signature, or missing a `sub` claim), the request is rejected immediately with `InvalidCredentialsError` — it will not silently fall through to `'public'`, `'secret'`, or `'always'`. The same rule applies on the API-key side: `'public'` and `'secret'` fall through only when no `apikey` header is sent. This prevents a bad credential from being downgraded to a less-privileged auth mode.
+
 ## Named key syntax
 
 When your project has multiple API keys (e.g., separate keys for web, mobile, and internal services), use the colon syntax to validate against a specific named key.
@@ -198,6 +200,6 @@ withSupabase({ allow: ['user', 'public:web'] }, async (_req, ctx) => {
 
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
 2. Each mode in `allow` is tried in order against the extracted credentials
-3. First match wins — returns an `AuthResult` with `authType`, `token`, `userClaims`, `claims`, and `keyName`
+3. First match wins — returns an `AuthResult` with `authType`, `token`, `userClaims`, `claims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
 4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key)
 5. Everything is bundled into a `SupabaseContext` and passed to your handler

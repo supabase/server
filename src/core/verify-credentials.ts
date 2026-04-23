@@ -196,8 +196,11 @@ async function tryMode(
 /**
  * Verifies pre-extracted credentials against one or more allowed auth modes.
  *
- * Tries each mode in order — first match wins. Use {@link verifyAuth} to extract
- * and verify in a single call.
+ * Tries each mode in order — first match wins. A mode is only tried when its
+ * credential is present; a JWT that is present but fails verification
+ * short-circuits the chain with `InvalidCredentialsError` instead of falling
+ * through to the next mode. Use {@link verifyAuth} to extract and verify in a
+ * single call.
  *
  * @param credentials - The credentials to verify (from {@link extractCredentials}).
  * @param options - Allowed auth modes and optional env overrides.
