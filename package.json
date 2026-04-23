@@ -34,6 +34,11 @@
       "import": "./dist/adapters/hono/index.mjs",
       "require": "./dist/adapters/hono/index.cjs"
     },
+    "./adapters/h3": {
+      "types": "./dist/adapters/h3/index.d.mts",
+      "import": "./dist/adapters/h3/index.mjs",
+      "require": "./dist/adapters/h3/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -69,9 +74,13 @@
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.0.0",
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "h3": "^2.0.0"
   },
   "peerDependenciesMeta": {
+    "h3": {
+      "optional": true
+    },
     "hono": {
       "optional": true
     }
@@ -81,6 +90,7 @@
     "@commitlint/config-conventional": "^20.4.2",
     "@supabase/supabase-js": "^2.98.0",
     "eslint": "^10.0.2",
+    "h3": "2.0.1-rc.20",
     "hono": "^4.12.5",
     "prettier": "3.8.1",
     "pretty-quick": "^4.2.2",
