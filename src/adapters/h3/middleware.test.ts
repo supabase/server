@@ -7,7 +7,7 @@ describe('h3 supabase middleware', () => {
   const env = {
     url: 'https://test.supabase.co',
     publishableKeys: { default: 'sb_publishable_xyz' },
-    secretKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_secret_xyz' },
     jwks: null,
   }
 
