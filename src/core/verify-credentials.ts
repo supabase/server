@@ -73,16 +73,23 @@ function claimsToUserClaims(claims: JWTClaims): UserClaims {
   }
 }
 
+const INVALID = Symbol('invalid')
+
 /**
  * Attempts to authenticate credentials against a single auth mode.
- * Returns the {@link AuthResult} on success, or `null` if the mode doesn't match.
+ *
+ * Returns:
+ * - `AuthResult` on success.
+ * - `null` if the mode doesn't apply (no relevant credential present — safe to try the next mode).
+ * - `INVALID` if a credential was present but failed verification (must reject immediately).
+ *
  * @internal
  */
 async function tryMode(
   mode: AllowWithKey,
   credentials: Credentials,
   env: SupabaseEnv,
-): Promise<AuthResult | null> {
+): Promise<AuthResult | typeof INVALID | null> {
   const { base, keyName } = parseAllowMode(mode)
 
   switch (base) {
@@ -166,7 +173,7 @@ async function tryMode(
         const jwkSet = createLocalJWKSet(env.jwks)
         const { payload } = await jwtVerify(credentials.token, jwkSet)
         if (typeof payload.sub !== 'string') {
-          return null
+          return INVALID
         }
         const claims = payload as unknown as JWTClaims
         return {
@@ -177,7 +184,7 @@ async function tryMode(
           keyName: null,
         }
       } catch {
-        return null
+        return INVALID
       }
     }
 
@@ -189,8 +196,11 @@ async function tryMode(
 /**
  * Verifies pre-extracted credentials against one or more allowed auth modes.
  *
- * Tries each mode in order — first match wins. Use {@link verifyAuth} to extract
- * and verify in a single call.
+ * Tries each mode in order — first match wins. A mode is only tried when its
+ * credential is present; a JWT that is present but fails verification
+ * short-circuits the chain with `InvalidCredentialsError` instead of falling
+ * through to the next mode. Use {@link verifyAuth} to extract and verify in a
+ * single call.
  *
  * @param credentials - The credentials to verify (from {@link extractCredentials}).
  * @param options - Allowed auth modes and optional env overrides.
@@ -225,6 +235,9 @@ export async function verifyCredentials(
 
   for (const mode of modes) {
     const result = await tryMode(mode, credentials, env)
+    if (result === INVALID) {
+      return { data: null, error: Errors[InvalidCredentialsError]() }
+    }
     if (result) {
       return { data: result, error: null }
     }

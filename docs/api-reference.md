@@ -291,17 +291,17 @@ class AuthError extends Error {
 
 ## Error Code Constants
 
-| Constant                            | Value                               | Class       | Meaning                           |
-| ----------------------------------- | ----------------------------------- | ----------- | --------------------------------- |
-| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error         |
-| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set            |
-| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found   |
-| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key        |
-| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found        |
-| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key             |
-| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                |
-| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched             |
-| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth |
+| Constant                            | Value                               | Class       | Meaning                                           |
+| ----------------------------------- | ----------------------------------- | ----------- | ------------------------------------------------- |
+| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                         |
+| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                            |
+| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                   |
+| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                        |
+| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                        |
+| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                             |
+| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                                |
+| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched, or JWT failed verification |
+| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth                 |
 
 ---
 

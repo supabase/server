@@ -60,6 +60,8 @@ JWT verification in `user` mode works as follows:
 
 If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
 
+**No silent downgrade.** When `user` is combined with other modes (e.g. `allow: ['user', 'public']`), a JWT that is present but fails verification rejects the request with `InvalidCredentialsError` — it does not fall through to the next mode. This prevents a bad token paired with a valid `apikey` (or with `'always'`) from being silently downgraded to a less-privileged auth mode. Requests that simply omit the `Authorization` header still fall through as expected.
+
 ## CORS handling
 
 `withSupabase` handles CORS automatically:

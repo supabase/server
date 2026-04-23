@@ -21,11 +21,11 @@ Thrown when a required environment variable is missing or malformed. Always `sta
 
 Thrown when authentication or authorization fails. Status is `401` for invalid credentials, `500` for server-side auth failures.
 
-| Code                           | Status | Meaning                                     |
-| ------------------------------ | ------ | ------------------------------------------- |
-| `INVALID_CREDENTIALS`          | 401    | No credential matched any allowed auth mode |
-| `CREATE_SUPABASE_CLIENT_ERROR` | 500    | Auth succeeded but client creation failed   |
-| `AUTH_ERROR`                   | 401    | Generic authentication error                |
+| Code                           | Status | Meaning                                                                                   |
+| ------------------------------ | ------ | ----------------------------------------------------------------------------------------- |
+| `INVALID_CREDENTIALS`          | 401    | No credential matched any allowed auth mode, or a JWT was present but failed verification |
+| `CREATE_SUPABASE_CLIENT_ERROR` | 500    | Auth succeeded but client creation failed                                                 |
+| `AUTH_ERROR`                   | 401    | Generic authentication error                                                              |
 
 ## How errors surface in each layer
 

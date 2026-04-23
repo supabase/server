@@ -16,7 +16,10 @@ import type {
  * // Single mode
  * withSupabase({ allow: 'user' }, handler)
  *
- * // Multiple modes — the first match wins
+ * // Multiple modes — the first match wins.
+ * // A mode is tried only when its credential is present; a JWT that is
+ * // present but fails verification rejects immediately rather than falling
+ * // through to the next mode.
  * withSupabase({ allow: ['user', 'public'] }, handler)
  * ```
  */
@@ -213,6 +216,8 @@ export interface UserClaims {
 export interface WithSupabaseConfig {
   /**
    * Auth mode(s) to accept. Modes are tried in order — the first match wins.
+   * A mode falls through only when its credential is absent; a present-but-invalid
+   * JWT short-circuits the chain with `InvalidCredentialsError`.
    *
    * @defaultValue `"user"`
    */
