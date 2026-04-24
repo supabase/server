@@ -77,6 +77,18 @@ export interface SupabaseEnv {
    * `null` when no JWKS is configured (JWT verification will be unavailable).
    */
   jwks: JsonWebKeySet | null
+
+  /**
+   * Expected JWT audience (`aud` claim). When set, tokens with a different
+   * audience are rejected. Sourced from `SUPABASE_JWT_AUDIENCE`.
+   */
+  audience?: string
+
+  /**
+   * Expected JWT issuer (`iss` claim). When set, tokens from a different
+   * issuer are rejected. Sourced from `SUPABASE_JWT_ISSUER`.
+   */
+  issuer?: string
 }
 
 /**
