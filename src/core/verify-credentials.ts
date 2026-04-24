@@ -1,4 +1,4 @@
-import { createLocalJWKSet, jwtVerify } from 'jose'
+import { createLocalJWKSet, jwtVerify, type JWTVerifyOptions } from 'jose'
 
 import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
 import type {
@@ -171,7 +171,10 @@ async function tryMode(
       if (!env.jwks) return null
       try {
         const jwkSet = createLocalJWKSet(env.jwks)
-        const { payload } = await jwtVerify(credentials.token, jwkSet)
+        const options: JWTVerifyOptions = {}
+        if (env.audience) options.audience = env.audience
+        if (env.issuer) options.issuer = env.issuer
+        const { payload } = await jwtVerify(credentials.token, jwkSet, options)
         if (typeof payload.sub !== 'string') {
           return INVALID
         }

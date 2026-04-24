@@ -8,6 +8,8 @@ On Supabase Platform and Local Development (CLI), all variables are auto-provisi
 | `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | Platform, Local Development (CLI) |
 | `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | Platform, Local Development (CLI) |
 | `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | Platform, Local Development (CLI) |
+| `SUPABASE_JWT_AUDIENCE`     | `https://<ref>.supabase.co`        | Expected JWT `aud` claim (optional)   | All                               |
+| `SUPABASE_JWT_ISSUER`       | `https://<ref>.supabase.co/auth/v1`| Expected JWT `iss` claim (optional)   | All                               |
 | `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Self-hosted                       |
 | `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Self-hosted                       |
 
@@ -21,6 +23,8 @@ Set these based on which auth modes your app uses:
 | `SUPABASE_SECRET_KEY`      | `allow: 'secret'` or using `supabaseAdmin` |
 | `SUPABASE_PUBLISHABLE_KEY` | `allow: 'public'`                          |
 | `SUPABASE_JWKS`            | `allow: 'user'` (JWT verification)         |
+| `SUPABASE_JWT_AUDIENCE`    | Optional — restricts accepted JWT audience |
+| `SUPABASE_JWT_ISSUER`      | Optional — restricts accepted JWT issuer   |
 
 ### Minimal `.env` example
 
@@ -177,6 +181,8 @@ interface SupabaseEnv {
   publishableKeys: Record<string, string>
   secretKeys: Record<string, string>
   jwks: JsonWebKeySet | null
+  audience?: string
+  issuer?: string
 }
 ```
 
