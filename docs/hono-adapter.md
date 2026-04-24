@@ -81,22 +81,11 @@ export default { fetch: app.fetch }
 
 ## Skip behavior
 
-If a previous middleware already set `c.var.supabaseContext`, subsequent `withSupabase` calls skip auth. This enables a pattern where route-level middleware overrides the app-wide default:
+If a previous middleware already set `c.var.supabaseContext`, subsequent `withSupabase` calls skip auth. This matters when multiple `app.use` middlewares overlap on the same path — the first one to set the context wins.
 
-```ts
-const app = new Hono()
+**Important:** Hono runs middleware in registration order (`app.use` before route-level middleware). An `app.use('*', ...)` middleware will always run before inline route middleware, so the skip-if-set pattern cannot be used to make a route stricter than the app-wide default.
 
-// App-wide: require user auth
-app.use('*', withSupabase({ allow: 'user' }))
-
-// This route needs secret auth instead.
-// The route-level middleware runs first, sets the context,
-// and the app-wide middleware skips.
-app.post('/webhook', withSupabase({ allow: 'secret' }), async (c) => {
-  const { supabaseAdmin } = c.var.supabaseContext
-  // ...
-})
-```
+For routes that need different auth than the rest of the app, use per-route middleware without an app-wide middleware (see the "Per-route auth" section above).
 
 ## CORS
 
