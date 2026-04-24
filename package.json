@@ -1,6 +1,6 @@
 {
   "name": "@supabase/server",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.",
   "keywords": [
     "edge",
