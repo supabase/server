@@ -3,6 +3,7 @@ import {
   createRemoteJWKSet,
   jwtVerify,
   type JWTVerifyGetKey,
+  type JWTVerifyOptions,
 } from 'jose'
 
 import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
@@ -211,7 +212,10 @@ async function tryMode(
       if (!env.jwks) return null
       try {
         const jwkSet = getJwksResolver(env.jwks)
-        const { payload } = await jwtVerify(credentials.token, jwkSet)
+        const options: JWTVerifyOptions = {}
+        if (env.audience) options.audience = env.audience
+        if (env.issuer) options.issuer = env.issuer
+        const { payload } = await jwtVerify(credentials.token, jwkSet, options)
         if (typeof payload.sub !== 'string') {
           return INVALID
         }
