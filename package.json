@@ -39,6 +39,11 @@
       "import": "./dist/adapters/h3/index.mjs",
       "require": "./dist/adapters/h3/index.cjs"
     },
+    "./x402": {
+      "types": "./dist/x402/index.d.mts",
+      "import": "./dist/x402/index.mjs",
+      "require": "./dist/x402/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
