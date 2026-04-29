@@ -55,10 +55,14 @@ JWT verification in `user` mode works as follows:
 1. The `Authorization: Bearer <token>` header is extracted from the request
 2. The token is verified against the JWKS from the `SUPABASE_JWKS` environment variable
 3. Verification uses `jose`'s `jwtVerify` with a **local** key set — there are no network calls to a JWKS endpoint
-4. The token must contain a `sub` (subject) claim to be considered valid
-5. On success, the decoded claims are available as `ctx.userClaims` and `ctx.claims`
+4. If `SUPABASE_JWT_AUDIENCE` is set, the token's `aud` claim must match
+5. If `SUPABASE_JWT_ISSUER` is set, the token's `iss` claim must match
+6. The token must contain a `sub` (subject) claim to be considered valid
+7. On success, the decoded claims are available as `ctx.userClaims` and `ctx.claims`
 
 If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
+
+**Audience and issuer validation.** In setups where multiple services share the same signing keys, a JWT minted by one service could be accepted by another. Setting `SUPABASE_JWT_AUDIENCE` and `SUPABASE_JWT_ISSUER` prevents this by rejecting tokens that weren't issued for your specific service. Both are optional for backward compatibility but recommended in multi-service deployments.
 
 **No silent downgrade.** When `user` is combined with other modes (e.g. `allow: ['user', 'public']`), a JWT that is present but fails verification rejects the request with `InvalidCredentialsError` — it does not fall through to the next mode. This prevents a bad token paired with a valid `apikey` (or with `'always'`) from being silently downgraded to a less-privileged auth mode. Requests that simply omit the `Authorization` header still fall through as expected.
 
