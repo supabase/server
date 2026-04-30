@@ -1,0 +1,35 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/index.ts",
+    "src/core/index.ts",
+    "src/adapters/hono/index.ts",
+    "src/adapters/h3/index.ts"
+  ],
+  "out": "api-docs",
+  "json": "api-docs/spec.json",
+  "name": "@supabase/server",
+  "readme": "README.md",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/supabase/server"
+  },
+  "projectDocuments": [
+    "docs/getting-started.md",
+    "docs/core-primitives.md",
+    "docs/api-reference.md",
+    "docs/auth-modes.md",
+    "docs/environment-variables.md",
+    "docs/error-handling.md",
+    "docs/hono-adapter.md",
+    "docs/security.md",
+    "docs/ssr-frameworks.md",
+    "docs/typescript-generics.md"
+  ],
+  "sort": ["source-order"],
+  "kindSortOrder": ["Function", "Class", "Interface", "TypeAlias", "Enum"],
+  "categorizeByGroup": true
+}

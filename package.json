@@ -55,6 +55,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "docs": "typedoc",
     "format": "prettier --write .",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
@@ -74,8 +75,8 @@
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.0.0",
-    "hono": "^4.0.0",
-    "h3": "^2.0.0"
+    "h3": "^2.0.0",
+    "hono": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "h3": {
@@ -96,6 +97,7 @@
     "pretty-quick": "^4.2.2",
     "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.20.3",
+    "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
