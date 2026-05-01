@@ -440,6 +440,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
 | `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
 | `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/x402`          | `withPayment` (Stripe-facilitated x402 paywall middleware)                                                        |
 
 ## Documentation
 
@@ -454,6 +455,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | How do I get typed database queries?                     | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
 | How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
 | What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                 |
+| How do I charge per call with x402 + Stripe?             | [`src/x402/README.md`](src/x402/README.md)                       |
 
 ## Development
 
