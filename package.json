@@ -49,6 +49,21 @@
       "import": "./dist/gates/cloudflare/index.mjs",
       "require": "./dist/gates/cloudflare/index.cjs"
     },
+    "./gates/flag": {
+      "types": "./dist/gates/flag/index.d.mts",
+      "import": "./dist/gates/flag/index.mjs",
+      "require": "./dist/gates/flag/index.cjs"
+    },
+    "./gates/rate-limit": {
+      "types": "./dist/gates/rate-limit/index.d.mts",
+      "import": "./dist/gates/rate-limit/index.mjs",
+      "require": "./dist/gates/rate-limit/index.cjs"
+    },
+    "./gates/webhook": {
+      "types": "./dist/gates/webhook/index.d.mts",
+      "import": "./dist/gates/webhook/index.mjs",
+      "require": "./dist/gates/webhook/index.cjs"
+    },
     "./gates/x402": {
       "types": "./dist/gates/x402/index.d.mts",
       "import": "./dist/gates/x402/index.mjs",

@@ -7,6 +7,9 @@
     "./core/gates": "./src/core/gates/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./gates/cloudflare": "./src/gates/cloudflare/index.ts",
+    "./gates/flag": "./src/gates/flag/index.ts",
+    "./gates/rate-limit": "./src/gates/rate-limit/index.ts",
+    "./gates/webhook": "./src/gates/webhook/index.ts",
     "./gates/x402": "./src/gates/x402/index.ts"
   },
   "publish": {

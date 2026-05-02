@@ -327,8 +327,11 @@ export default {
 `withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates compose inside it (or stand alone).
 
 - [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, `chain`, `ctx` rules, prerequisite enforcement).
-- [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — Cloudflare-issued credentials and headers (`withTurnstile`, more coming).
-- [`@supabase/server/gates/x402`](src/gates/x402/README.md) — `withPayment`, the Stripe-facilitated x402 paywall gate.
+- [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — `withTurnstile`, `withAccess`.
+- [`@supabase/server/gates/flag`](src/gates/flag/README.md) — `withFlag`, provider-agnostic feature flag.
+- [`@supabase/server/gates/rate-limit`](src/gates/rate-limit/README.md) — `withRateLimit`, fixed-window with pluggable store.
+- [`@supabase/server/gates/webhook`](src/gates/webhook/README.md) — `withWebhook`, HMAC signature verification.
+- [`@supabase/server/gates/x402`](src/gates/x402/README.md) — `withPayment`, Stripe-facilitated x402 paywall.
 
 ## Primitives
 
@@ -469,7 +472,10 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | `@supabase/server/adapters/hono`    | `withSupabase` (Hono middleware)                                                                                  |
 | `@supabase/server/adapters/h3`      | `withSupabase` (H3 / Nuxt middleware)                                                                             |
 | `@supabase/server/core/gates`       | `chain`, `defineGate` (gate composition primitives)                                                               |
-| `@supabase/server/gates/cloudflare` | `withTurnstile` (Cloudflare bot-check, Access, …)                                                                 |
+| `@supabase/server/gates/cloudflare` | `withTurnstile`, `withAccess` (Cloudflare bot-check + Zero Trust JWT)                                             |
+| `@supabase/server/gates/flag`       | `withFlag` (provider-agnostic feature-flag gate)                                                                  |
+| `@supabase/server/gates/rate-limit` | `withRateLimit` (fixed-window rate limit; pluggable store)                                                        |
+| `@supabase/server/gates/webhook`    | `withWebhook` (HMAC signature verification, Stripe + custom)                                                      |
 | `@supabase/server/gates/x402`       | `withPayment` (Stripe-facilitated x402 paywall gate)                                                              |
 
 ## Documentation
@@ -487,6 +493,9 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                   |
 | How do I compose preconditions (gates) around a handler? | [`src/core/gates/README.md`](src/core/gates/README.md)             |
 | How do I gate a route behind a Cloudflare check?         | [`src/gates/cloudflare/README.md`](src/gates/cloudflare/README.md) |
+| How do I gate a route behind a feature flag?             | [`src/gates/flag/README.md`](src/gates/flag/README.md)             |
+| How do I rate-limit a route?                             | [`src/gates/rate-limit/README.md`](src/gates/rate-limit/README.md) |
+| How do I verify webhook signatures?                      | [`src/gates/webhook/README.md`](src/gates/webhook/README.md)       |
 | How do I charge per call with x402 + Stripe?             | [`src/gates/x402/README.md`](src/gates/x402/README.md)             |
 
 ## Development
