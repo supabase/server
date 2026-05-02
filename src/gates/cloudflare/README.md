@@ -20,11 +20,12 @@ export default {
 
 ## Available gates
 
-| Gate            | Namespace   | Purpose                                                               |
-| --------------- | ----------- | --------------------------------------------------------------------- |
-| `withTurnstile` | `turnstile` | Verifies a Cloudflare Turnstile bot-check token against `siteverify`. |
+| Gate            | Namespace   | Purpose                                                                         |
+| --------------- | ----------- | ------------------------------------------------------------------------------- |
+| `withTurnstile` | `turnstile` | Verifies a Cloudflare Turnstile bot-check token against `siteverify`.           |
+| `withAccess`    | `access`    | Validates a Cloudflare Zero Trust JWT (`Cf-Access-Jwt-Assertion`) against JWKS. |
 
-More gates (Cloudflare Access, geofencing, bot management) are planned — see the package roadmap.
+More gates (geofencing, bot management) are planned — see the package roadmap.
 
 ## `withTurnstile`
 
@@ -85,7 +86,44 @@ If you bind your widget's client-side `action` to a value (e.g. `"login"`) and p
 
 If `cf-connecting-ip` is present on the request, it's forwarded to siteverify as `remoteip` — recommended by Cloudflare to harden the check against token replay from other IPs. No-op if you're not behind Cloudflare or the header isn't set.
 
+## `withAccess`
+
+Validates the `Cf-Access-Jwt-Assertion` header that Cloudflare attaches to every request to an Access-protected origin. Verifies the signature against your team's JWKS and checks that the `aud` claim matches your application's audience tag. On success, contributes the verified identity at `ctx.state.access`.
+
+### Config
+
+```ts
+withAccess({
+  teamDomain: 'acme.cloudflareaccess.com', // your team domain
+  audience: process.env.CF_ACCESS_AUD!, // your application's AUD tag
+})
+```
+
+### Contribution
+
+```ts
+ctx.state.access = {
+  email: string | null
+  sub: string                  // Cloudflare's stable identity id
+  identityNonce: string | null
+  audience: string             // the AUD that was validated
+  claims: JWTPayload           // full payload for custom claims
+}
+```
+
+### Errors
+
+| Status | `error`                | Meaning                                               |
+| ------ | ---------------------- | ----------------------------------------------------- |
+| 401    | `access_token_missing` | The `Cf-Access-Jwt-Assertion` header was not present. |
+| 401    | `access_token_invalid` | Signature, audience, or expiration check failed.      |
+
+### When to use it
+
+For backend services behind a Cloudflare tunnel + Access policy. Cloudflare authenticates the user at the edge and signs every request with a JWT — `withAccess` is the verifier on the origin side. No need to roll your own SSO flow.
+
 ## See also
 
 - [Gate composition primitives](../../core/gates/README.md) — `chain`, `defineGate`, ctx shape
 - [Turnstile docs](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
+- [Access JWT validation](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/)
