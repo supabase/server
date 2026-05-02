@@ -7,6 +7,7 @@ export default defineConfig({
     'src/core/gates/index.ts',
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
+    'src/gates/cloudflare/index.ts',
     'src/gates/x402/index.ts',
   ],
   format: ['esm', 'cjs'],

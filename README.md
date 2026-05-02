@@ -327,6 +327,7 @@ export default {
 `withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates compose inside it (or stand alone).
 
 - [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, `chain`, `ctx` rules, prerequisite enforcement).
+- [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — Cloudflare-issued credentials and headers (`withTurnstile`, more coming).
 - [`@supabase/server/gates/x402`](src/gates/x402/README.md) — `withPayment`, the Stripe-facilitated x402 paywall gate.
 
 ## Primitives
@@ -461,30 +462,32 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 ## Exports
 
-| Export                           | What's in it                                                                                                      |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/core/gates`    | `chain`, `defineGate` (gate composition primitives)                                                               |
-| `@supabase/server/gates/x402`    | `withPayment` (Stripe-facilitated x402 paywall gate)                                                              |
+| Export                              | What's in it                                                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                  | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`             | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`    | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`      | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/core/gates`       | `chain`, `defineGate` (gate composition primitives)                                                               |
+| `@supabase/server/gates/cloudflare` | `withTurnstile` (Cloudflare bot-check, Access, …)                                                                 |
+| `@supabase/server/gates/x402`       | `withPayment` (Stripe-facilitated x402 paywall gate)                                                              |
 
 ## Documentation
 
-| Question                                                 | Doc file                                                         |
-| -------------------------------------------------------- | ---------------------------------------------------------------- |
-| How do I create a basic endpoint?                        | [`docs/getting-started.md`](docs/getting-started.md)             |
-| What auth modes are available? Array syntax? Named keys? | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
-| How do I use this with Hono?                             | [`docs/hono-adapter.md`](docs/hono-adapter.md)                   |
-| How do I use low-level primitives for custom flows?      | [`docs/core-primitives.md`](docs/core-primitives.md)             |
-| How do environment variables work across runtimes?       | [`docs/environment-variables.md`](docs/environment-variables.md) |
-| How do I handle errors? What codes exist?                | [`docs/error-handling.md`](docs/error-handling.md)               |
-| How do I get typed database queries?                     | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
-| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
-| What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                 |
-| How do I compose preconditions (gates) around a handler? | [`src/core/gates/README.md`](src/core/gates/README.md)           |
-| How do I charge per call with x402 + Stripe?             | [`src/gates/x402/README.md`](src/gates/x402/README.md)           |
+| Question                                                 | Doc file                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------ |
+| How do I create a basic endpoint?                        | [`docs/getting-started.md`](docs/getting-started.md)               |
+| What auth modes are available? Array syntax? Named keys? | [`docs/auth-modes.md`](docs/auth-modes.md)                         |
+| How do I use this with Hono?                             | [`docs/hono-adapter.md`](docs/hono-adapter.md)                     |
+| How do I use low-level primitives for custom flows?      | [`docs/core-primitives.md`](docs/core-primitives.md)               |
+| How do environment variables work across runtimes?       | [`docs/environment-variables.md`](docs/environment-variables.md)   |
+| How do I handle errors? What codes exist?                | [`docs/error-handling.md`](docs/error-handling.md)                 |
+| How do I get typed database queries?                     | [`docs/typescript-generics.md`](docs/typescript-generics.md)       |
+| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                 |
+| What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                   |
+| How do I compose preconditions (gates) around a handler? | [`src/core/gates/README.md`](src/core/gates/README.md)             |
+| How do I gate a route behind a Cloudflare check?         | [`src/gates/cloudflare/README.md`](src/gates/cloudflare/README.md) |
+| How do I charge per call with x402 + Stripe?             | [`src/gates/x402/README.md`](src/gates/x402/README.md)             |
 
 ## Development
 
