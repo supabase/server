@@ -44,6 +44,11 @@
       "import": "./dist/adapters/h3/index.mjs",
       "require": "./dist/adapters/h3/index.cjs"
     },
+    "./gates/x402": {
+      "types": "./dist/gates/x402/index.d.mts",
+      "import": "./dist/gates/x402/index.mjs",
+      "require": "./dist/gates/x402/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

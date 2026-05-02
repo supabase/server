@@ -5,7 +5,8 @@
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
     "./core/gates": "./src/core/gates/index.ts",
-    "./adapters/hono": "./src/adapters/hono/index.ts"
+    "./adapters/hono": "./src/adapters/hono/index.ts",
+    "./gates/x402": "./src/gates/x402/index.ts"
   },
   "publish": {
     "include": ["src/**/*.ts", "README.md", "LICENSE"],
