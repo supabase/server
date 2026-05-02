@@ -1,26 +1,26 @@
 # `@supabase/server/gates/webhook`
 
-HMAC signature verification for inbound webhooks. Reads the raw request body, verifies it against a shared secret, checks the replay window, and contributes the parsed event + raw bytes to `ctx.state.webhook`.
+HMAC signature verification for inbound webhooks. Reads the raw request body, verifies it against a shared secret, checks the replay window, and contributes the parsed event + raw bytes to `ctx.webhook`.
 
 ```ts
-import { chain } from '@supabase/server/core/gates'
 import { withWebhook } from '@supabase/server/gates/webhook'
 
 export default {
-  fetch: chain(
-    withWebhook({
+  fetch: withWebhook(
+    {
       provider: {
         kind: 'stripe',
         secret: process.env.STRIPE_WEBHOOK_SECRET!,
       },
-    }),
-  )(async (req, ctx) => {
-    const event = ctx.state.webhook.event as { type: string }
-    if (event.type === 'payment_intent.succeeded') {
-      // …
-    }
-    return new Response(null, { status: 204 })
-  }),
+    },
+    async (req, ctx) => {
+      const event = ctx.webhook.event as { type: string }
+      if (event.type === 'payment_intent.succeeded') {
+        // …
+      }
+      return new Response(null, { status: 204 })
+    },
+  ),
 }
 ```
 
@@ -77,7 +77,7 @@ withWebhook({
 ## Contribution
 
 ```ts
-ctx.state.webhook = {
+ctx.webhook = {
   event: unknown      // parsed JSON body
   rawBody: string     // raw bytes the signature was computed over
   deliveryId: string  // provider-supplied id (Stripe: event.id; GitHub: x-github-delivery)
@@ -89,7 +89,7 @@ ctx.state.webhook = {
 
 ## Body consumption
 
-The gate reads the request body via `req.text()` once. Downstream handlers that call `req.json()` would fail because the body is already consumed — read from `ctx.state.webhook.event` (parsed) or `ctx.state.webhook.rawBody` (raw) instead.
+The gate reads the request body via `req.text()` once. Downstream handlers that call `req.json()` would fail because the body is already consumed — read from `ctx.webhook.event` (parsed) or `ctx.webhook.rawBody` (raw) instead.
 
 ## Idempotency
 

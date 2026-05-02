@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { chain } from '../../core/gates/index.js'
 import { withFlag } from './with-flag.js'
 
 const innerOk = async () => Response.json({ ok: true })
@@ -8,7 +7,7 @@ const innerOk = async () => Response.json({ ok: true })
 describe('withFlag', () => {
   it('admits when evaluate returns true and contributes the flag state', async () => {
     const inner = vi.fn(async (_req: Request, ctx) => {
-      expect(ctx.state.flag).toEqual({
+      expect(ctx.flag).toEqual({
         name: 'beta',
         enabled: true,
         variant: null,
@@ -17,12 +16,7 @@ describe('withFlag', () => {
       return Response.json({ ok: true })
     })
 
-    const handler = chain(
-      withFlag({
-        name: 'beta',
-        evaluate: () => true,
-      }),
-    )(inner)
+    const handler = withFlag({ name: 'beta', evaluate: () => true }, inner)
 
     const res = await handler(new Request('http://localhost/'))
     expect(res.status).toBe(200)
@@ -30,9 +24,7 @@ describe('withFlag', () => {
   })
 
   it('rejects with 404 by default when evaluate returns false', async () => {
-    const handler = chain(withFlag({ name: 'beta', evaluate: () => false }))(
-      innerOk,
-    )
+    const handler = withFlag({ name: 'beta', evaluate: () => false }, innerOk)
 
     const res = await handler(new Request('http://localhost/'))
     expect(res.status).toBe(404)
@@ -43,14 +35,15 @@ describe('withFlag', () => {
   })
 
   it('honors a custom rejectStatus and rejectBody', async () => {
-    const handler = chain(
-      withFlag({
+    const handler = withFlag(
+      {
         name: 'beta',
         evaluate: () => false,
         rejectStatus: 403,
         rejectBody: { code: 'NOT_ROLLED_OUT' },
-      }),
-    )(innerOk)
+      },
+      innerOk,
+    )
 
     const res = await handler(new Request('http://localhost/'))
     expect(res.status).toBe(403)
@@ -59,21 +52,22 @@ describe('withFlag', () => {
 
   it('captures variant + payload when evaluate returns a verdict object', async () => {
     const inner = vi.fn(async (_req: Request, ctx) => {
-      expect(ctx.state.flag.variant).toBe('green')
-      expect(ctx.state.flag.payload).toEqual({ rollout: 0.25 })
+      expect(ctx.flag.variant).toBe('green')
+      expect(ctx.flag.payload).toEqual({ rollout: 0.25 })
       return Response.json({ ok: true })
     })
 
-    const handler = chain(
-      withFlag({
+    const handler = withFlag(
+      {
         name: 'beta',
         evaluate: () => ({
           enabled: true,
           variant: 'green',
           payload: { rollout: 0.25 },
         }),
-      }),
-    )(inner)
+      },
+      inner,
+    )
 
     await handler(new Request('http://localhost/'))
     expect(inner).toHaveBeenCalledOnce()
@@ -82,7 +76,7 @@ describe('withFlag', () => {
   it('passes the request to evaluate so flags can target by header / IP / user', async () => {
     const evaluate = vi.fn((req: Request) => req.headers.get('x-beta') === '1')
 
-    const handler = chain(withFlag({ name: 'beta', evaluate }))(innerOk)
+    const handler = withFlag({ name: 'beta', evaluate }, innerOk)
 
     const off = await handler(new Request('http://localhost/'))
     expect(off.status).toBe(404)
@@ -96,15 +90,16 @@ describe('withFlag', () => {
   })
 
   it('supports async evaluators', async () => {
-    const handler = chain(
-      withFlag({
+    const handler = withFlag(
+      {
         name: 'beta',
         evaluate: async () => {
           await new Promise((r) => setTimeout(r, 1))
           return { enabled: true, variant: 'a' }
         },
-      }),
-    )(async (_req, ctx) => Response.json({ variant: ctx.state.flag.variant }))
+      },
+      async (_req, ctx) => Response.json({ variant: ctx.flag.variant }),
+    )
 
     const res = await handler(new Request('http://localhost/'))
     expect(res.status).toBe(200)

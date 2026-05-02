@@ -3,19 +3,17 @@
 Fixed-window rate-limit gate. Counts hits per key within a window; rejects with `429 Too Many Requests` once the limit is exceeded.
 
 ```ts
-import { chain } from '@supabase/server/core/gates'
 import { withRateLimit } from '@supabase/server/gates/rate-limit'
 
 export default {
-  fetch: chain(
-    withRateLimit({
+  fetch: withRateLimit(
+    {
       limit: 60,
       windowMs: 60_000,
       key: (req) => req.headers.get('cf-connecting-ip') ?? 'anon',
-    }),
-  )(async (req, ctx) => {
-    return Response.json({ remaining: ctx.state.rateLimit.remaining })
-  }),
+    },
+    async (req, ctx) => Response.json({ remaining: ctx.rateLimit.remaining }),
+  ),
 }
 ```
 
@@ -31,7 +29,7 @@ export default {
 ## Contribution
 
 ```ts
-ctx.state.rateLimit = {
+ctx.rateLimit = {
   limit: number   // configured limit
   remaining: number // hits remaining in current window
   reset: number   // ms epoch when the window resets
@@ -65,24 +63,24 @@ The `hit` method must atomically increment-or-create the bucket. A SQL function 
 ## Composing with `withSupabase` for per-user limits
 
 ```ts
+import type { SupabaseContext } from '@supabase/server'
+import { withSupabase } from '@supabase/server'
+import { withRateLimit } from '@supabase/server/gates/rate-limit'
+
 withSupabase(
   { allow: 'user' },
-  chain(
-    withRateLimit({
+  withRateLimit<SupabaseContext>(
+    {
       limit: 30,
       windowMs: 60_000,
-      key: async (_req) => {
-        // Pull the user id from the upstream Supabase context.
-        // Note: the key extractor doesn't see ctx by default; stash it in
-        // a closure or use ctx.locals from inside a wrapper gate.
-        return 'per-user-key'
-      },
-    }),
-  )(handler),
+      key: (req) => req.headers.get('cf-connecting-ip') ?? 'anon',
+    },
+    async (_req, ctx) => Response.json({ user: ctx.userClaims!.id }),
+  ),
 )
 ```
 
-For per-user limits, key off `ctx.userClaims.id`. The current `key` signature only sees the request — pass user identity via a header you trust (after `withSupabase` validation), or compose the gate after a small "stamp the user id into req" step.
+The `<SupabaseContext>` annotation threads the host's keys into the inner handler's `ctx` so `ctx.userClaims` types correctly. For per-user limits keyed off the JWT identity, derive a stable key from a header the auth layer has already validated (or stash one inside `ctx.locals` from an outer step).
 
 ## See also
 

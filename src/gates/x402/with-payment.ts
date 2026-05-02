@@ -81,7 +81,7 @@ export interface WithPaymentConfig {
 }
 
 /**
- * Shape contributed to `ctx.state.payment` once the chain has admitted a
+ * Shape contributed to `ctx.payment` once the chain has admitted a
  * paid request.
  */
 export interface PaymentState {
@@ -97,7 +97,7 @@ export interface PaymentState {
  *   Stripe `PaymentIntent`'s deposit address.
  * - With `X-PAYMENT`, decodes the base64 payload, looks up the matching
  *   `PaymentIntent` via `store`, and admits the request iff it has succeeded
- *   — placing `{ intentId }` at `ctx.state.payment`.
+ *   — placing `{ intentId }` at `ctx.payment`.
  *
  * @example
  * ```ts
@@ -111,7 +111,7 @@ export interface PaymentState {
  *
  * export default {
  *   fetch: chain(withPayment({ stripe, amountCents: 1 }))(async (req, ctx) => {
- *     return Response.json({ ok: true, paid: ctx.state.payment.intentId })
+ *     return Response.json({ ok: true, paid: ctx.payment.intentId })
  *   }),
  * }
  * ```
@@ -122,7 +122,7 @@ export const withPayment = defineGate<
   Record<never, never>,
   PaymentState
 >({
-  namespace: 'payment',
+  key: 'payment',
   run: (config) => {
     const network = config.network ?? 'base'
     const store = config.store ?? createMemoryStore()

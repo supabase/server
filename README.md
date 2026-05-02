@@ -304,29 +304,31 @@ The adapter does not handle CORS — use H3's CORS utilities for that.
 
 ## Gates
 
-Compose preconditions around a handler. A **gate** runs against the inbound `Request`, either short-circuits with a `Response` or contributes typed data to `ctx.state[namespace]`. Stack them with `chain` to build per-route policy (paywalls, bot checks, rate limits, signed webhooks) without nesting wrappers by hand.
+Compose preconditions around a handler. A **gate** runs against the inbound `Request`, either short-circuits with a `Response` or contributes typed data to a flat key on `ctx`. Each gate is a fetch-handler wrapper — nest them directly the same way `withSupabase` nests, no separate composer.
 
 ```ts
+import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
-import { chain } from '@supabase/server/core/gates'
 import { withPayment } from '@supabase/server/gates/x402'
 
 export default {
   fetch: withSupabase(
     { allow: 'user' },
-    chain(withPayment({ stripe, amountCents: 5 }))(async (req, ctx) => {
-      // ctx.supabase, ctx.userClaims     — from withSupabase
-      // ctx.state.payment.intentId       — from withPayment
-      // ctx.locals.foo = 'bar'           — free per-request scratch
-      return Response.json({ paid: ctx.state.payment.intentId })
-    }),
+    withPayment<SupabaseContext>(
+      { stripe, amountCents: 5 },
+      async (req, ctx) => {
+        // ctx.supabase, ctx.userClaims    — from withSupabase
+        // ctx.payment.intentId            — from withPayment
+        return Response.json({ paid: ctx.payment.intentId })
+      },
+    ),
   ),
 }
 ```
 
-`withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates compose inside it (or stand alone).
+`withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates nest inside it (or stand alone). Pass `<Base>` to thread upstream keys into the gate handler's `ctx` type.
 
-- [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, `chain`, `ctx` rules, prerequisite enforcement).
+- [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, ctx rules, prerequisite enforcement, conflict detection).
 - [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — `withTurnstile`, `withAccess`.
 - [`@supabase/server/gates/flag`](src/gates/flag/README.md) — `withFlag`, provider-agnostic feature flag.
 - [`@supabase/server/gates/rate-limit`](src/gates/rate-limit/README.md) — `withRateLimit`, fixed-window with pluggable store.
@@ -471,7 +473,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | `@supabase/server/core`             | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
 | `@supabase/server/adapters/hono`    | `withSupabase` (Hono middleware)                                                                                  |
 | `@supabase/server/adapters/h3`      | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/core/gates`       | `chain`, `defineGate` (gate composition primitives)                                                               |
+| `@supabase/server/core/gates`       | `defineGate` (gate composition primitives)                                                                        |
 | `@supabase/server/gates/cloudflare` | `withTurnstile`, `withAccess` (Cloudflare bot-check + Zero Trust JWT)                                             |
 | `@supabase/server/gates/flag`       | `withFlag` (provider-agnostic feature-flag gate)                                                                  |
 | `@supabase/server/gates/rate-limit` | `withRateLimit` (fixed-window rate limit; pluggable store)                                                        |

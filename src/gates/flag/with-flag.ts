@@ -2,7 +2,7 @@
  * Feature-flag gate.
  *
  * Evaluates a flag for the inbound request and either admits with the
- * verdict at `ctx.state.flag` or short-circuits with a configurable response.
+ * verdict at `ctx.flag` or short-circuits with a configurable response.
  * Provider-agnostic — pass any `evaluate` function (PostHog, LaunchDarkly,
  * Statsig, a header check, a database lookup).
  */
@@ -10,7 +10,7 @@
 import { defineGate } from '../../core/gates/index.js'
 
 export interface WithFlagConfig {
-  /** Human-readable name for the flag, recorded in `ctx.state.flag.name`. */
+  /** Human-readable name for the flag, recorded in `ctx.flag.name`. */
   name: string
 
   /**
@@ -47,7 +47,7 @@ export interface FlagVerdict {
   payload?: unknown
 }
 
-/** Shape contributed at `ctx.state.flag` after a successful evaluation. */
+/** Shape contributed at `ctx.flag` after a successful evaluation. */
 export interface FlagState {
   name: string
   enabled: true
@@ -70,7 +70,7 @@ export interface FlagState {
  *       evaluate: (req) => req.headers.get('x-beta') === '1',
  *     }),
  *   )(async (_req, ctx) => {
- *     return Response.json({ feature: ctx.state.flag.name })
+ *     return Response.json({ feature: ctx.flag.name })
  *   }),
  * }
  * ```
@@ -93,7 +93,7 @@ export const withFlag = defineGate<
   Record<never, never>,
   FlagState
 >({
-  namespace: 'flag',
+  key: 'flag',
   run: (config) => async (req) => {
     const result = await config.evaluate(req)
     const verdict: FlagVerdict =

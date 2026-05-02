@@ -1,7 +1,6 @@
 import { exportJWK, generateKeyPair, SignJWT, type KeyObject } from 'jose'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { chain } from '../../core/gates/index.js'
 import { withAccess } from './with-access.js'
 
 const TEAM_DOMAIN = 'acme.cloudflareaccess.com'
@@ -51,7 +50,7 @@ const innerOk = async () => Response.json({ ok: true })
 
 describe('withAccess', () => {
   it('rejects when the assertion header is missing', async () => {
-    const handler = chain(withAccess(baseConfig))(innerOk)
+    const handler = withAccess(baseConfig, innerOk)
 
     const res = await handler(new Request('http://localhost/'))
 
@@ -59,19 +58,19 @@ describe('withAccess', () => {
     expect(await res.json()).toEqual({ error: 'access_token_missing' })
   })
 
-  it('admits a valid token and contributes identity to ctx.state.access', async () => {
+  it('admits a valid token and contributes identity to ctx.access', async () => {
     const token = await sign()
 
     const inner = vi.fn(async (_req: Request, ctx) => {
-      expect(ctx.state.access.email).toBe('user@example.com')
-      expect(ctx.state.access.sub).toBe('user-123')
-      expect(ctx.state.access.identityNonce).toBe('nonce-abc')
-      expect(ctx.state.access.audience).toBe(AUDIENCE)
-      expect(ctx.state.access.claims.iss).toBe(ISSUER)
+      expect(ctx.access.email).toBe('user@example.com')
+      expect(ctx.access.sub).toBe('user-123')
+      expect(ctx.access.identityNonce).toBe('nonce-abc')
+      expect(ctx.access.audience).toBe(AUDIENCE)
+      expect(ctx.access.claims.iss).toBe(ISSUER)
       return Response.json({ ok: true })
     })
 
-    const handler = chain(withAccess(baseConfig))(inner)
+    const handler = withAccess(baseConfig, inner)
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -86,7 +85,7 @@ describe('withAccess', () => {
   it('rejects a token with the wrong audience', async () => {
     const token = await sign({ aud: 'someone-elses-audience' })
 
-    const handler = chain(withAccess(baseConfig))(innerOk)
+    const handler = withAccess(baseConfig, innerOk)
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -100,7 +99,7 @@ describe('withAccess', () => {
   })
 
   it('rejects a malformed assertion', async () => {
-    const handler = chain(withAccess(baseConfig))(innerOk)
+    const handler = withAccess(baseConfig, innerOk)
 
     const res = await handler(
       new Request('http://localhost/', {

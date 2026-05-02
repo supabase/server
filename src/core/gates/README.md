@@ -1,30 +1,33 @@
-# @supabase/server/core/gates
+# `@supabase/server/core/gates`
 
-Composable preconditions for fetch handlers. A **gate** is a small unit that runs against an inbound `Request` and either short-circuits with a `Response` or contributes typed data to `ctx.state[namespace]` for the handler.
+Composable preconditions for fetch handlers. A **gate** is a small unit that runs against an inbound `Request` and either short-circuits with a `Response` or contributes typed data to a flat key on `ctx` for the handler.
 
-This module exports two helpers:
+This module exports:
 
 - **`defineGate`** — for _gate authors_ writing a new integration.
-- **`chain`** — for _gate consumers_ composing gates into a fetch handler.
 
-`withSupabase` is **not** a gate. It's a fetch-handler wrapper that establishes `SupabaseContext`. Gates compose _inside_ it (or standalone).
+Gates compose by direct nesting — each `withFoo(config, handler)` is a fetch-handler wrapper, the same shape as `withSupabase`. No separate composer.
 
 ## Quick start (consumer)
 
 ```ts
+import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
-import { chain } from '@supabase/server/core/gates'
-import { withPayment } from '@supabase/server/gates/x402'
+import { withFlag } from './gates/with-flag.ts'
 
 export default {
   fetch: withSupabase(
     { allow: 'user' },
-    chain(withPayment({ stripe, amountCents: 5 }))(async (req, ctx) => {
-      // ctx.supabase, ctx.userClaims          — from withSupabase
-      // ctx.state.payment.intentId            — from withPayment
-      // ctx.locals.foo = 'bar'                — free per-request scratch
-      return Response.json({ paid: ctx.state.payment.intentId })
-    }),
+    withFlag<SupabaseContext>(
+      { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+      async (req, ctx) => {
+        // ctx.supabase, ctx.userClaims  — from withSupabase
+        // ctx.flag                       — from withFlag
+        if (!ctx.flag.enabled)
+          return new Response('not enabled', { status: 404 })
+        return Response.json({ user: ctx.userClaims!.id })
+      },
+    ),
   ),
 }
 ```
@@ -33,38 +36,39 @@ Standalone (no `withSupabase`):
 
 ```ts
 export default {
-  fetch: chain(withPayment({ stripe, amountCents: 1 }))(async (req, ctx) => {
-    return Response.json({ paid: ctx.state.payment.intentId })
-  }),
+  fetch: withFlag(
+    { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+    async (req, ctx) => Response.json({ enabled: ctx.flag.enabled }),
+  ),
 }
 ```
 
 ## The `ctx` shape
 
-Inside a chain handler:
+Inside a gated handler, ctx is a flat intersection — each gate contributes a typed key:
 
-| Path                                   | Set by                         | Mutability |
-| -------------------------------------- | ------------------------------ | ---------- |
-| `ctx.supabase`, `ctx.userClaims`, etc. | `withSupabase` (when wrapping) | read-only  |
-| `ctx.state.<namespace>`                | gates via `chain`              | read-only  |
-| `ctx.locals`                           | anyone (handler, helpers)      | mutable    |
-| `ctx.foo` (top-level, anything else)   | —                              | type error |
+| Key                                               | Set by                         | Mutability              |
+| ------------------------------------------------- | ------------------------------ | ----------------------- |
+| `ctx.supabase`, `ctx.userClaims`, etc.            | `withSupabase` (when wrapping) | read-only by convention |
+| `ctx.<gate-key>` (e.g. `ctx.flag`, `ctx.payment`) | the corresponding gate         | read-only by convention |
 
-Three rules:
+Two type-level guarantees:
 
-- **`ctx.state` is gate-owned.** Each gate owns exactly one slot, named by its namespace. Slots are read-only from the handler's view.
-- **`ctx.locals` is everyone-else's.** Per-request scratch space. `Record<string, unknown>`. Mutate freely.
-- **The top level is closed.** `withSupabase` populates the established host keys; everything else is a type error. Use `state` or `locals`.
+- **Collision detection.** If a gate tries to compose where the upstream already has its key, the gate's call returns a `Conflict<Key>` sentinel string. Using the result where a fetch handler is expected fails to typecheck — error surfaces at the offending gate's call site.
+- **Prerequisite enforcement.** Gates declare the upstream shape they require via `In`. The wrapper constrains `Base extends In`. Composing the gate where the upstream doesn't provide those keys is a type error. Gates with `In` keys also require `baseCtx`, so they can't be the outermost handler unless wrapped.
 
 ## Authoring a gate (`defineGate`)
 
-A gate has a _namespace_ (its slot under `ctx.state`), a _contribution shape_ (the typed value placed there), and a _run_ function.
+A gate has a _key_ (its slot on `ctx`), an optional `In` (upstream prerequisites), a _contribution_ shape, and a _run_ function.
+
+### No prerequisites
 
 ```ts
 import { defineGate } from '@supabase/server/core/gates'
 
 export interface FlagConfig {
   name: string
+  evaluate: (req: Request) => boolean
 }
 
 export interface FlagState {
@@ -72,14 +76,20 @@ export interface FlagState {
 }
 
 export const withFlag = defineGate<
-  'flag', // Namespace
-  FlagConfig, // Config (whatever the factory takes)
-  {}, // In: prerequisites from upstream ctx (none here)
-  FlagState // Contribution: shape under ctx.state.flag
+  'flag', // Key
+  FlagConfig, // Config
+  {}, // In: no upstream prerequisites
+  FlagState // Contribution: shape under ctx.flag
 >({
-  namespace: 'flag',
+  key: 'flag',
   run: (config) => async (req) => {
-    const enabled = req.headers.get(`x-flag-${config.name}`) === '1'
+    const enabled = config.evaluate(req)
+    if (!enabled) {
+      return {
+        kind: 'reject',
+        response: Response.json({ error: 'feature_disabled' }, { status: 404 }),
+      }
+    }
     return { kind: 'pass', contribution: { enabled } }
   },
 })
@@ -88,9 +98,8 @@ export const withFlag = defineGate<
 Used as:
 
 ```ts
-chain(withFlag({ name: 'beta' }))(async (req, ctx) => {
-  if (!ctx.state.flag.enabled)
-    return new Response('not enabled', { status: 404 })
+withFlag({ name: 'beta', evaluate: ... }, async (req, ctx) => {
+  if (!ctx.flag.enabled) return new Response('not enabled', { status: 404 })
   return Response.json({ ok: true })
 })
 ```
@@ -106,13 +115,13 @@ type GateResult<C> =
   | { kind: 'reject'; response: Response }
 ```
 
-The outer `(config) =>` is invoked once when the consumer constructs the gate (`withFlag({ name: 'beta' })`). Initialize per-instance state (stores, clients, computed config) here. The inner `(req, ctx) =>` is invoked per-request.
+The outer `(config) =>` is invoked once when the consumer constructs the gate. Initialize per-instance state (stores, clients, computed config) here. The inner `(req, ctx) =>` is invoked per-request.
 
-Return `{ kind: 'pass', contribution }` to admit the request and contribute typed state. Return `{ kind: 'reject', response }` to short-circuit the chain with a canonical 4xx response.
+Return `{ kind: 'pass', contribution }` to admit the request and contribute typed state. Return `{ kind: 'reject', response }` to short-circuit with a canonical 4xx response.
 
 ### Declaring upstream prerequisites
 
-A gate can require structural shape from the upstream ctx via `In`. For example, a gate that reads the authenticated user:
+A gate that depends on upstream data declares it in `In`:
 
 ```ts
 import type { UserClaims } from '@supabase/server'
@@ -120,11 +129,11 @@ import type { UserClaims } from '@supabase/server'
 export const withSubscription = defineGate<
   'subscription',
   { lookup: (userId: string) => Promise<Plan | null> },
-  { userClaims: UserClaims }, // In: requires userClaims upstream
+  { userClaims: UserClaims | null }, // In: requires userClaims upstream
   { plan: Plan }
 >({
-  namespace: 'subscription',
-  run: (config) => async (req, ctx) => {
+  key: 'subscription',
+  run: (config) => async (_req, ctx) => {
     if (!ctx.userClaims) {
       return {
         kind: 'reject',
@@ -143,53 +152,55 @@ export const withSubscription = defineGate<
 })
 ```
 
-A consumer using this gate must supply `userClaims` upstream — typically by wrapping the chain with `withSupabase`. Standalone use without `userClaims` won't compile.
+A consumer using this gate must supply `userClaims` upstream — typically by wrapping with `withSupabase`. Standalone use without `userClaims` won't compile, and `baseCtx` becomes required (no optional `?`).
 
-### Reserved namespaces
+### Conflict detection
 
-These names cannot be used as gate namespaces (would shadow the host or chain ctx structure):
-
-- `state`, `locals`
-- `supabase`, `supabaseAdmin`, `userClaims`, `claims`, `authType`, `authKeyName`
-
-`defineGate({ namespace: 'state', ... })` fails to typecheck.
-
-### Collisions
-
-Two gates declaring the same namespace fail to compile when composed by `chain`. The accumulated state type collapses to `never`, surfacing as a type error on the handler's `ctx.state` access.
+Two gates contributing the same key fail to compose. The inner `withFoo` returns `Conflict<'foo'>` (a sentinel string), which can't be used where a fetch handler is expected:
 
 ```ts
-chain(
-  withPayment({ ... }),
-  withPayment({ ... }),  // duplicate namespace 'payment'
-)(handler)               // type error
+withFoo({...}, withFoo({...}, handler))  // type error: Conflict<'foo'> is not callable
 ```
 
-Pick a different namespace for each gate. If you have two implementations of the same concept (e.g. two payment providers), name them by provider (`stripePayment`, `coinbasePayment`).
+Pick a different key for each gate. Gates that may be applied multiple times can accept a `key` config to override the default.
 
-### Reusing per-request state
+### Threading state through nested gates
 
-If a gate needs to share data with the handler beyond its primary contribution (e.g. a debugging blob, a transient cache key), write to `ctx.locals` from inside `run`:
+When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript can't bidirectionally infer this from the outer call site, so the inner gate's `Base` must be passed explicitly to surface the upstream keys in the handler's `ctx` type:
 
 ```ts
-run: (config) => async (req, ctx) => {
-  ctx.locals.requestId ??= crypto.randomUUID()
-  // ...
-}
+import type { SupabaseContext } from '@supabase/server'
+
+withSupabase({ allow: 'user' },
+  withRateLimit<SupabaseContext>({ limit: 30, windowMs: 60_000, key: ... },
+    async (_req, ctx) => {
+      // ctx.userClaims    — from withSupabase
+      // ctx.rateLimit     — from withRateLimit
+      return Response.json({ user: ctx.userClaims!.id })
+    },
+  ),
+)
 ```
 
-`ctx.locals` is mutable and shared across all gates and the handler for that request. Don't put values that need _typed_ access there — those belong in your gate's contribution.
+For multi-gate stacks, intersect the accumulated types:
+
+```ts
+type AfterRateLimit = SupabaseContext & { rateLimit: RateLimitState }
+
+withSupabase({ allow: 'user' },
+  withRateLimit<SupabaseContext>(...,
+    withFlag<AfterRateLimit>(..., handler),
+  ),
+)
+```
+
+Without the explicit `<Base>`, the inner handler's `ctx` only types the gate's own key — runtime works, types narrow to that one gate's slice.
 
 ## API
 
-| Export                              | Description                                                                               |
-| ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| `defineGate(spec)`                  | Author helper: declare a gate. Returns a `(config) => Gate` factory.                      |
-| `chain(...gates)(handler)`          | Consumer helper: compose gates and produce a `(req, baseCtx?) => Response` function.      |
-| `Gate<In, Namespace, Contribution>` | The structural type of a gate.                                                            |
-| `GateResult<Contribution>`          | Discriminated union of `{ kind: 'pass', contribution }` / `{ kind: 'reject', response }`. |
-| `ChainCtx<Base, State>`             | The merged ctx type seen by a chain handler.                                              |
-| `AccumulatedState<G>`               | Type-level merge of all gates' contributions; resolves to `never` on collision.           |
-| `MergeStrict<A, B>`                 | Strict object merge (`never` on key overlap).                                             |
-| `ValidNamespace<N>`                 | Type-level guard: `never` for reserved or broad-`string` namespaces.                      |
-| `ReservedNamespace`                 | Union of names that can't be gate namespaces.                                             |
+| Export                                       | Description                                                                             |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `defineGate(spec)`                           | Author helper: declare a gate. Returns a `(config, handler)` factory.                   |
+| `GateResult<Contribution>`                   | Discriminated union: `{ kind: 'pass', contribution }` / `{ kind: 'reject', response }`. |
+| `Conflict<Key>`                              | Sentinel string returned when a gate would shadow an upstream key.                      |
+| `GateFactory<Key, Config, In, Contribution>` | The shape of a gate factory produced by `defineGate`.                                   |

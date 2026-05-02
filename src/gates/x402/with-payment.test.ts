@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { chain } from '../../core/gates/index.js'
 import { withPayment } from './with-payment.js'
 import type { PaymentIntent, PaymentState, StripeLike } from './with-payment.js'
 
 type Ctx = {
-  state: { payment: PaymentState }
-  locals: Record<string, unknown>
+  payment: PaymentState
 }
 
 const innerOk = async () => Response.json({ ok: true })
@@ -36,7 +34,7 @@ const encodePayment = (to: string) =>
 describe('withPayment', () => {
   it('returns 402 with deposit address when X-PAYMENT is missing', async () => {
     const { stripe, create } = makeStripeMock()
-    const handler = chain(withPayment({ stripe, amountCents: 1 }))(innerOk)
+    const handler = withPayment({ stripe, amountCents: 1 }, innerOk)
 
     const res = await handler(new Request('http://localhost/api/foo'))
 
@@ -71,10 +69,10 @@ describe('withPayment', () => {
   it('runs handler when X-PAYMENT references a succeeded PaymentIntent', async () => {
     const { stripe, retrieve } = makeStripeMock()
     const inner = vi.fn(async (_req: Request, ctx: Ctx) => {
-      expect(ctx.state.payment).toEqual({ intentId: 'pi_test_123' })
+      expect(ctx.payment).toEqual({ intentId: 'pi_test_123' })
       return Response.json({ ok: true })
     })
-    const handler = chain(withPayment({ stripe, amountCents: 1 }))(inner)
+    const handler = withPayment({ stripe, amountCents: 1 }, inner)
 
     // Seed the store: first request creates the PI and registers its address.
     await handler(new Request('http://localhost/api/foo'))
@@ -97,7 +95,7 @@ describe('withPayment', () => {
   it('returns 402 when the PaymentIntent has not settled yet', async () => {
     const { stripe } = makeStripeMock('requires_action')
     const inner = vi.fn(innerOk)
-    const handler = chain(withPayment({ stripe, amountCents: 1 }))(inner)
+    const handler = withPayment({ stripe, amountCents: 1 }, inner)
 
     await handler(new Request('http://localhost/api/foo'))
 
@@ -120,7 +118,7 @@ describe('withPayment', () => {
   it('issues a fresh 402 when X-PAYMENT references an unknown deposit address', async () => {
     const { stripe, create, retrieve } = makeStripeMock()
     const inner = vi.fn(innerOk)
-    const handler = chain(withPayment({ stripe, amountCents: 1 }))(inner)
+    const handler = withPayment({ stripe, amountCents: 1 }, inner)
 
     const res = await handler(
       new Request('http://localhost/api/foo', {
@@ -138,7 +136,7 @@ describe('withPayment', () => {
 
   it('issues a fresh 402 when X-PAYMENT is malformed', async () => {
     const { stripe, create } = makeStripeMock()
-    const handler = chain(withPayment({ stripe, amountCents: 1 }))(innerOk)
+    const handler = withPayment({ stripe, amountCents: 1 }, innerOk)
 
     const res = await handler(
       new Request('http://localhost/api/foo', {
@@ -170,9 +168,10 @@ describe('withPayment', () => {
       get: vi.fn(async () => null),
     }
 
-    const handler = chain(
-      withPayment({ stripe, amountCents: 5, network: 'solana', store }),
-    )(innerOk)
+    const handler = withPayment(
+      { stripe, amountCents: 5, network: 'solana', store },
+      innerOk,
+    )
 
     const res = await handler(new Request('http://localhost/api/foo'))
 

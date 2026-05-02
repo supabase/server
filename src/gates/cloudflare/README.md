@@ -1,20 +1,19 @@
 # Cloudflare gates
 
-Gates that integrate with Cloudflare-issued credentials, headers, and APIs. Compose with [`chain`](../../core/gates/README.md) from `@supabase/server/core/gates`.
+Gates that integrate with Cloudflare-issued credentials, headers, and APIs. Each is a fetch-handler wrapper; nest them directly the way `withSupabase` does (see [the gate composition primitives](../../core/gates/README.md)).
 
 ```ts
-import { chain } from '@supabase/server/core/gates'
 import { withTurnstile } from '@supabase/server/gates/cloudflare'
 
 export default {
-  fetch: chain(
-    withTurnstile({
+  fetch: withTurnstile(
+    {
       secretKey: process.env.TURNSTILE_SECRET_KEY!,
       expectedAction: 'login',
-    }),
-  )(async (req, ctx) => {
-    return Response.json({ ok: true, hostname: ctx.state.turnstile.hostname })
-  }),
+    },
+    async (req, ctx) =>
+      Response.json({ ok: true, hostname: ctx.turnstile.hostname }),
+  ),
 }
 ```
 
@@ -29,7 +28,7 @@ More gates (geofencing, bot management) are planned — see the package roadmap.
 
 ## `withTurnstile`
 
-Verifies the `cf-turnstile-response` token a client widget produces against Cloudflare's siteverify endpoint. On success, contributes the verified challenge metadata to `ctx.state.turnstile`. On failure, short-circuits with a 401 (or 503 if siteverify is unreachable).
+Verifies the `cf-turnstile-response` token a client widget produces against Cloudflare's siteverify endpoint. On success, contributes the verified challenge metadata to `ctx.turnstile`. On failure, short-circuits with a 401 (or 503 if siteverify is unreachable).
 
 ### Config
 
@@ -45,7 +44,7 @@ withTurnstile({
 ### Contribution
 
 ```ts
-ctx.state.turnstile = {
+ctx.turnstile = {
   challengeTs: string  // ISO 8601 timestamp the challenge was solved
   hostname: string     // hostname of the page the widget rendered on
   action: string       // the widget's action label
@@ -88,7 +87,7 @@ If `cf-connecting-ip` is present on the request, it's forwarded to siteverify as
 
 ## `withAccess`
 
-Validates the `Cf-Access-Jwt-Assertion` header that Cloudflare attaches to every request to an Access-protected origin. Verifies the signature against your team's JWKS and checks that the `aud` claim matches your application's audience tag. On success, contributes the verified identity at `ctx.state.access`.
+Validates the `Cf-Access-Jwt-Assertion` header that Cloudflare attaches to every request to an Access-protected origin. Verifies the signature against your team's JWKS and checks that the `aud` claim matches your application's audience tag. On success, contributes the verified identity at `ctx.access`.
 
 ### Config
 
@@ -102,7 +101,7 @@ withAccess({
 ### Contribution
 
 ```ts
-ctx.state.access = {
+ctx.access = {
   email: string | null
   sub: string                  // Cloudflare's stable identity id
   identityNonce: string | null
@@ -124,6 +123,6 @@ For backend services behind a Cloudflare tunnel + Access policy. Cloudflare auth
 
 ## See also
 
-- [Gate composition primitives](../../core/gates/README.md) — `chain`, `defineGate`, ctx shape
+- [Gate composition primitives](../../core/gates/README.md) — `defineGate`, ctx shape, prereqs
 - [Turnstile docs](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
 - [Access JWT validation](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/)

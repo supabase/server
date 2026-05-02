@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { chain } from '../../core/gates/index.js'
 import { withTurnstile } from './with-turnstile.js'
 
 const SITEVERIFY = 'https://verify.test/turnstile'
@@ -29,7 +28,7 @@ const innerOk = async () => Response.json({ ok: true })
 
 describe('withTurnstile', () => {
   it('rejects when no token is present', async () => {
-    const handler = chain(withTurnstile(baseConfig))(innerOk)
+    const handler = withTurnstile(baseConfig, innerOk)
 
     const res = await handler(new Request('http://localhost/'))
 
@@ -44,7 +43,7 @@ describe('withTurnstile', () => {
     )
 
     const inner = vi.fn(async (_req: Request, ctx) => {
-      expect(ctx.state.turnstile).toEqual({
+      expect(ctx.turnstile).toEqual({
         challengeTs: '2026-01-01T00:00:00Z',
         hostname: 'app.example.com',
         action: 'login',
@@ -53,7 +52,7 @@ describe('withTurnstile', () => {
       return Response.json({ ok: true })
     })
 
-    const handler = chain(withTurnstile(baseConfig))(inner)
+    const handler = withTurnstile(baseConfig, inner)
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -83,7 +82,7 @@ describe('withTurnstile', () => {
       ),
     )
 
-    const handler = chain(withTurnstile(baseConfig))(innerOk)
+    const handler = withTurnstile(baseConfig, innerOk)
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -103,9 +102,10 @@ describe('withTurnstile', () => {
       new Response(JSON.stringify({ ...okBody, action: 'signup' })),
     )
 
-    const handler = chain(
-      withTurnstile({ ...baseConfig, expectedAction: 'login' }),
-    )(innerOk)
+    const handler = withTurnstile(
+      { ...baseConfig, expectedAction: 'login' },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -126,7 +126,7 @@ describe('withTurnstile', () => {
       new Response('upstream error', { status: 502 }),
     )
 
-    const handler = chain(withTurnstile(baseConfig))(innerOk)
+    const handler = withTurnstile(baseConfig, innerOk)
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -140,7 +140,7 @@ describe('withTurnstile', () => {
   it('forwards remoteip when cf-connecting-ip is present', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(okBody)))
 
-    const handler = chain(withTurnstile(baseConfig))(innerOk)
+    const handler = withTurnstile(baseConfig, innerOk)
 
     await handler(
       new Request('http://localhost/', {
@@ -158,12 +158,13 @@ describe('withTurnstile', () => {
   it('honors a custom getToken extractor', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(okBody)))
 
-    const handler = chain(
-      withTurnstile({
+    const handler = withTurnstile(
+      {
         ...baseConfig,
         getToken: (req) => new URL(req.url).searchParams.get('captcha'),
-      }),
-    )(innerOk)
+      },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/?captcha=tok_query'),

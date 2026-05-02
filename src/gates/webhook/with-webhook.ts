@@ -3,7 +3,7 @@
  *
  * Verifies the HMAC signature on an inbound webhook against a shared secret,
  * checks the replay window, and contributes the parsed event + raw body to
- * `ctx.state.webhook`. Stripe is the canonical provider; supply a custom
+ * `ctx.webhook`. Stripe is the canonical provider; supply a custom
  * `verify` function to plug in others (Svix/Resend, GitHub, Slack, Shopify).
  */
 
@@ -34,7 +34,7 @@ export interface WithWebhookConfig {
   provider: WebhookProvider
 }
 
-/** Shape contributed at `ctx.state.webhook` after a successful verification. */
+/** Shape contributed at `ctx.webhook` after a successful verification. */
 export interface WebhookState {
   /** The parsed JSON event body. */
   event: unknown
@@ -63,8 +63,8 @@ export interface WebhookState {
  *       },
  *     }),
  *   )(async (req, ctx) => {
- *     // ctx.state.webhook.event is the parsed Stripe event
- *     // ctx.state.webhook.rawBody is the raw bytes (preserved here)
+ *     // ctx.webhook.event is the parsed Stripe event
+ *     // ctx.webhook.rawBody is the raw bytes (preserved here)
  *     return new Response(null, { status: 204 })
  *   }),
  * }
@@ -76,7 +76,7 @@ export const withWebhook = defineGate<
   Record<never, never>,
   WebhookState
 >({
-  namespace: 'webhook',
+  key: 'webhook',
   run: (config) => async (req) => {
     const rawBody = await req.text()
     const result =

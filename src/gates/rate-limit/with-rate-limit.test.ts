@@ -1,6 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { chain } from '../../core/gates/index.js'
 import { withRateLimit, createMemoryStore } from './with-rate-limit.js'
 
 const innerOk = async () => Response.json({ ok: true })
@@ -14,15 +13,11 @@ afterEach(() => {
 })
 
 describe('withRateLimit', () => {
-  it('admits requests under the limit and contributes ctx.state.rateLimit', async () => {
-    const handler = chain(
-      withRateLimit({
-        limit: 3,
-        windowMs: 60_000,
-        key: () => 'k',
-      }),
-    )(async (_req, ctx) =>
-      Response.json({ remaining: ctx.state.rateLimit.remaining }),
+  it('admits requests under the limit and contributes ctx.rateLimit', async () => {
+    const handler = withRateLimit(
+      { limit: 3, windowMs: 60_000, key: () => 'k' },
+      async (_req, ctx) =>
+        Response.json({ remaining: ctx.rateLimit.remaining }),
     )
 
     const r1 = await handler(new Request('http://localhost/'))
@@ -38,9 +33,10 @@ describe('withRateLimit', () => {
   it('rejects with 429 + Retry-After once the limit is exceeded', async () => {
     vi.setSystemTime(new Date(1_700_000_000_000))
 
-    const handler = chain(
-      withRateLimit({ limit: 1, windowMs: 60_000, key: () => 'k' }),
-    )(innerOk)
+    const handler = withRateLimit(
+      { limit: 1, windowMs: 60_000, key: () => 'k' },
+      innerOk,
+    )
 
     const ok = await handler(new Request('http://localhost/'))
     expect(ok.status).toBe(200)
@@ -58,13 +54,14 @@ describe('withRateLimit', () => {
   })
 
   it('isolates buckets by key', async () => {
-    const handler = chain(
-      withRateLimit({
+    const handler = withRateLimit(
+      {
         limit: 1,
         windowMs: 60_000,
         key: (req) => new URL(req.url).searchParams.get('user') ?? 'anon',
-      }),
-    )(innerOk)
+      },
+      innerOk,
+    )
 
     expect(
       (await handler(new Request('http://localhost/?user=a'))).status,
@@ -83,9 +80,10 @@ describe('withRateLimit', () => {
   it('resets after the window elapses', async () => {
     vi.setSystemTime(new Date(1_700_000_000_000))
 
-    const handler = chain(
-      withRateLimit({ limit: 1, windowMs: 1_000, key: () => 'k' }),
-    )(innerOk)
+    const handler = withRateLimit(
+      { limit: 1, windowMs: 1_000, key: () => 'k' },
+      innerOk,
+    )
 
     expect((await handler(new Request('http://localhost/'))).status).toBe(200)
     expect((await handler(new Request('http://localhost/'))).status).toBe(429)

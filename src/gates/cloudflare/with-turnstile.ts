@@ -3,7 +3,7 @@
  *
  * Verifies the `cf-turnstile-response` token a client widget produced against
  * Cloudflare's siteverify endpoint, then either short-circuits with a 401 or
- * contributes the verified challenge metadata to `ctx.state.turnstile`.
+ * contributes the verified challenge metadata to `ctx.turnstile`.
  *
  * @see https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
  */
@@ -47,7 +47,7 @@ export interface WithTurnstileConfig {
 }
 
 /**
- * Shape contributed at `ctx.state.turnstile` after a successful verification.
+ * Shape contributed at `ctx.turnstile` after a successful verification.
  */
 export interface TurnstileState {
   /** ISO 8601 timestamp when the challenge was solved. */
@@ -84,7 +84,7 @@ interface SiteverifyResponse {
  *       expectedAction: 'login',
  *     }),
  *   )(async (req, ctx) => {
- *     return Response.json({ ok: true, action: ctx.state.turnstile.action })
+ *     return Response.json({ ok: true, action: ctx.turnstile.action })
  *   }),
  * }
  * ```
@@ -95,7 +95,7 @@ export const withTurnstile = defineGate<
   Record<never, never>,
   TurnstileState
 >({
-  namespace: 'turnstile',
+  key: 'turnstile',
   run: (config) => {
     const url = config.siteverifyUrl ?? SITEVERIFY_URL
     const getToken = config.getToken ?? defaultGetToken

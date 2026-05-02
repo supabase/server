@@ -1,6 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { chain } from '../../core/gates/index.js'
 import { withWebhook } from './with-webhook.js'
 
 const SECRET = 'whsec_test'
@@ -42,18 +41,19 @@ describe('withWebhook (stripe)', () => {
     const v1 = await hmacHex(SECRET, `${t}.${body}`)
 
     const inner = vi.fn(async (_req: Request, ctx) => {
-      expect(ctx.state.webhook.deliveryId).toBe('evt_123')
-      expect((ctx.state.webhook.event as { type: string }).type).toBe(
+      expect(ctx.webhook.deliveryId).toBe('evt_123')
+      expect((ctx.webhook.event as { type: string }).type).toBe(
         'payment_intent.succeeded',
       )
-      expect(ctx.state.webhook.timestamp).toBe(1_700_000_000_000)
-      expect(ctx.state.webhook.rawBody).toBe(body)
+      expect(ctx.webhook.timestamp).toBe(1_700_000_000_000)
+      expect(ctx.webhook.rawBody).toBe(body)
       return Response.json({ ok: true })
     })
 
-    const handler = chain(
-      withWebhook({ provider: { kind: 'stripe', secret: SECRET } }),
-    )(inner)
+    const handler = withWebhook(
+      { provider: { kind: 'stripe', secret: SECRET } },
+      inner,
+    )
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -68,9 +68,10 @@ describe('withWebhook (stripe)', () => {
   })
 
   it('rejects when the signature header is missing', async () => {
-    const handler = chain(
-      withWebhook({ provider: { kind: 'stripe', secret: SECRET } }),
-    )(innerOk)
+    const handler = withWebhook(
+      { provider: { kind: 'stripe', secret: SECRET } },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),
@@ -84,9 +85,10 @@ describe('withWebhook (stripe)', () => {
     const body = '{"id":"evt_1"}'
     const t = 1_700_000_000
 
-    const handler = chain(
-      withWebhook({ provider: { kind: 'stripe', secret: SECRET } }),
-    )(innerOk)
+    const handler = withWebhook(
+      { provider: { kind: 'stripe', secret: SECRET } },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -105,9 +107,10 @@ describe('withWebhook (stripe)', () => {
     const t = 1_700_000_000 - 600 // 10 min ago, default tolerance is 5 min
     const v1 = await hmacHex(SECRET, `${t}.${body}`)
 
-    const handler = chain(
-      withWebhook({ provider: { kind: 'stripe', secret: SECRET } }),
-    )(innerOk)
+    const handler = withWebhook(
+      { provider: { kind: 'stripe', secret: SECRET } },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -127,11 +130,10 @@ describe('withWebhook (stripe)', () => {
     const oldSecret = 'whsec_old'
     const v1 = await hmacHex(oldSecret, `${t}.${body}`)
 
-    const handler = chain(
-      withWebhook({
-        provider: { kind: 'stripe', secret: ['whsec_new', oldSecret] },
-      }),
-    )(innerOk)
+    const handler = withWebhook(
+      { provider: { kind: 'stripe', secret: ['whsec_new', oldSecret] } },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -155,13 +157,11 @@ describe('withWebhook (custom)', () => {
     }))
 
     const inner = vi.fn(async (_req: Request, ctx) => {
-      expect(ctx.state.webhook.deliveryId).toBe('d-1')
+      expect(ctx.webhook.deliveryId).toBe('d-1')
       return Response.json({ ok: true })
     })
 
-    const handler = chain(
-      withWebhook({ provider: { kind: 'custom', verify } }),
-    )(inner)
+    const handler = withWebhook({ provider: { kind: 'custom', verify } }, inner)
 
     const res = await handler(
       new Request('http://localhost/', {
@@ -175,14 +175,15 @@ describe('withWebhook (custom)', () => {
   })
 
   it('rejects when the custom verifier returns failure', async () => {
-    const handler = chain(
-      withWebhook({
+    const handler = withWebhook(
+      {
         provider: {
           kind: 'custom',
           verify: () => ({ ok: false, status: 403, error: 'forbidden' }),
         },
-      }),
-    )(innerOk)
+      },
+      innerOk,
+    )
 
     const res = await handler(
       new Request('http://localhost/', { method: 'POST', body: '{}' }),

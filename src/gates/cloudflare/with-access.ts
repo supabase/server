@@ -3,7 +3,7 @@
  *
  * Validates the `Cf-Access-Jwt-Assertion` header against the team's JWKS,
  * checks the audience tag binding, and contributes the identity claims to
- * `ctx.state.access`.
+ * `ctx.access`.
  *
  * Use this for backend services that sit behind a Cloudflare tunnel + Access
  * policy — every request is signed by Cloudflare on the way in.
@@ -41,7 +41,7 @@ export interface WithAccessConfig {
   jwksUrl?: string
 }
 
-/** Shape contributed at `ctx.state.access` after a successful verification. */
+/** Shape contributed at `ctx.access` after a successful verification. */
 export interface AccessState {
   /** The user's email address from the verified token. */
   email: string | null
@@ -70,7 +70,7 @@ export interface AccessState {
  *       audience: process.env.CF_ACCESS_AUD!,
  *     }),
  *   )(async (req, ctx) => {
- *     return Response.json({ user: ctx.state.access.email })
+ *     return Response.json({ user: ctx.access.email })
  *   }),
  * }
  * ```
@@ -81,7 +81,7 @@ export const withAccess = defineGate<
   Record<never, never>,
   AccessState
 >({
-  namespace: 'access',
+  key: 'access',
   run: (config) => {
     const issuer = `https://${config.teamDomain}`
     const jwksUrl = config.jwksUrl ?? `${issuer}/cdn-cgi/access/certs`

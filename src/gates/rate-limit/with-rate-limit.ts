@@ -44,7 +44,7 @@ export interface WithRateLimitConfig {
   store?: RateLimitStore
 }
 
-/** Shape contributed at `ctx.state.rateLimit` after a successful hit. */
+/** Shape contributed at `ctx.rateLimit` after a successful hit. */
 export interface RateLimitState {
   /** The configured limit for this window. */
   limit: number
@@ -70,7 +70,7 @@ export interface RateLimitState {
  *       key: (req) => req.headers.get('cf-connecting-ip') ?? 'anon',
  *     }),
  *   )(async (req, ctx) => {
- *     return Response.json({ remaining: ctx.state.rateLimit.remaining })
+ *     return Response.json({ remaining: ctx.rateLimit.remaining })
  *   }),
  * }
  * ```
@@ -81,7 +81,7 @@ export const withRateLimit = defineGate<
   Record<never, never>,
   RateLimitState
 >({
-  namespace: 'rateLimit',
+  key: 'rateLimit',
   run: (config) => {
     const store = config.store ?? createMemoryStore()
 
