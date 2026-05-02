@@ -4,17 +4,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
+    "./core/gates": "./src/core/gates/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts"
   },
   "publish": {
-    "include": [
-      "src/**/*.ts",
-      "README.md",
-      "LICENSE"
-    ],
-    "exclude": [
-      "src/**/*.test.ts",
-      "src/**/*.spec.ts"
-    ]
+    "include": ["src/**/*.ts", "README.md", "LICENSE"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
   }
 }

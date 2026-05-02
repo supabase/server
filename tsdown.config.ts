@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/core/index.ts',
+    'src/core/gates/index.ts',
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
   ],
