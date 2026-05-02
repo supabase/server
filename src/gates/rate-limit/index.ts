@@ -4,9 +4,9 @@
  * @packageDocumentation
  */
 
-export { withRateLimit, createMemoryStore } from './with-rate-limit.js'
+export { withRateLimit } from './with-rate-limit.js'
 export type {
   RateLimitState,
-  RateLimitStore,
+  SupabaseRpcClient,
   WithRateLimitConfig,
 } from './with-rate-limit.js'

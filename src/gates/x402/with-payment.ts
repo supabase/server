@@ -2,8 +2,12 @@
  * Stripe-facilitated x402 paywall gate.
  *
  * Issues an HTTP 402 with a Stripe-generated USDC deposit address on
- * unauthenticated requests, and lets the chain proceed once the corresponding
+ * unauthenticated requests, and lets the handler run once the corresponding
  * PaymentIntent has settled on-chain.
+ *
+ * Persistence (deposit-address → PaymentIntent-id mapping) lives in Supabase
+ * Postgres via two RPCs the user installs once. See this gate's README for
+ * the migration.
  *
  * @see https://docs.stripe.com/payments/machine/x402
  * @see https://www.x402.org
@@ -11,20 +15,11 @@
 
 import { defineGate } from '../../core/gates/index.js'
 
+const DEFAULT_REGISTER_RPC = '_supabase_server_x402_register'
+const DEFAULT_LOOKUP_RPC = '_supabase_server_x402_lookup'
+
 /** Networks supported by Stripe's machine-payment crypto deposit mode. */
 export type Network = 'base' | 'tempo' | 'solana'
-
-/**
- * Maps a Stripe-issued deposit address back to the PaymentIntent that owns it.
- *
- * Implementations must persist across requests in any deployment that runs more
- * than one instance (i.e. anything other than a single long-lived process).
- * The default in-memory store is suitable only for tests and single-process dev.
- */
-export interface PaymentStore {
-  set(depositAddress: string, paymentIntentId: string): Promise<void>
-  get(depositAddress: string): Promise<string | null>
-}
 
 /**
  * Subset of the `Stripe` client surface used by `withPayment`. Structurally
@@ -36,6 +31,21 @@ export interface StripeLike {
     create(params: PaymentIntentCreateParams): Promise<PaymentIntent>
     retrieve(id: string): Promise<PaymentIntent>
   }
+}
+
+/**
+ * Structural subset of the Supabase admin client surface used by this gate.
+ * Typed as `PromiseLike` so `supabase-js`'s `PostgrestFilterBuilder` (a
+ * thenable, not a strict `Promise`) satisfies it.
+ */
+export interface SupabaseRpcClient {
+  rpc<T = unknown>(
+    fn: string,
+    args?: Record<string, unknown>,
+  ): PromiseLike<{
+    data: T | null
+    error: { message: string; code?: string } | null
+  }>
 }
 
 export interface PaymentIntent {
@@ -73,16 +83,25 @@ export interface WithPaymentConfig {
   network?: Network
 
   /**
-   * Lookup table mapping deposit address → PaymentIntent id. Defaults to an
-   * in-memory `Map`. Production deployments should pass a Postgres-, Redis-,
-   * or KV-backed implementation so the mapping survives across instances.
+   * RPC that registers a deposit address against a PaymentIntent id. Called
+   * with `{ p_deposit_address: text, p_payment_intent_id: text }`.
+   *
+   * @defaultValue `'_supabase_server_x402_register'`
    */
-  store?: PaymentStore
+  registerRpc?: string
+
+  /**
+   * RPC that looks up a PaymentIntent id by deposit address. Called with
+   * `{ p_deposit_address: text }` and must return the PaymentIntent id
+   * (or `null` if unknown).
+   *
+   * @defaultValue `'_supabase_server_x402_lookup'`
+   */
+  lookupRpc?: string
 }
 
 /**
- * Shape contributed to `ctx.payment` once the chain has admitted a
- * paid request.
+ * Shape contributed at `ctx.payment` once the gate has admitted a paid request.
  */
 export interface PaymentState {
   /** The id of the settled Stripe `PaymentIntent` that paid for this call. */
@@ -90,19 +109,14 @@ export interface PaymentState {
 }
 
 /**
- * x402 paywall gate. Compose with {@link chain} (and optionally
- * {@link withSupabase}) to gate a handler behind a Stripe-settled USDC payment.
- *
- * - Without `X-PAYMENT`, rejects with a 402 advertising a freshly-created
- *   Stripe `PaymentIntent`'s deposit address.
- * - With `X-PAYMENT`, decodes the base64 payload, looks up the matching
- *   `PaymentIntent` via `store`, and admits the request iff it has succeeded
- *   — placing `{ intentId }` at `ctx.payment`.
+ * x402 paywall gate. Must be wrapped by `withSupabase` (or any wrapper that
+ * provides `supabaseAdmin`) — the gate calls into it for the deposit-address
+ * → PaymentIntent-id mapping.
  *
  * @example
  * ```ts
  * import Stripe from 'stripe'
- * import { chain } from '@supabase/server/core/gates'
+ * import { withSupabase } from '@supabase/server'
  * import { withPayment } from '@supabase/server/gates/x402'
  *
  * const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
@@ -110,29 +124,39 @@ export interface PaymentState {
  * })
  *
  * export default {
- *   fetch: chain(withPayment({ stripe, amountCents: 1 }))(async (req, ctx) => {
- *     return Response.json({ ok: true, paid: ctx.payment.intentId })
- *   }),
+ *   fetch: withSupabase(
+ *     { allow: 'always' },
+ *     withPayment(
+ *       { stripe, amountCents: 1 },
+ *       async (req, ctx) =>
+ *         Response.json({ ok: true, paid: ctx.payment.intentId }),
+ *     ),
+ *   ),
  * }
  * ```
  */
 export const withPayment = defineGate<
   'payment',
   WithPaymentConfig,
-  Record<never, never>,
+  { supabaseAdmin: SupabaseRpcClient },
   PaymentState
 >({
   key: 'payment',
   run: (config) => {
     const network = config.network ?? 'base'
-    const store = config.store ?? createMemoryStore()
+    const registerRpc = config.registerRpc ?? DEFAULT_REGISTER_RPC
+    const lookupRpc = config.lookupRpc ?? DEFAULT_LOOKUP_RPC
 
-    return async (req) => {
+    return async (req, ctx) => {
       const header = req.headers.get('x-payment')
       if (header) {
         const toAddress = decodePaymentHeader(header)
         if (toAddress) {
-          const paymentIntentId = await store.get(toAddress)
+          const paymentIntentId = await lookupPaymentIntent(
+            ctx.supabaseAdmin,
+            lookupRpc,
+            toAddress,
+          )
           if (paymentIntentId) {
             const pi =
               await config.stripe.paymentIntents.retrieve(paymentIntentId)
@@ -159,7 +183,13 @@ export const withPayment = defineGate<
 
       return {
         kind: 'reject',
-        response: await issuePaymentRequired(req, config, network, store),
+        response: await issuePaymentRequired(
+          req,
+          ctx.supabaseAdmin,
+          config,
+          network,
+          registerRpc,
+        ),
       }
     }
   },
@@ -177,11 +207,59 @@ function decodePaymentHeader(header: string): string | null {
   }
 }
 
+async function lookupPaymentIntent(
+  client: SupabaseRpcClient,
+  rpc: string,
+  depositAddress: string,
+): Promise<string | null> {
+  const { data, error } = await client.rpc<string | null>(rpc, {
+    p_deposit_address: depositAddress,
+  })
+  if (error) {
+    if (
+      error.code === '42883' ||
+      error.message.toLowerCase().includes('function')
+    ) {
+      throw new Error(
+        `withPayment: lookup RPC '${rpc}' not found. Install the migration ` +
+          `from this gate's README before calling.`,
+      )
+    }
+    throw new Error(`withPayment: lookup rpc failed: ${error.message}`)
+  }
+  return typeof data === 'string' && data.length > 0 ? data : null
+}
+
+async function registerPaymentIntent(
+  client: SupabaseRpcClient,
+  rpc: string,
+  depositAddress: string,
+  paymentIntentId: string,
+): Promise<void> {
+  const { error } = await client.rpc(rpc, {
+    p_deposit_address: depositAddress,
+    p_payment_intent_id: paymentIntentId,
+  })
+  if (error) {
+    if (
+      error.code === '42883' ||
+      error.message.toLowerCase().includes('function')
+    ) {
+      throw new Error(
+        `withPayment: register RPC '${rpc}' not found. Install the migration ` +
+          `from this gate's README before calling.`,
+      )
+    }
+    throw new Error(`withPayment: register rpc failed: ${error.message}`)
+  }
+}
+
 async function issuePaymentRequired(
   req: Request,
+  client: SupabaseRpcClient,
   config: WithPaymentConfig,
   network: Network,
-  store: PaymentStore,
+  registerRpc: string,
 ): Promise<Response> {
   const pi = await config.stripe.paymentIntents.create({
     amount: config.amountCents,
@@ -205,7 +283,7 @@ async function issuePaymentRequired(
       `Stripe PaymentIntent ${pi.id} did not return a deposit address for ${network}`,
     )
   }
-  await store.set(address, pi.id)
+  await registerPaymentIntent(client, registerRpc, address, pi.id)
 
   return Response.json(
     {
@@ -224,16 +302,4 @@ async function issuePaymentRequired(
     },
     { status: 402 },
   )
-}
-
-function createMemoryStore(): PaymentStore {
-  const map = new Map<string, string>()
-  return {
-    async set(addr, id) {
-      map.set(addr, id)
-    },
-    async get(addr) {
-      return map.get(addr) ?? null
-    },
-  }
 }

@@ -1,10 +1,6 @@
 /**
  * Stripe-facilitated x402 paywall gate.
  *
- * Compose with {@link chain} from `@supabase/server/core/gates`. Optionally
- * wrap with {@link withSupabase} to gate authenticated routes; use stand-alone
- * for fully anonymous machine-to-machine paywalls.
- *
  * @packageDocumentation
  */
 
@@ -14,7 +10,7 @@ export type {
   PaymentIntent,
   PaymentIntentCreateParams,
   PaymentState,
-  PaymentStore,
   StripeLike,
+  SupabaseRpcClient,
   WithPaymentConfig,
 } from './with-payment.js'
