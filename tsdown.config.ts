@@ -6,6 +6,7 @@ export default defineConfig({
     'src/core/index.ts',
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
+    'src/kv/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,

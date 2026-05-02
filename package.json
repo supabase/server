@@ -39,6 +39,11 @@
       "import": "./dist/adapters/h3/index.mjs",
       "require": "./dist/adapters/h3/index.cjs"
     },
+    "./kv": {
+      "types": "./dist/kv/index.d.mts",
+      "import": "./dist/kv/index.mjs",
+      "require": "./dist/kv/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
