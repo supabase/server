@@ -145,7 +145,7 @@ afterEach(() => {
 
 describe('createKv: get / set / delete', () => {
   it('returns null entries for unknown keys', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     const entry = await kv.get(['missing'])
     expect(entry).toEqual({
       key: ['missing'],
@@ -155,7 +155,7 @@ describe('createKv: get / set / delete', () => {
   })
 
   it('roundtrips arbitrary JSON values', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     const value = { name: 'Alice', tags: ['admin', 'beta'] }
     const set = await kv.set(['users', 'alice'], value)
     expect(set.ok).toBe(true)
@@ -168,7 +168,7 @@ describe('createKv: get / set / delete', () => {
   })
 
   it('overwrites in place and bumps the versionstamp', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     const a = await kv.set(['k'], 1)
     const b = await kv.set(['k'], 2)
     expect(BigInt('0x' + b.versionstamp)).toBeGreaterThan(
@@ -178,14 +178,14 @@ describe('createKv: get / set / delete', () => {
   })
 
   it('delete removes the entry', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['k'], 'v')
     await kv.delete(['k'])
     expect((await kv.get(['k'])).value).toBeNull()
   })
 
   it('honors expireIn (entry disappears after TTL)', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['session'], 'data', { expireIn: 60_000 })
     expect((await kv.get(['session'])).value).toBe('data')
     vi.setSystemTime(new Date(1_700_000_060_001))
@@ -193,7 +193,7 @@ describe('createKv: get / set / delete', () => {
   })
 
   it('getMany preserves input order and includes missing entries', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['a'], 1)
     await kv.set(['c'], 3)
     const [a, b, c] = await kv.getMany<[number, number, number]>([
@@ -209,7 +209,7 @@ describe('createKv: get / set / delete', () => {
 
 describe('createKv: list', () => {
   it('iterates entries matching a prefix in lexicographic order', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['users', 'alice'], 1)
     await kv.set(['users', 'bob'], 2)
     await kv.set(['users', 'carol'], 3)
@@ -227,7 +227,7 @@ describe('createKv: list', () => {
   })
 
   it('honors `reverse: true`', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['n', '1'], 1)
     await kv.set(['n', '2'], 2)
     await kv.set(['n', '3'], 3)
@@ -239,7 +239,7 @@ describe('createKv: list', () => {
   })
 
   it('honors `limit`', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     for (let i = 0; i < 5; i++) await kv.set(['n', String(i)], i)
     const values: unknown[] = []
     for await (const e of kv.list({ prefix: ['n'] }, { limit: 2 })) {
@@ -249,7 +249,7 @@ describe('createKv: list', () => {
   })
 
   it('returns nothing for an empty prefix range', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['users', 'alice'], 1)
     const seen: unknown[] = []
     for await (const e of kv.list({ prefix: ['empty'] })) seen.push(e)
@@ -259,7 +259,7 @@ describe('createKv: list', () => {
 
 describe('createKv: atomic', () => {
   it('commits set + delete in one transaction', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['old'], 1)
 
     const result = await kv.atomic().set(['new'], 2).delete(['old']).commit()
@@ -270,7 +270,7 @@ describe('createKv: atomic', () => {
   })
 
   it('check passes when versionstamp matches', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     const created = await kv.set(['k'], 1)
 
     const result = await kv
@@ -284,7 +284,7 @@ describe('createKv: atomic', () => {
   })
 
   it('check fails when versionstamp does not match', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.set(['k'], 1)
 
     const result = await kv
@@ -298,7 +298,7 @@ describe('createKv: atomic', () => {
   })
 
   it('check with versionstamp: null requires the key to be absent', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
 
     const create = await kv
       .atomic()
@@ -317,7 +317,7 @@ describe('createKv: atomic', () => {
   })
 
   it('sum atomically increments a counter', async () => {
-    const kv = createKv(makeFakeAdmin())
+    const kv = createKv({ supabaseAdmin: makeFakeAdmin() })
     await kv.atomic().sum(['counter'], 5).commit()
     await kv.atomic().sum(['counter'], 3).commit()
     expect((await kv.get(['counter'])).value).toBe('8')
@@ -336,7 +336,7 @@ describe('createKv: error mapping', () => {
           },
         }),
     }
-    const kv = createKv(client)
+    const kv = createKv({ supabaseAdmin: client })
     await expect(kv.get(['anything'])).rejects.toThrow(
       /RPC '_supabase_server_kv_get' not found/,
     )

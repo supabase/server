@@ -15,7 +15,7 @@
  *
  * export default {
  *   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
- *     const kv = createKv(ctx.supabaseAdmin)
+ *     const kv = createKv({ supabaseAdmin: ctx.supabaseAdmin })
  *     await kv.set(['users', ctx.userClaims!.id, 'lastSeen'], Date.now())
  *     return Response.json({ ok: true })
  *   }),
@@ -47,6 +47,13 @@ export interface SupabaseRpcClient {
 }
 
 export interface CreateKvOptions {
+  /**
+   * Supabase admin client. Must bypass RLS — passing a user-scoped client
+   * silently returns empty reads and fails writes against the locked-down
+   * `_supabase_server_kv` table.
+   */
+  supabaseAdmin: SupabaseRpcClient
+
   /** Override the RPC names if you renamed them in the migration. */
   rpcs?: Partial<typeof DEFAULT_RPCS>
 }
@@ -264,15 +271,13 @@ export class Kv {
 /**
  * Build a KV store backed by a Supabase admin client.
  *
- * @param client - Any object with a `rpc(name, args)` method that returns
- *   `{ data, error }` (i.e. a Supabase-js client).
- * @param options - RPC name overrides.
+ * @example
+ * ```ts
+ * const kv = createKv({ supabaseAdmin: ctx.supabaseAdmin })
+ * ```
  */
-export function createKv(
-  client: SupabaseRpcClient,
-  options: CreateKvOptions = {},
-): Kv {
-  return new Kv(client, { ...DEFAULT_RPCS, ...options.rpcs })
+export function createKv(options: CreateKvOptions): Kv {
+  return new Kv(options.supabaseAdmin, { ...DEFAULT_RPCS, ...options.rpcs })
 }
 
 class KvListIterator<T> implements AsyncIterableIterator<KvEntry<T>> {

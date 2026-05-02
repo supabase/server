@@ -8,7 +8,7 @@ import { createKv } from '@supabase/server/kv'
 
 export default {
   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
-    const kv = createKv(ctx.supabaseAdmin)
+    const kv = createKv({ supabaseAdmin: ctx.supabaseAdmin })
     const userId = ctx.userClaims!.id
 
     await kv.set(['users', userId, 'lastSeen'], Date.now())
@@ -219,15 +219,16 @@ The store uses `public._supabase_server_kv_seq` as a monotonic version source â€
 
 ## API
 
-### `createKv(client, options?)`
+### `createKv(options)`
 
 Returns a `Kv` bound to a Supabase admin client.
 
-| Option        | Type      | Description                                                         |
-| ------------- | --------- | ------------------------------------------------------------------- |
-| `rpcs.get`    | `string?` | Override the get RPC name. Default `_supabase_server_kv_get`.       |
-| `rpcs.list`   | `string?` | Override the list RPC name. Default `_supabase_server_kv_list`.     |
-| `rpcs.atomic` | `string?` | Override the atomic RPC name. Default `_supabase_server_kv_atomic`. |
+| Option          | Type                | Description                                                         |
+| --------------- | ------------------- | ------------------------------------------------------------------- |
+| `supabaseAdmin` | `SupabaseRpcClient` | Service-role client. Must bypass RLS.                               |
+| `rpcs.get`      | `string?`           | Override the get RPC name. Default `_supabase_server_kv_get`.       |
+| `rpcs.list`     | `string?`           | Override the list RPC name. Default `_supabase_server_kv_list`.     |
+| `rpcs.atomic`   | `string?`           | Override the atomic RPC name. Default `_supabase_server_kv_atomic`. |
 
 ### `kv.get<T>(key)`
 
