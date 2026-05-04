@@ -233,8 +233,8 @@ export default {
 }
 ```
 
-## SSR frameworks (Next.js, Nuxt, SvelteKit, Remix)
+## Cookie-based environments (with `@supabase/ssr`)
 
-In SSR frameworks, the JWT lives in session cookies rather than the `Authorization` header. Use `verifyCredentials` with a token extracted from cookies, then create clients as usual. This is the key primitive that enables SSR integration — it accepts pre-extracted credentials from any source.
+In Next.js, SvelteKit, Remix, and other cookie-based frameworks, the JWT lives in session cookies rather than the `Authorization` header. The recommended pattern is to **compose with [`@supabase/ssr`](https://github.com/supabase/ssr)**: let `@supabase/ssr` own the cookie session lifecycle and refresh-token rotation (via middleware), then hand its fresh access token to `verifyCredentials` and build typed clients with `createContextClient` + `createAdminClient`.
 
-For a complete guide with cookie parsing, JWKS caching, env bridging, and full framework adapters, see [ssr-frameworks.md](ssr-frameworks.md).
+For the full pattern — middleware setup, the composed adapter, JWKS caching, and other-framework adapting tips — see [ssr-frameworks.md](ssr-frameworks.md).

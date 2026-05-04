@@ -141,12 +141,13 @@ app.get('/todos', async (c) => {
 export default { fetch: app.fetch }
 ```
 
-### SSR Frameworks (Next.js, Nuxt, SvelteKit, Remix)
+### Cookie-based environments (compose with `@supabase/ssr`)
 
-In SSR frameworks the JWT lives in session cookies, not the `Authorization` header. Use `@supabase/server/core` primitives to build a framework adapter. The pattern: extract token from cookies, call `verifyCredentials`, then `createContextClient`. See `docs/ssr-frameworks.md` for the full adapter pattern.
+For Next.js / SvelteKit / Remix, **compose `@supabase/server` with [`@supabase/ssr`](https://github.com/supabase/ssr)** — they are not replacements for each other. `@supabase/ssr` owns cookies and refresh-token rotation (its middleware is required, otherwise the access token cookie goes stale and verification fails). In your Server Component or Route Handler, use `@supabase/ssr`'s `createServerClient` to read the (middleware-refreshed) session, hand the access token to `verifyCredentials` from `@supabase/server/core`, then build the typed clients with `createContextClient` + `createAdminClient`. See `docs/ssr-frameworks.md` for the full adapter pattern.
 
 ```ts
 // Key imports for building the adapter
+import { createServerClient } from '@supabase/ssr'
 import {
   verifyCredentials,
   createContextClient,
@@ -410,15 +411,15 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 - **If working inside the SDK repo:** `docs/` is at the project root.
 - **If the package is installed as a dependency:** look in `node_modules/@supabase/server/docs/`.
 
-| Question                                                 | Doc file                        |
-| -------------------------------------------------------- | ------------------------------- |
-| How do I create a basic endpoint?                        | `docs/getting-started.md`       |
-| What auth modes are available? Array syntax? Named keys? | `docs/auth-modes.md`            |
-| How do I use this with Hono?                             | `docs/hono-adapter.md`          |
-| How do I use low-level primitives for custom flows?      | `docs/core-primitives.md`       |
-| How do environment variables work across runtimes?       | `docs/environment-variables.md` |
-| How do I handle errors? What codes exist?                | `docs/error-handling.md`        |
-| How do I get typed database queries?                     | `docs/typescript-generics.md`   |
-| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | `docs/ssr-frameworks.md`        |
-| What's the complete API surface?                         | `docs/api-reference.md`         |
-| What security decisions does this package make?          | `docs/security.md`              |
+| Question                                                            | Doc file                        |
+| ------------------------------------------------------------------- | ------------------------------- |
+| How do I create a basic endpoint?                                   | `docs/getting-started.md`       |
+| What auth modes are available? Array syntax? Named keys?            | `docs/auth-modes.md`            |
+| How do I use this with Hono?                                        | `docs/hono-adapter.md`          |
+| How do I use low-level primitives for custom flows?                 | `docs/core-primitives.md`       |
+| How do environment variables work across runtimes?                  | `docs/environment-variables.md` |
+| How do I handle errors? What codes exist?                           | `docs/error-handling.md`        |
+| How do I get typed database queries?                                | `docs/typescript-generics.md`   |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | `docs/ssr-frameworks.md`        |
+| What's the complete API surface?                                    | `docs/api-reference.md`         |
+| What security decisions does this package make?                     | `docs/security.md`              |
