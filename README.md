@@ -303,6 +303,48 @@ export default withSupabase({ allow: 'user' })
 
 The adapter does not handle CORS — use H3's CORS utilities for that.
 
+### Elysia
+
+```ts
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
+
+const app = new Elysia()
+  // Protected — plugin resolves supabaseContext before handlers run
+  .use(withSupabase({ allow: 'user' }))
+  .get('/games', async ({ supabaseContext }) => {
+    const { data: myGames } = await supabaseContext.supabase
+      .from('favorite_games')
+      .select()
+    return myGames
+  })
+  // Public — no plugin means no auth
+  .get('/health', () => ({ status: 'ok' }))
+
+app.listen(3000)
+```
+
+For per-route auth, use scoped groups:
+
+```ts
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
+
+const app = new Elysia()
+  .get('/health', () => ({ status: 'ok' }))
+  .group('/api', (app) =>
+    app
+      .use(withSupabase({ allow: 'user' }))
+      .get('/profile', async ({ supabaseContext }) => {
+        return supabaseContext.userClaims
+      }),
+  )
+
+app.listen(3000)
+```
+
+The adapter does not handle CORS — use `@elysiajs/cors` for that.
+
 ## Primitives
 
 For when you need more control than `withSupabase` provides — multiple routes with different auth, custom response headers, or building your own wrapper.
@@ -428,19 +470,21 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 - **Supabase Edge Functions** — environment variables are auto-injected. Zero config.
 - **Deno / Bun** — works out of the box with the `export default { fetch }` pattern.
-- **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), or [core primitives](#primitives) with your framework of choice.
+- **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), [Elysia adapter](#elysia), or [core primitives](#primitives) with your framework of choice.
 - **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
 - **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
+- **Elysia** — use the [Elysia adapter](#elysia) as a plugin.
 - **Next.js / SvelteKit / Remix** — use core primitives to build a cookie-based auth adapter. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
 
 ## Exports
 
-| Export                           | What's in it                                                                                                      |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| Export                             | What's in it                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                 | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/elysia` | `withSupabase` (Elysia plugin)                                                                                    |
 
 ## Documentation
 
@@ -449,6 +493,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | How do I create a basic endpoint?                        | [`docs/getting-started.md`](docs/getting-started.md)             |
 | What auth modes are available? Array syntax? Named keys? | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
 | How do I use this with Hono?                             | [`docs/hono-adapter.md`](docs/hono-adapter.md)                   |
+| How do I use this with Elysia?                           | [`docs/elysia-adapter.md`](docs/elysia-adapter.md)               |
 | How do I use low-level primitives for custom flows?      | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?       | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                | [`docs/error-handling.md`](docs/error-handling.md)               |
