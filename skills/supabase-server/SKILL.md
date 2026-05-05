@@ -105,7 +105,7 @@ export default {
 
 ### Hono
 
-CORS is not handled by the adapter — use `hono/cors` middleware. See `docs/hono-adapter.md`.
+CORS is not handled by the adapter — use `hono/cors` middleware. See `docs/adapters/hono.md`.
 
 ```ts
 // Node.js / Bun
@@ -415,7 +415,9 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | ------------------------------------------------------------------- | ------------------------------- |
 | How do I create a basic endpoint?                                   | `docs/getting-started.md`       |
 | What auth modes are available? Array syntax? Named keys?            | `docs/auth-modes.md`            |
-| How do I use this with Hono?                                        | `docs/hono-adapter.md`          |
+| Which framework adapters exist? How do I contribute one?            | `src/adapters/README.md`        |
+| How do I use this with Hono?                                        | `docs/adapters/hono.md`         |
+| How do I use this with H3 / Nuxt?                                   | `docs/adapters/h3.md`           |
 | How do I use low-level primitives for custom flows?                 | `docs/core-primitives.md`       |
 | How do environment variables work across runtimes?                  | `docs/environment-variables.md` |
 | How do I handle errors? What codes exist?                           | `docs/error-handling.md`        |

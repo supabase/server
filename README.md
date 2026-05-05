@@ -277,6 +277,13 @@ withSupabase(
 
 ## Framework Adapters
 
+Adapters wrap `withSupabase` for a specific framework's middleware contract. **All adapters are community-maintained** — both Hono and H3 originated as community contributions. They live in this repo and ship with the core package, so a single `npm install @supabase/server` covers the framework you're using. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance model and the requirements for contributing a new adapter.
+
+| Framework | Import                           | Framework version | Docs                                           |
+| --------- | -------------------------------- | ----------------- | ---------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md) |
+| H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)     |
+
 ### Hono
 
 ```ts
@@ -284,21 +291,12 @@ import { Hono } from 'hono'
 import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
-
-// Protected — withSupabase middleware validates the JWT before the handler runs
-app.get('/games', withSupabase({ auth: 'user' }), async (c) => {
-  const { supabase } = c.var.supabaseContext
-  const { data: myGames } = await supabase.from('favorite_games').select()
-  return c.json(myGames)
-})
-
-// Public — no middleware means no auth
-app.get('/health', (c) => c.json({ status: 'ok' }))
+app.use('*', withSupabase({ allow: 'user' }))
 
 export default { fetch: app.fetch }
 ```
 
-The adapter does not handle CORS — use `hono/cors` for that. Per-route auth works naturally by applying the middleware to specific routes.
+See [docs/adapters/hono.md](docs/adapters/hono.md) for per-route auth, CORS, error handling, and other patterns.
 
 ### H3 / Nuxt
 
@@ -307,48 +305,12 @@ import { H3 } from 'h3'
 import { withSupabase } from '@supabase/server/adapters/h3'
 
 const app = new H3()
-
-// Protected — withSupabase validates the JWT before the handler runs
-app.use(withSupabase({ auth: 'user' }))
-
-app.get('/games', async (event) => {
-  const { supabase } = event.context.supabaseContext
-  const { data: myGames } = await supabase.from('favorite_games').select()
-  return myGames
-})
-
-// Public — no middleware means no auth
-app.get('/health', () => ({ status: 'ok' }))
+app.use(withSupabase({ allow: 'user' }))
 
 export default { fetch: app.fetch }
 ```
 
-For **Nuxt**, use `defineHandler` for file routes:
-
-```ts
-// server/api/games.get.ts
-import { defineHandler } from 'h3'
-import { withSupabase } from '@supabase/server/adapters/h3'
-
-export default defineHandler({
-  middleware: [withSupabase({ auth: 'user' })],
-  handler: async (event) => {
-    const { supabase } = event.context.supabaseContext
-    return supabase.from('favorite_games').select()
-  },
-})
-```
-
-For app-wide auth, register it as a server middleware:
-
-```ts
-// server/middleware/supabase.ts
-import { withSupabase } from '@supabase/server/adapters/h3'
-
-export default withSupabase({ auth: 'user' })
-```
-
-The adapter does not handle CORS — use H3's CORS utilities for that.
+See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
 
 ## Primitives
 
@@ -499,7 +461,9 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)             |
 | What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
-| How do I use this with Hono?                                        | [`docs/hono-adapter.md`](docs/hono-adapter.md)                   |
+| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
+| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
+| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |

@@ -39,7 +39,7 @@ export default {
 }
 ```
 
-> The `export default { fetch }` pattern is the standard module worker interface supported by Deno (including Supabase Edge Functions), Bun, and Cloudflare Workers. For Node.js, use the [Hono adapter](hono-adapter.md) or [core primitives](core-primitives.md) with your framework of choice.
+> The `export default { fetch }` pattern is the standard module worker interface supported by Deno (including Supabase Edge Functions), Bun, and Cloudflare Workers. For Node.js, use the [Hono adapter](adapters/hono.md) or [core primitives](core-primitives.md) with your framework of choice.
 
 This single wrapper does four things for every request:
 
@@ -143,7 +143,7 @@ withSupabase({ auth: 'user', cors: false }, handler)
 
 - **Supabase Edge Functions** — environment variables are automatically injected by the platform. Zero config needed.
 - **Deno / Bun** — works out of the box with the module worker pattern.
-- **Node.js** — set variables via `.env` files or your hosting platform. Use the [Hono adapter](hono-adapter.md) or [core primitives](core-primitives.md) to integrate with any framework.
+- **Node.js** — set variables via `.env` files or your hosting platform. Use the [Hono adapter](adapters/hono.md) or [core primitives](core-primitives.md) to integrate with any framework.
 - **Cloudflare Workers** — enable `nodejs_compat` or pass env overrides via the `env` config option.
 
 For full details on environment setup per runtime, see [environment-variables.md](environment-variables.md).

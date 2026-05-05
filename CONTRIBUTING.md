@@ -11,6 +11,7 @@ Thank you for your interest in contributing to `@supabase/server`! This document
 - [Testing](#testing)
 - [Code Style](#code-style)
 - [Submitting Changes](#submitting-changes)
+- [Contributing a framework adapter](#contributing-a-framework-adapter)
 - [Release Process](#release-process)
 
 ## Getting Started
@@ -149,6 +150,12 @@ BREAKING CHANGE: auth configuration now uses a discriminated union
 - Ensure all CI checks pass
 - Rebase on `main` if needed to resolve conflicts
 - Be responsive to review feedback
+
+## Contributing a framework adapter
+
+Framework adapters (Hono, H3, …) are community-maintained and live in this repo under `src/adapters/`. They have **additional requirements** on top of the general PR guidelines above — tests covering every allow mode, no new runtime deps beyond a peer-dep, matching the existing adapter shape, and updating both adapter tables (in `README.md` and `src/adapters/README.md`).
+
+See [`src/adapters/README.md`](src/adapters/README.md) for the full checklist before opening an adapter PR.
 
 ## Release Process
 
