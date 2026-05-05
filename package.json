@@ -39,6 +39,11 @@
       "import": "./dist/adapters/h3/index.mjs",
       "require": "./dist/adapters/h3/index.cjs"
     },
+    "./adapters/elysia": {
+      "types": "./dist/adapters/elysia/index.d.mts",
+      "import": "./dist/adapters/elysia/index.mjs",
+      "require": "./dist/adapters/elysia/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -76,13 +81,17 @@
   "peerDependencies": {
     "@supabase/supabase-js": "^2.0.0",
     "h3": "^2.0.0",
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "elysia": "^1.4.0"
   },
   "peerDependenciesMeta": {
     "h3": {
       "optional": true
     },
     "hono": {
+      "optional": true
+    },
+    "elysia": {
       "optional": true
     }
   },
@@ -91,6 +100,7 @@
     "@commitlint/config-conventional": "^20.4.2",
     "@supabase/supabase-js": "^2.98.0",
     "eslint": "^10.0.2",
+    "elysia": "^1.0.0",
     "h3": "2.0.1-rc.20",
     "hono": "^4.12.5",
     "prettier": "3.8.1",
@@ -104,5 +114,6 @@
   },
   "dependencies": {
     "jose": "^6.2.0"
-  }
+  },
+  "packageManager": "pnpm@10.33.2+sha512.a90faf6feeab71ad6c6e57f94e0fe1a12f5dcc22cd754db40ae9593eb6a3e0b6b12e3540218bb37ae083404b1f2ce6db2a4121e979829b4aff94b99f49da1cf8"
 }
