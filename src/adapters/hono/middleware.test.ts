@@ -16,7 +16,7 @@ describe('hono supabase middleware', () => {
 
   it('sets supabase context on successful auth', async () => {
     const app = new Hono<Env>()
-    app.use('*', withSupabase({ allow: 'always', env }))
+    app.use('*', withSupabase({ auth: 'always', env }))
     app.get('/', (c) => {
       const ctx = c.get('supabaseContext')
       return c.json({
@@ -36,7 +36,7 @@ describe('hono supabase middleware', () => {
 
   it('throws HTTPException on auth failure', async () => {
     const app = new Hono()
-    app.use('*', withSupabase({ allow: 'user', env }))
+    app.use('*', withSupabase({ auth: 'user', env }))
     app.get('/', (c) => c.json({ ok: true }))
 
     const res = await app.request('/')
@@ -47,7 +47,7 @@ describe('hono supabase middleware', () => {
 
   it('exposes AuthError via cause in app.onError', async () => {
     const app = new Hono()
-    app.use('*', withSupabase({ allow: 'user', env }))
+    app.use('*', withSupabase({ auth: 'user', env }))
     app.get('/', (c) => c.json({ ok: true }))
     app.onError((err, c) => {
       const cause = (err as Error).cause as
@@ -70,9 +70,9 @@ describe('hono supabase middleware', () => {
     const app = new Hono<Env>()
 
     // First middleware sets context with 'always' auth
-    app.use('*', withSupabase({ allow: 'always', env }))
+    app.use('*', withSupabase({ auth: 'always', env }))
     // Second middleware would require 'secret' — but should skip
-    app.use('*', withSupabase({ allow: 'secret', env }))
+    app.use('*', withSupabase({ auth: 'secret', env }))
 
     app.get('/', (c) => {
       const ctx = c.get('supabaseContext')
@@ -89,7 +89,7 @@ describe('hono supabase middleware', () => {
 
   it('does not add CORS headers', async () => {
     const app = new Hono()
-    app.use('*', withSupabase({ allow: 'always', env }))
+    app.use('*', withSupabase({ auth: 'always', env }))
     app.get('/', (c) => c.json({ ok: true }))
 
     const res = await app.request('/')

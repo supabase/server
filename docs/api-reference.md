@@ -18,7 +18,7 @@ function withSupabase<Database = unknown>(
 Wraps a fetch handler with auth, CORS, and client creation. Returns a `(req: Request) => Promise<Response>` function suitable for `export default { fetch }`.
 
 - Handles `OPTIONS` preflight when CORS is enabled
-- Verifies credentials per `config.allow`
+- Verifies credentials per `config.auth`
 - Returns JSON error response on auth failure
 - Adds CORS headers to all responses
 
@@ -36,7 +36,7 @@ function createSupabaseContext<Database = unknown>(
 
 Creates a `SupabaseContext` from a request. Returns a result tuple. The `cors` option is ignored.
 
-Defaults to `allow: 'user'` when `options` is omitted.
+Defaults to `auth: 'user'` when `options` is omitted.
 
 ---
 
@@ -47,7 +47,10 @@ Defaults to `allow: 'user'` when `options` is omitted.
 ```ts
 function verifyAuth(
   request: Request,
-  options: { allow: AllowWithKey | AllowWithKey[]; env?: Partial<SupabaseEnv> },
+  options: {
+    auth?: AuthModeWithKey | AuthModeWithKey[]
+    env?: Partial<SupabaseEnv>
+  },
 ): Promise<{ data: AuthResult; error: null } | { data: null; error: AuthError }>
 ```
 
@@ -58,7 +61,10 @@ Extracts credentials from a request and verifies them. Convenience wrapper over 
 ```ts
 function verifyCredentials(
   credentials: Credentials,
-  options: { allow: AllowWithKey | AllowWithKey[]; env?: Partial<SupabaseEnv> },
+  options: {
+    auth?: AuthModeWithKey | AuthModeWithKey[]
+    env?: Partial<SupabaseEnv>
+  },
 ): Promise<{ data: AuthResult; error: null } | { data: null; error: AuthError }>
 ```
 
@@ -124,25 +130,29 @@ Hono middleware. Sets `c.var.supabaseContext` on the Hono context. Throws `HTTPE
 
 Skips if `c.var.supabaseContext` is already set (enables route-level overrides).
 
-Defaults to `allow: 'user'` when config is omitted.
+Defaults to `auth: 'user'` when config is omitted.
 
 ---
 
 ## Types
 
-### Allow
+### AuthMode
 
 ```ts
-type Allow = 'always' | 'public' | 'secret' | 'user'
+type AuthMode = 'always' | 'public' | 'secret' | 'user'
 ```
 
-### AllowWithKey
+### AuthModeWithKey
 
 ```ts
-type AllowWithKey = Allow | `public:${string}` | `secret:${string}`
+type AuthModeWithKey = AuthMode | `public:${string}` | `secret:${string}`
 ```
 
 Extended auth mode with named key support. Examples: `'public:web'`, `'secret:*'`, `'secret:internal'`.
+
+### Allow / AllowWithKey (deprecated aliases)
+
+`Allow` and `AllowWithKey` are kept as deprecated aliases for `AuthMode` and `AuthModeWithKey`. Prefer the `Auth*` names — the legacy ones will be removed in a future major release.
 
 ### SupabaseContext\<Database\>
 
@@ -152,7 +162,7 @@ interface SupabaseContext<Database = unknown> {
   supabaseAdmin: SupabaseClient<Database>
   userClaims: UserClaims | null
   claims: JWTClaims | null
-  authType: Allow
+  authType: AuthMode
 }
 ```
 
@@ -160,7 +170,9 @@ interface SupabaseContext<Database = unknown> {
 
 ```ts
 interface WithSupabaseConfig {
-  allow?: AllowWithKey | AllowWithKey[] // default: 'user'
+  auth?: AuthModeWithKey | AuthModeWithKey[] // default: 'user'
+  /** @deprecated use `auth` instead — will be removed in a future major release */
+  allow?: AuthModeWithKey | AuthModeWithKey[]
   env?: Partial<SupabaseEnv>
   cors?: boolean | Record<string, string> // default: true
   supabaseOptions?: SupabaseClientOptions<string>
@@ -191,7 +203,7 @@ interface Credentials {
 
 ```ts
 interface AuthResult {
-  authType: Allow
+  authType: AuthMode
   token: string | null
   userClaims: UserClaims | null
   claims: JWTClaims | null

@@ -14,7 +14,7 @@ describe('verifyAuth', () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'sb_publishable_xyz' },
     })
-    const result = await verifyAuth(req, { allow: 'public', env })
+    const result = await verifyAuth(req, { auth: 'public', env })
     expect(result.error).toBeNull()
     expect(result.data!.authType).toBe('public')
   })
@@ -23,7 +23,7 @@ describe('verifyAuth', () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'wrong' },
     })
-    const result = await verifyAuth(req, { allow: 'public', env })
+    const result = await verifyAuth(req, { auth: 'public', env })
     expect(result.error).not.toBeNull()
   })
 })

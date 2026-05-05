@@ -13,7 +13,7 @@ describe('h3 supabase middleware', () => {
 
   it('sets supabase context on successful auth', async () => {
     const app = new H3()
-    app.use(withSupabase({ allow: 'always', env }))
+    app.use(withSupabase({ auth: 'always', env }))
     app.get('/', (event) => {
       const ctx = event.context.supabaseContext
       return {
@@ -33,7 +33,7 @@ describe('h3 supabase middleware', () => {
 
   it('throws HTTPError on auth failure', async () => {
     const app = new H3()
-    app.use(withSupabase({ allow: 'user', env }))
+    app.use(withSupabase({ auth: 'user', env }))
     app.get('/', () => ({ ok: true }))
 
     const res = await app.request('/')
@@ -55,7 +55,7 @@ describe('h3 supabase middleware', () => {
         )
       }),
     )
-    app.use(withSupabase({ allow: 'user', env }))
+    app.use(withSupabase({ auth: 'user', env }))
     app.get('/', () => ({ ok: true }))
 
     const res = await app.request('/')
@@ -69,9 +69,9 @@ describe('h3 supabase middleware', () => {
     const app = new H3()
 
     // First middleware sets context with 'always' auth
-    app.use(withSupabase({ allow: 'always', env }))
+    app.use(withSupabase({ auth: 'always', env }))
     // Second middleware would require 'secret' — but should skip
-    app.use(withSupabase({ allow: 'secret', env }))
+    app.use(withSupabase({ auth: 'secret', env }))
 
     app.get('/', (event) => {
       const ctx = event.context.supabaseContext
@@ -88,7 +88,7 @@ describe('h3 supabase middleware', () => {
 
   it('does not add CORS headers', async () => {
     const app = new H3()
-    app.use(withSupabase({ allow: 'always', env }))
+    app.use(withSupabase({ auth: 'always', env }))
     app.get('/', () => ({ ok: true }))
 
     const res = await app.request('/')

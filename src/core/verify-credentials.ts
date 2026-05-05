@@ -2,14 +2,15 @@ import { createLocalJWKSet, jwtVerify } from 'jose'
 
 import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
 import type {
-  Allow,
-  AllowWithKey,
+  AuthMode,
+  AuthModeWithKey,
   AuthResult,
   Credentials,
   JWTClaims,
   SupabaseEnv,
   UserClaims,
 } from '../types.js'
+import { resolveAuthOption } from './utils/deprecation.js'
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
 import { resolveEnv } from './resolve-env.js'
 
@@ -20,28 +21,37 @@ interface VerifyCredentialsOptions {
   /**
    * Auth mode(s) to try. Modes are attempted in order — the first match wins.
    *
-   * @see {@link AllowWithKey} for the full syntax including named keys.
+   * @see {@link AuthModeWithKey} for the full syntax including named keys.
+   *
+   * @defaultValue `"user"`
    */
-  allow: AllowWithKey | AllowWithKey[]
+  auth?: AuthModeWithKey | AuthModeWithKey[]
+
+  /**
+   * @deprecated Use {@link VerifyCredentialsOptions.auth} instead. Kept for
+   * backward compatibility; will be removed in a future major release. When
+   * both are provided, `auth` wins.
+   */
+  allow?: AuthModeWithKey | AuthModeWithKey[]
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>
 }
 
 /**
- * Parses an {@link AllowWithKey} string into its base mode and optional key name.
+ * Parses an {@link AuthModeWithKey} string into its base mode and optional key name.
  *
  * @example
  * ```
- * parseAllowMode('user')         → { base: 'user',   keyName: null }
- * parseAllowMode('public:web')   → { base: 'public', keyName: 'web' }
- * parseAllowMode('secret:*')     → { base: 'secret', keyName: '*' }
+ * parseAuthMode('user')         → { base: 'user',   keyName: null }
+ * parseAuthMode('public:web')   → { base: 'public', keyName: 'web' }
+ * parseAuthMode('secret:*')     → { base: 'secret', keyName: '*' }
  * ```
  *
  * @internal
  */
-function parseAllowMode(mode: AllowWithKey): {
-  base: Allow
+function parseAuthMode(mode: AuthModeWithKey): {
+  base: AuthMode
   keyName: string | null
 } {
   if (
@@ -53,7 +63,7 @@ function parseAllowMode(mode: AllowWithKey): {
     return { base: mode, keyName: null }
   }
   const colonIndex = mode.indexOf(':')
-  const base = mode.slice(0, colonIndex) as Allow
+  const base = mode.slice(0, colonIndex) as AuthMode
   const keyName = mode.slice(colonIndex + 1)
   if (!keyName) return { base, keyName: null }
   return { base, keyName }
@@ -86,11 +96,11 @@ const INVALID = Symbol('invalid')
  * @internal
  */
 async function tryMode(
-  mode: AllowWithKey,
+  mode: AuthModeWithKey,
   credentials: Credentials,
   env: SupabaseEnv,
 ): Promise<AuthResult | typeof INVALID | null> {
-  const { base, keyName } = parseAllowMode(mode)
+  const { base, keyName } = parseAuthMode(mode)
 
   switch (base) {
     case 'always':
@@ -210,7 +220,7 @@ async function tryMode(
  * ```ts
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {
- *   allow: ['user', 'public'],
+ *   auth: ['user', 'public'],
  * })
  * if (error) {
  *   return Response.json({ message: error.message }, { status: error.status })
@@ -231,7 +241,8 @@ export async function verifyCredentials(
     }
   }
 
-  const modes = Array.isArray(options.allow) ? options.allow : [options.allow]
+  const resolved = resolveAuthOption(options)
+  const modes = Array.isArray(resolved) ? resolved : [resolved]
 
   for (const mode of modes) {
     const result = await tryMode(mode, credentials, env)

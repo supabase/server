@@ -77,7 +77,7 @@ import { verifyCredentials } from '@supabase/server/core'
 
 const credentials = { token: cookieToken, apikey: null }
 const { data: auth, error } = await verifyCredentials(credentials, {
-  allow: 'user',
+  auth: 'user',
 })
 
 if (error) {
@@ -93,17 +93,17 @@ Supports all auth mode syntax — single mode, arrays, and named keys:
 ```ts
 // Multiple modes
 const { data: auth } = await verifyCredentials(creds, {
-  allow: ['user', 'public'],
+  auth: ['user', 'public'],
 })
 
 // Named key
 const { data: auth } = await verifyCredentials(creds, {
-  allow: 'public:web',
+  auth: 'public:web',
 })
 
 // Wildcard
 const { data: auth } = await verifyCredentials(creds, {
-  allow: 'secret:*',
+  auth: 'secret:*',
 })
 ```
 
@@ -115,7 +115,7 @@ Convenience function that combines `extractCredentials` and `verifyCredentials` 
 import { verifyAuth } from '@supabase/server/core'
 
 const { data: auth, error } = await verifyAuth(request, {
-  allow: 'user',
+  auth: 'user',
 })
 
 if (error) {
@@ -134,7 +134,7 @@ Creates a Supabase client scoped to the caller's identity. RLS policies apply.
 import { verifyAuth, createContextClient } from '@supabase/server/core'
 
 // With a user's token (from verifyAuth)
-const { data: auth } = await verifyAuth(request, { allow: 'user' })
+const { data: auth } = await verifyAuth(request, { auth: 'user' })
 const supabase = createContextClient({
   auth: { token: auth!.token, keyName: auth!.keyName },
 })
@@ -194,7 +194,7 @@ export default {
 
     // User-authenticated route
     if (url.pathname === '/todos') {
-      const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+      const { data: auth, error } = await verifyAuth(req, { auth: 'user' })
       if (error) {
         return Response.json(
           { message: error.message },
@@ -212,7 +212,7 @@ export default {
     // Admin route — secret key only
     if (url.pathname === '/admin/users') {
       const { data: auth, error } = await verifyAuth(req, {
-        allow: 'secret',
+        auth: 'secret',
       })
       if (error) {
         return Response.json(

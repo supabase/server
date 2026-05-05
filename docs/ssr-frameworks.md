@@ -143,7 +143,7 @@ import {
   createAdminClient,
 } from '@supabase/server/core'
 import type {
-  AllowWithKey,
+  AuthModeWithKey,
   SupabaseContext,
   SupabaseEnv,
 } from '@supabase/server'
@@ -219,7 +219,7 @@ async function getJwks(supabaseUrl: string): Promise<SupabaseEnv['jwks']> {
 }
 
 export async function createSupabaseContext(
-  options: { allow?: AllowWithKey | AllowWithKey[] } = { allow: 'user' },
+  options: { auth?: AuthModeWithKey | AuthModeWithKey[] } = { auth: 'user' },
 ): Promise<
   { data: SupabaseContext; error: null } | { data: null; error: Error }
 > {
@@ -235,9 +235,9 @@ export async function createSupabaseContext(
   const jwks = await getJwks(nextEnv.url)
   const env: Partial<SupabaseEnv> = { ...nextEnv, jwks }
 
-  const { data: auth, error } = await verifyCredentials(
+  const { data: result, error } = await verifyCredentials(
     { token, apikey: null },
-    { allow: options.allow ?? 'user', env },
+    { auth: options.auth ?? 'user', env },
   )
 
   if (error) {
@@ -245,7 +245,7 @@ export async function createSupabaseContext(
   }
 
   const supabase = createContextClient({
-    auth: { token: auth!.token },
+    auth: { token: result!.token },
     env,
   })
   const supabaseAdmin = createAdminClient({ env })
@@ -254,9 +254,9 @@ export async function createSupabaseContext(
     data: {
       supabase,
       supabaseAdmin,
-      userClaims: auth!.userClaims,
-      claims: auth!.claims,
-      authType: auth!.authType,
+      userClaims: result!.userClaims,
+      claims: result!.claims,
+      authType: result!.authType,
     },
     error: null,
   }
@@ -313,10 +313,10 @@ export async function GET() {
 
 ```ts
 // Public endpoint — no auth required
-const { data: ctx } = await createSupabaseContext({ allow: 'always' })
+const { data: ctx } = await createSupabaseContext({ auth: 'always' })
 
 // Accept either user JWT or skip auth
-const { data: ctx } = await createSupabaseContext({ allow: ['user', 'always'] })
+const { data: ctx } = await createSupabaseContext({ auth: ['user', 'always'] })
 ```
 
 ## Adapting for other frameworks

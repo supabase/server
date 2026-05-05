@@ -17,7 +17,7 @@ describe('createSupabaseContext', () => {
   it('returns context with clients on successful auth', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'always',
       env: baseEnv,
     })
 
@@ -32,7 +32,7 @@ describe('createSupabaseContext', () => {
   it('returns user and claims as null for non-user auth', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'always',
       env: baseEnv,
     })
 
@@ -43,7 +43,7 @@ describe('createSupabaseContext', () => {
   it('returns error when auth fails', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'user',
+      auth: 'user',
       env: baseEnv,
     })
 
@@ -53,7 +53,7 @@ describe('createSupabaseContext', () => {
     expect(result.error!.code).toBeDefined()
   })
 
-  it('defaults to allow: user when no options provided', async () => {
+  it('defaults to auth: user when no options provided', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, { env: baseEnv })
 
@@ -67,7 +67,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'sb_publishable_xyz' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'public',
+      auth: 'public',
       env: baseEnv,
     })
 
@@ -83,7 +83,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'sb_publishable_web' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'public:web',
+      auth: 'public:web',
       env: {
         ...baseEnv,
         publishableKeys: {
@@ -104,7 +104,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'sb_secret_xyz' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'secret',
+      auth: 'secret',
       env: baseEnv,
     })
 
@@ -118,7 +118,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'sb_secret_web' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'secret:web',
+      auth: 'secret:web',
       env: {
         ...baseEnv,
         secretKeys: {
@@ -139,7 +139,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'wrong_key' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'secret',
+      auth: 'secret',
       env: baseEnv,
     })
 
@@ -150,7 +150,7 @@ describe('createSupabaseContext', () => {
   it('returns error when client creation fails due to missing keys', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'always',
       env: {
         url: 'https://test.supabase.co',
         publishableKeys: {},
@@ -171,7 +171,7 @@ describe('createSupabaseContext', () => {
   it('passes supabaseOptions through to clients', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'always',
       env: baseEnv,
       supabaseOptions: { db: { schema: 'api' } },
     })

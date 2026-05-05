@@ -12,8 +12,8 @@ The package uses a **double-HMAC technique**: both strings are HMAC'd with a ran
 
 This applies to:
 
-- **Publishable key verification** (`allow: 'public'`) — compares the `apikey` header against stored publishable keys
-- **Secret key verification** (`allow: 'secret'`) — compares the `apikey` header against stored secret keys
+- **Publishable key verification** (`auth: 'public'`) — compares the `apikey` header against stored publishable keys
+- **Secret key verification** (`auth: 'secret'`) — compares the `apikey` header against stored secret keys
 
 See `src/core/utils/timing-safe-equal.ts` for the implementation.
 
@@ -31,7 +31,7 @@ Each auth mode provides a different level of trust:
 Key implications:
 
 - **`user` mode** verifies the JWT using a local JWKS (JSON Web Key Set). The token must contain a `sub` claim. Verification uses the `jose` library's `jwtVerify` with a local key set — no network calls to an auth server.
-- **`public` and `secret` modes** compare the `apikey` header against known keys. The comparison is timing-safe. If you use named keys (`allow: 'secret:automations'`), only that specific key is accepted — this follows the principle of least privilege.
+- **`public` and `secret` modes** compare the `apikey` header against known keys. The comparison is timing-safe. If you use named keys (`auth: 'secret:automations'`), only that specific key is accepted — this follows the principle of least privilege.
 - **`always` mode** performs zero authentication. The handler runs for every request. The `supabaseAdmin` client is still available, so a compromised `always` endpoint with write operations is a security risk. Only use it for truly public endpoints or when you implement your own auth (e.g., webhook signature verification).
 
 ## Named key isolation
@@ -40,10 +40,10 @@ Instead of accepting any valid API key, you can restrict an endpoint to a specif
 
 ```ts
 // Accepts any secret key
-withSupabase({ allow: 'secret' }, handler)
+withSupabase({ auth: 'secret' }, handler)
 
 // Only accepts the "automations" secret key
-withSupabase({ allow: 'secret:automations' }, handler)
+withSupabase({ auth: 'secret:automations' }, handler)
 ```
 
 This limits the blast radius if a key is compromised. An attacker with the `web` publishable key cannot access an endpoint that requires `secret:automations`. Named keys also make it easier to rotate or revoke access for a specific consumer without affecting others.
@@ -60,7 +60,7 @@ JWT verification in `user` mode works as follows:
 
 If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
 
-**No silent downgrade.** When `user` is combined with other modes (e.g. `allow: ['user', 'public']`), a JWT that is present but fails verification rejects the request with `InvalidCredentialsError` — it does not fall through to the next mode. This prevents a bad token paired with a valid `apikey` (or with `'always'`) from being silently downgraded to a less-privileged auth mode. Requests that simply omit the `Authorization` header still fall through as expected.
+**No silent downgrade.** When `user` is combined with other modes (e.g. `auth: ['user', 'public']`), a JWT that is present but fails verification rejects the request with `InvalidCredentialsError` — it does not fall through to the next mode. This prevents a bad token paired with a valid `apikey` (or with `'always'`) from being silently downgraded to a less-privileged auth mode. Requests that simply omit the `Authorization` header still fall through as expected.
 
 ## CORS handling
 

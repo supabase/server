@@ -1,8 +1,9 @@
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Credentials, JsonWebKeySet, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
+import { _resetAllowDeprecationWarned } from './utils/deprecation.js'
 import { InvalidCredentialsError } from '../errors.js'
 
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
@@ -20,7 +21,7 @@ describe('verifyCredentials', () => {
     it('succeeds with no credentials and keyName is null', async () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: 'always',
+        auth: 'always',
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
@@ -36,7 +37,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public',
+        auth: 'public',
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
@@ -47,7 +48,7 @@ describe('verifyCredentials', () => {
     it('fails with invalid key', async () => {
       const creds: Credentials = { token: null, apikey: 'wrong_key' }
       const result = await verifyCredentials(creds, {
-        allow: 'public',
+        auth: 'public',
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
@@ -63,7 +64,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_publishable_web' }
       const result = await verifyCredentials(creds, {
-        allow: 'public',
+        auth: 'public',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -79,7 +80,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_publishable_web' }
       const result = await verifyCredentials(creds, {
-        allow: 'public:web',
+        auth: 'public:web',
         env,
       })
       expect(result.error).toBeNull()
@@ -98,7 +99,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_mobile',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public:web',
+        auth: 'public:web',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -114,7 +115,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_publishable_web' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret:web',
+        auth: 'secret:web',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -133,7 +134,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_mobile',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public:*',
+        auth: 'public:*',
         env,
       })
       expect(result.error).toBeNull()
@@ -153,7 +154,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_mobile',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public:*',
+        auth: 'public:*',
         env,
       })
       expect(result.error).toBeNull()
@@ -165,7 +166,7 @@ describe('verifyCredentials', () => {
     it('succeeds with valid secret key and returns default keyName', async () => {
       const creds: Credentials = { token: null, apikey: 'sb_secret_xyz' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret',
+        auth: 'secret',
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
@@ -176,7 +177,7 @@ describe('verifyCredentials', () => {
     it('fails with invalid secret key', async () => {
       const creds: Credentials = { token: null, apikey: 'wrong_secret' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret',
+        auth: 'secret',
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
@@ -189,7 +190,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_secret_web' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret',
+        auth: 'secret',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -202,7 +203,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_secret_web' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret:web',
+        auth: 'secret:web',
         env,
       })
       expect(result.error).toBeNull()
@@ -215,7 +216,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_secret_mobile' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret:web',
+        auth: 'secret:web',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -228,7 +229,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_secret_web' }
       const result = await verifyCredentials(creds, {
-        allow: 'public:web',
+        auth: 'public:web',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -241,7 +242,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_secret_mobile' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret:*',
+        auth: 'secret:*',
         env,
       })
       expect(result.error).toBeNull()
@@ -258,7 +259,7 @@ describe('verifyCredentials', () => {
       })
       const creds: Credentials = { token: null, apikey: 'sb_secret_mobile' }
       const result = await verifyCredentials(creds, {
-        allow: 'secret:*',
+        auth: 'secret:*',
         env,
       })
       expect(result.error).toBeNull()
@@ -291,7 +292,7 @@ describe('verifyCredentials', () => {
     it('succeeds with valid JWT', async () => {
       const creds: Credentials = { token: validToken, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: 'user',
+        auth: 'user',
         env: makeEnv({ jwks }),
       })
       expect(result.error).toBeNull()
@@ -306,7 +307,7 @@ describe('verifyCredentials', () => {
     it('fails with invalid JWT', async () => {
       const creds: Credentials = { token: 'invalid.jwt.token', apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: 'user',
+        auth: 'user',
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
@@ -316,7 +317,7 @@ describe('verifyCredentials', () => {
     it('fails with no token', async () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: 'user',
+        auth: 'user',
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
@@ -338,7 +339,7 @@ describe('verifyCredentials', () => {
 
       const creds: Credentials = { token: expiredToken, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: 'user',
+        auth: 'user',
         env: makeEnv({ jwks: expiredJwks }),
       })
       expect(result.error).not.toBeNull()
@@ -346,14 +347,14 @@ describe('verifyCredentials', () => {
     })
   })
 
-  describe('parseAllowMode edge cases', () => {
+  describe('parseAuthMode edge cases', () => {
     it('treats trailing colon as bare mode (default key)', async () => {
       const creds: Credentials = {
         token: null,
         apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public:' as 'public',
+        auth: 'public:' as 'public',
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
@@ -369,7 +370,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_colon',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public:key:extra' as 'public',
+        auth: 'public:key:extra' as 'public',
         env,
       })
       expect(result.error).toBeNull()
@@ -383,7 +384,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
-        allow: 'public:*' as 'public',
+        auth: 'public:*' as 'public',
         env,
       })
       expect(result.error).not.toBeNull()
@@ -391,14 +392,14 @@ describe('verifyCredentials', () => {
     })
   })
 
-  describe('array allow (first match wins)', () => {
+  describe('array auth (first match wins)', () => {
     it('matches second mode when first fails and returns its keyName', async () => {
       const creds: Credentials = {
         token: null,
         apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
-        allow: ['secret', 'public'],
+        auth: ['secret', 'public'],
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
@@ -409,7 +410,7 @@ describe('verifyCredentials', () => {
     it('matches first mode when it succeeds', async () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: ['always', 'public'],
+        auth: ['always', 'public'],
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
@@ -431,7 +432,7 @@ describe('verifyCredentials', () => {
     it('rejects invalid JWT instead of falling through to always mode', async () => {
       const creds: Credentials = { token: 'garbage.jwt.token', apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: ['user', 'always'],
+        auth: ['user', 'always'],
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
@@ -453,7 +454,7 @@ describe('verifyCredentials', () => {
 
       const creds: Credentials = { token: expiredToken, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: ['user', 'always'],
+        auth: ['user', 'always'],
         env: makeEnv({ jwks: expiredJwks }),
       })
       expect(result.error).not.toBeNull()
@@ -463,7 +464,7 @@ describe('verifyCredentials', () => {
     it('falls through to always when no token is present', async () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: ['user', 'always'],
+        auth: ['user', 'always'],
         env: makeEnv({ jwks }),
       })
       expect(result.error).toBeNull()
@@ -476,7 +477,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_publishable_xyz',
       }
       const result = await verifyCredentials(creds, {
-        allow: ['user', 'public'],
+        auth: ['user', 'public'],
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
@@ -489,7 +490,7 @@ describe('verifyCredentials', () => {
         apikey: 'sb_secret_xyz',
       }
       const result = await verifyCredentials(creds, {
-        allow: ['user', 'secret'],
+        auth: ['user', 'secret'],
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
@@ -511,9 +512,83 @@ describe('verifyCredentials', () => {
 
       const creds: Credentials = { token: noSubToken, apikey: null }
       const result = await verifyCredentials(creds, {
-        allow: 'user',
+        auth: 'user',
         env: makeEnv({ jwks: noSubJwks }),
       })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+  })
+
+  describe('allow → auth deprecation', () => {
+    beforeEach(() => {
+      _resetAllowDeprecationWarned()
+    })
+
+    it('still accepts the deprecated `allow` option', async () => {
+      const creds: Credentials = { token: null, apikey: null }
+      const result = await verifyCredentials(creds, {
+        allow: 'always',
+        env: makeEnv(),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('always')
+    })
+
+    it('emits a deprecation warning when `allow` is used', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const creds: Credentials = { token: null, apikey: null }
+      await verifyCredentials(creds, {
+        allow: 'always',
+        env: makeEnv(),
+      })
+      expect(warn).toHaveBeenCalledTimes(1)
+      const message = warn.mock.calls[0]![0] as string
+      expect(message).toContain('@supabase/server')
+      expect(message).toContain('`allow`')
+      expect(message).toContain('`auth`')
+      warn.mockRestore()
+    })
+
+    it('only warns once across multiple calls', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const creds: Credentials = { token: null, apikey: null }
+      await verifyCredentials(creds, { allow: 'always', env: makeEnv() })
+      await verifyCredentials(creds, { allow: 'always', env: makeEnv() })
+      await verifyCredentials(creds, { allow: 'always', env: makeEnv() })
+      expect(warn).toHaveBeenCalledTimes(1)
+      warn.mockRestore()
+    })
+
+    it('does not warn when `auth` is used', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const creds: Credentials = { token: null, apikey: null }
+      await verifyCredentials(creds, { auth: 'always', env: makeEnv() })
+      expect(warn).not.toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
+    it('prefers `auth` over `allow` when both are provided', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const creds: Credentials = { token: null, apikey: 'sb_secret_xyz' }
+      const result = await verifyCredentials(creds, {
+        // `auth` should win and the secret key should match.
+        auth: 'secret',
+        // `allow` would have rejected the secret key (public mode).
+        allow: 'public',
+        env: makeEnv(),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authType).toBe('secret')
+      // No warning since `auth` is the operative option.
+      expect(warn).not.toHaveBeenCalled()
+      warn.mockRestore()
+    })
+
+    it('defaults to `user` when neither `auth` nor `allow` is provided', async () => {
+      const creds: Credentials = { token: null, apikey: null }
+      const result = await verifyCredentials(creds, { env: makeEnv() })
+      // No token, no apikey, default mode is `user` → fails with invalid credentials.
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidCredentialsError)
     })

@@ -32,7 +32,7 @@ The fastest way to get a working authenticated endpoint:
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     const { data } = await ctx.supabase.from('todos').select()
     return Response.json(data)
   }),
@@ -56,13 +56,13 @@ Your handler only runs when auth succeeds.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'always' }, async (_req, _ctx) => {
+  fetch: withSupabase({ auth: 'always' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok', time: new Date().toISOString() })
   }),
 }
 ```
 
-> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'public'`, `auth: 'secret'`, or `auth: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
 >
 > ```toml
 > [functions.my-function]
@@ -79,7 +79,7 @@ Every handler receives a `SupabaseContext` with these fields:
 | `supabaseAdmin` | `SupabaseClient`     | Admin client. Bypasses RLS.                                                                            |
 | `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
 | `claims`        | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
-| `authType`      | `Allow`              | Which auth mode matched: `'user'`, `'public'`, `'secret'`, or `'always'`.                              |
+| `authType`      | `AuthMode`           | Which auth mode matched: `'user'`, `'public'`, `'secret'`, or `'always'`.                              |
 | `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
 
 The `supabase` client respects Row-Level Security. When `authType` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
@@ -98,7 +98,7 @@ import { createSupabaseContext } from '@supabase/server'
 export default {
   fetch: async (req: Request) => {
     const { data: ctx, error } = await createSupabaseContext(req, {
-      allow: 'user',
+      auth: 'user',
     })
 
     if (error) {
@@ -124,7 +124,7 @@ CORS is enabled by default with standard supabase-js headers. You can customize 
 // Custom CORS headers
 withSupabase(
   {
-    allow: 'user',
+    auth: 'user',
     cors: {
       'Access-Control-Allow-Origin': 'https://myapp.com',
       'Access-Control-Allow-Headers': 'authorization, content-type',
@@ -134,7 +134,7 @@ withSupabase(
 )
 
 // Disable CORS (e.g., when a framework handles it)
-withSupabase({ allow: 'user', cors: false }, handler)
+withSupabase({ auth: 'user', cors: false }, handler)
 ```
 
 ## Runtimes

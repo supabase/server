@@ -6,6 +6,8 @@
 
 > **Beta:** This package is under active development. APIs and documentation may change. If you find a bug or have a feature request, please [open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
 
+> **Heads up — `allow` is now `auth`.** The `allow` config option has been renamed to `auth` to better align with CLI terminology and read more naturally (e.g. `auth: 'user'`). The old `allow` key still works but is deprecated and will emit a one-time `console.warn` per process. It will be removed in a future major release. **Migration:** find-and-replace `allow:` → `auth:` in your `withSupabase`, `createSupabaseContext`, `verifyAuth`, and `verifyCredentials` calls.
+
 `@supabase/server` gives you batteries included access to the
 [supabase-js SDK](https://github.com/supabase/supabase-js), including client
 creation and authentication automatically scoped to the inbound requests to your
@@ -15,7 +17,7 @@ Edge Functions and APIs.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     // RLS-scoped — this user only sees their own favorites
     const { data: myGames } = await ctx.supabase.from('favorite_games').select()
     return Response.json(myGames)
@@ -55,7 +57,7 @@ Imagine you're building an app where users track their favorite games. They sign
 ```ts
 // A signed-in user fetches their favorite games.
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     const { supabase, supabaseAdmin, userClaims, claims, authType } = ctx
     // supabase       — RLS-scoped to the authenticated user
     // supabaseAdmin  — bypasses RLS (service role)
@@ -74,9 +76,9 @@ export default {
 
 ```ts
 // The frontend hits this before showing the login screen.
-// allow: 'always' means no credentials required.
+// auth: 'always' means no credentials required.
 export default {
-  fetch: withSupabase({ allow: 'always' }, async (_req, _ctx) => {
+  fetch: withSupabase({ auth: 'always' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok' })
   }),
 }
@@ -88,7 +90,7 @@ export default {
 // An admin dashboard fetches the list of featured games to curate.
 // Secret key auth (not a user JWT) — supabaseAdmin bypasses RLS.
 export default {
-  fetch: withSupabase({ allow: 'secret' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'secret' }, async (_req, ctx) => {
     const { data: featuredGames } = await ctx.supabaseAdmin
       .from('featured_games')
       .select()
@@ -103,7 +105,7 @@ export default {
 // Users view their own play stats from the app (JWT).
 // A backend service pulls stats for any user (secret key + user_id in body).
 export default {
-  fetch: withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
+  fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
     const callerIsUser = ctx.authType === 'user'
 
     if (callerIsUser) {
@@ -129,7 +131,7 @@ export default {
 // A cron job refreshes the "popular this week" list every hour.
 // Named key ("cron") so it can be rotated without touching other services.
 export default {
-  fetch: withSupabase({ allow: 'secret:cron' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'secret:cron' }, async (_req, ctx) => {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const { data: popularThisWeek } = await ctx.supabaseAdmin.rpc(
       'get_most_favorited_since',
@@ -167,11 +169,11 @@ await fetch(refreshEndpoint, {
 | `"secret"`         | Valid secret key      | Server-to-server, internal calls                    |
 | `"always"`         | None                  | Open endpoints, wrappers that handle their own auth |
 
-Array syntax (`allow: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
+Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
 
-Named key validation: `allow: "public:web_app"` or `allow: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
+Named key validation: `auth: "public:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
 
-> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'public'`, `auth: 'secret'`, or `auth: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
 >
 > ```toml
 > [functions.my-function]
@@ -202,7 +204,7 @@ interface SupabaseContext {
 ```ts
 withSupabase(
   {
-    allow: 'user', // who can call this function
+    auth: 'user', // who can call this function
     cors: false, // disable CORS (default: supabase-js CORS headers)
     env: { url: '...' }, // env overrides (optional)
   },
@@ -215,7 +217,7 @@ withSupabase(
 ```ts
 withSupabase(
   {
-    allow: 'user',
+    auth: 'user',
     cors: {
       'Access-Control-Allow-Origin': 'https://myapp.com',
       'Access-Control-Allow-Headers': 'authorization, content-type',
@@ -238,7 +240,7 @@ import { withSupabase } from '@supabase/server/adapters/hono'
 const app = new Hono()
 
 // Protected — withSupabase middleware validates the JWT before the handler runs
-app.get('/games', withSupabase({ allow: 'user' }), async (c) => {
+app.get('/games', withSupabase({ auth: 'user' }), async (c) => {
   const { supabase } = c.var.supabaseContext
   const { data: myGames } = await supabase.from('favorite_games').select()
   return c.json(myGames)
@@ -261,7 +263,7 @@ import { withSupabase } from '@supabase/server/adapters/h3'
 const app = new H3()
 
 // Protected — withSupabase validates the JWT before the handler runs
-app.use(withSupabase({ allow: 'user' }))
+app.use(withSupabase({ auth: 'user' }))
 
 app.get('/games', async (event) => {
   const { supabase } = event.context.supabaseContext
@@ -283,7 +285,7 @@ import { defineHandler } from 'h3'
 import { withSupabase } from '@supabase/server/adapters/h3'
 
 export default defineHandler({
-  middleware: [withSupabase({ allow: 'user' })],
+  middleware: [withSupabase({ auth: 'user' })],
   handler: async (event) => {
     const { supabase } = event.context.supabaseContext
     return supabase.from('favorite_games').select()
@@ -297,7 +299,7 @@ For app-wide auth, register it as a server middleware:
 // server/middleware/supabase.ts
 import { withSupabase } from '@supabase/server/adapters/h3'
 
-export default withSupabase({ allow: 'user' })
+export default withSupabase({ auth: 'user' })
 ```
 
 The adapter does not handle CORS — use H3's CORS utilities for that.
@@ -318,10 +320,10 @@ import {
 
 ### verifyAuth
 
-Extracts credentials from a Request and validates against the allow config.
+Extracts credentials from a Request and validates against the auth config.
 
 ```ts
-const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+const { data: auth, error } = await verifyAuth(req, { auth: 'user' })
 if (error) {
   return Response.json({ message: error.message }, { status: error.status })
 }
@@ -333,8 +335,8 @@ Low-level — works with raw credentials instead of a Request. Used by SSR adapt
 
 ```ts
 const credentials = { token: myToken, apikey: null }
-const { data: auth, error } = await verifyCredentials(credentials, {
-  allow: 'user',
+const { data: result, error } = await verifyCredentials(credentials, {
+  auth: 'user',
 })
 ```
 
@@ -351,7 +353,7 @@ const adminClient = createAdminClient() // bypasses RLS entirely
 Full context assembly from a Request — `verifyAuth` + client creation in one call.
 
 ```ts
-const { data: ctx, error } = await createSupabaseContext(req, { allow: 'user' })
+const { data: ctx, error } = await createSupabaseContext(req, { auth: 'user' })
 ```
 
 ### resolveEnv
@@ -382,14 +384,14 @@ export default {
 
     // Protected — verify the JWT, then create a user-scoped client
     if (url.pathname === '/games') {
-      const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+      const { data: result, error } = await verifyAuth(req, { auth: 'user' })
       if (error)
         return Response.json(
           { message: error.message },
           { status: error.status },
         )
 
-      const userScopedClient = createContextClient(auth.token)
+      const userScopedClient = createContextClient(result.token)
       const { data: myGames } = await userScopedClient
         .from('favorite_games')
         .select()

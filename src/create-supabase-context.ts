@@ -22,7 +22,7 @@ import { verifyAuth } from './core/verify-auth.js'
  *
  * @example
  * ```ts
- * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
+ * const { data: ctx, error } = await createSupabaseContext(request, { auth: 'user' })
  * if (error) {
  *   return Response.json({ message: error.message }, { status: error.status })
  * }
@@ -36,10 +36,9 @@ export async function createSupabaseContext<Database = unknown>(
   | { data: SupabaseContext<Database>; error: null }
   | { data: null; error: AuthError }
 > {
-  const allow = options?.allow ?? 'user'
-
   const { data: auth, error } = await verifyAuth(request, {
-    allow,
+    auth: options?.auth,
+    allow: options?.allow,
     env: options?.env,
   })
   if (error) {

@@ -19,7 +19,7 @@ import { withSupabase } from '@supabase/server/adapters/hono'
 const app = new Hono()
 
 // Apply auth to all routes
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 app.get('/todos', async (c) => {
   const { supabase } = c.var.supabaseContext
@@ -55,14 +55,14 @@ const app = new Hono()
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
 // User-authenticated route
-app.get('/todos', withSupabase({ allow: 'user' }), async (c) => {
+app.get('/todos', withSupabase({ auth: 'user' }), async (c) => {
   const { supabase } = c.var.supabaseContext
   const { data } = await supabase.from('todos').select()
   return c.json(data)
 })
 
 // Secret-key-protected admin route
-app.post('/admin/sync', withSupabase({ allow: 'secret' }), async (c) => {
+app.post('/admin/sync', withSupabase({ auth: 'secret' }), async (c) => {
   const { supabaseAdmin } = c.var.supabaseContext
   const { data } = await supabaseAdmin
     .from('audit_log')
@@ -71,7 +71,7 @@ app.post('/admin/sync', withSupabase({ allow: 'secret' }), async (c) => {
 })
 
 // Dual auth — users or services
-app.get('/reports', withSupabase({ allow: ['user', 'secret'] }), async (c) => {
+app.get('/reports', withSupabase({ auth: ['user', 'secret'] }), async (c) => {
   const { supabase, authType } = c.var.supabaseContext
   return c.json({ authType })
 })
@@ -87,12 +87,12 @@ If a previous middleware already set `c.var.supabaseContext`, subsequent `withSu
 const app = new Hono()
 
 // App-wide: require user auth
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 // This route needs secret auth instead.
 // The route-level middleware runs first, sets the context,
 // and the app-wide middleware skips.
-app.post('/webhook', withSupabase({ allow: 'secret' }), async (c) => {
+app.post('/webhook', withSupabase({ auth: 'secret' }), async (c) => {
   const { supabaseAdmin } = c.var.supabaseContext
   // ...
 })
@@ -110,7 +110,7 @@ import { withSupabase } from '@supabase/server/adapters/hono'
 const app = new Hono()
 
 app.use('*', cors())
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 app.get('/todos', async (c) => {
   const { supabase } = c.var.supabaseContext
@@ -133,7 +133,7 @@ import { AuthError } from '@supabase/server'
 
 const app = new Hono()
 
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 // Custom error handler
 app.onError((err, c) => {
@@ -164,7 +164,7 @@ Pass `env` to override auto-detected environment variables, same as the main wra
 app.use(
   '*',
   withSupabase({
-    allow: 'user',
+    auth: 'user',
     env: { url: 'http://localhost:54321' },
   }),
 )
@@ -178,7 +178,7 @@ Forward options to the underlying `createClient()` calls:
 app.use(
   '*',
   withSupabase({
-    allow: 'user',
+    auth: 'user',
     supabaseOptions: { db: { schema: 'api' } },
   }),
 )

@@ -15,12 +15,12 @@ On Supabase Platform and Local Development (CLI), all variables are auto-provisi
 
 Set these based on which auth modes your app uses:
 
-| Variable                   | Required when                              |
-| -------------------------- | ------------------------------------------ |
-| `SUPABASE_URL`             | Always                                     |
-| `SUPABASE_SECRET_KEY`      | `allow: 'secret'` or using `supabaseAdmin` |
-| `SUPABASE_PUBLISHABLE_KEY` | `allow: 'public'`                          |
-| `SUPABASE_JWKS`            | `allow: 'user'` (JWT verification)         |
+| Variable                   | Required when                             |
+| -------------------------- | ----------------------------------------- |
+| `SUPABASE_URL`             | Always                                    |
+| `SUPABASE_SECRET_KEY`      | `auth: 'secret'` or using `supabaseAdmin` |
+| `SUPABASE_PUBLISHABLE_KEY` | `auth: 'public'`                          |
+| `SUPABASE_JWKS`            | `auth: 'user'` (JWT verification)         |
 
 ### Minimal `.env` example
 
@@ -48,10 +48,10 @@ You can then validate against specific keys with named key syntax:
 
 ```ts
 // Only accept the "web" publishable key
-withSupabase({ allow: 'public:web' }, handler)
+withSupabase({ auth: 'public:web' }, handler)
 
 // Accept any secret key
-withSupabase({ allow: 'secret:*' }, handler)
+withSupabase({ auth: 'secret:*' }, handler)
 ```
 
 ### Singular form — equivalent to a single "default" key
@@ -69,7 +69,7 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_default_abc
 SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_default_abc"}
 ```
 
-The singular form is a convenience for the common case where you only have one key. The SDK stores it internally as `{ default: "<value>" }`, so `allow: 'public'` (which looks for the `"default"` key) works with both forms.
+The singular form is a convenience for the common case where you only have one key. The SDK stores it internally as `{ default: "<value>" }`, so `auth: 'public'` (which looks for the `"default"` key) works with both forms.
 
 ### Priority
 
@@ -87,7 +87,7 @@ SUPABASE_JWKS={"keys":[{"kty":"RSA","n":"...","e":"AQAB"}]}
 SUPABASE_JWKS=[{"kty":"RSA","n":"...","e":"AQAB"}]
 ```
 
-When `SUPABASE_JWKS` is not set, JWT verification (`allow: 'user'`) is unavailable.
+When `SUPABASE_JWKS` is not set, JWT verification (`auth: 'user'`) is unavailable.
 
 ## Runtime-specific behavior
 
@@ -119,7 +119,7 @@ Cloudflare Workers don't expose `Deno.env` or `process.env` by default. Two opti
    ```ts
    withSupabase(
      {
-       allow: 'user',
+       auth: 'user',
        env: {
          url: env.SUPABASE_URL,
          publishableKeys: { default: env.SUPABASE_PUBLISHABLE_KEY },
@@ -140,7 +140,7 @@ import { withSupabase } from '@supabase/server'
 export default {
   fetch: withSupabase(
     {
-      allow: 'user',
+      auth: 'user',
       env: {
         url: 'http://localhost:54321', // override just the URL
       },

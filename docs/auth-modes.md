@@ -2,7 +2,9 @@
 
 ## Overview
 
-Every request is validated against one or more auth modes before your handler runs. The `allow` config determines which modes are accepted.
+Every request is validated against one or more auth modes before your handler runs. The `auth` config determines which modes are accepted.
+
+> **`allow` is deprecated.** The `auth` option replaces the legacy `allow` option. `allow` still works (with a one-time `console.warn`) but will be removed in a future major release. Migration is a find-and-replace: `allow:` → `auth:`.
 
 | Mode       | Credential required                          | Typical use case                       |
 | ---------- | -------------------------------------------- | -------------------------------------- |
@@ -27,7 +29,7 @@ The default. Verifies the JWT using your project's JWKS (JSON Web Key Set).
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     // ctx.userClaims has the caller's identity
     console.log(ctx.userClaims!.id) // "d0f1a2b3-..."
     console.log(ctx.userClaims!.email) // "user@example.com"
@@ -60,7 +62,7 @@ Validates that the `apikey` header contains a recognized publishable key. Uses t
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'public' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'public' }, async (_req, ctx) => {
     // ctx.userClaims is null — no JWT involved
     // ctx.supabase is initialized as anonymous (RLS anon role)
     const { data } = await ctx.supabase.from('products').select()
@@ -85,7 +87,7 @@ Validates that the `apikey` header contains a recognized secret key. Same timing
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'secret' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'secret' }, async (_req, ctx) => {
     // ctx.supabaseAdmin bypasses RLS — use for privileged operations
     const { data } = await ctx.supabaseAdmin.from('config').select()
     return Response.json(data)
@@ -107,7 +109,7 @@ No credentials required. Every request is accepted.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'always' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'always' }, async (_req, ctx) => {
     // ctx.authType is 'always'
     // ctx.userClaims is null
     // ctx.supabase is anonymous (RLS anon role)
@@ -126,7 +128,7 @@ Accept multiple auth methods. Modes are tried in order — the first match wins.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
+  fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
     // ctx.authType tells you which mode matched
     if (ctx.authType === 'user') {
       // Called by an authenticated user
@@ -167,20 +169,20 @@ Keys are stored as a JSON object in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SEC
 
 ```ts
 // Only accept the "web" publishable key
-withSupabase({ allow: 'public:web' }, handler)
+withSupabase({ auth: 'public:web' }, handler)
 
 // Only accept the "internal" secret key
-withSupabase({ allow: 'secret:internal' }, handler)
+withSupabase({ auth: 'secret:internal' }, handler)
 ```
 
 ### Wildcard — accept any key in the set
 
 ```ts
 // Accept any publishable key
-withSupabase({ allow: 'public:*' }, handler)
+withSupabase({ auth: 'public:*' }, handler)
 
 // Accept any secret key
-withSupabase({ allow: 'secret:*' }, handler)
+withSupabase({ auth: 'secret:*' }, handler)
 ```
 
 ### Which key matched?
@@ -190,7 +192,7 @@ When using named keys, `ctx.authType` tells you the mode and `keyName` on the `A
 ### Combining named keys with other modes
 
 ```ts
-withSupabase({ allow: ['user', 'public:web'] }, async (_req, ctx) => {
+withSupabase({ auth: ['user', 'public:web'] }, async (_req, ctx) => {
   // Accepts either a valid JWT or the "web" publishable key
   return Response.json({ authType: ctx.authType })
 })
@@ -199,7 +201,7 @@ withSupabase({ allow: ['user', 'public:web'] }, async (_req, ctx) => {
 ## How auth flows through the system
 
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
-2. Each mode in `allow` is tried in order against the extracted credentials
+2. Each mode in `auth` is tried in order against the extracted credentials
 3. First match wins — returns an `AuthResult` with `authType`, `token`, `userClaims`, `claims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
 4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key)
 5. Everything is bundled into a `SupabaseContext` and passed to your handler

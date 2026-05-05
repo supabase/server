@@ -1,5 +1,5 @@
 import type { AuthError } from '../errors.js'
-import type { AllowWithKey, AuthResult, SupabaseEnv } from '../types.js'
+import type { AuthModeWithKey, AuthResult, SupabaseEnv } from '../types.js'
 import { extractCredentials } from './extract-credentials.js'
 import { verifyCredentials } from './verify-credentials.js'
 
@@ -10,9 +10,18 @@ interface VerifyAuthOptions {
   /**
    * Auth mode(s) to try. Modes are attempted in order — the first match wins.
    *
-   * @see {@link AllowWithKey} for the full syntax including named keys.
+   * @see {@link AuthModeWithKey} for the full syntax including named keys.
+   *
+   * @defaultValue `"user"`
    */
-  allow: AllowWithKey | AllowWithKey[]
+  auth?: AuthModeWithKey | AuthModeWithKey[]
+
+  /**
+   * @deprecated Use {@link VerifyAuthOptions.auth} instead. Kept for backward
+   * compatibility; will be removed in a future major release. When both are
+   * provided, `auth` wins.
+   */
+  allow?: AuthModeWithKey | AuthModeWithKey[]
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>
@@ -37,7 +46,7 @@ interface VerifyAuthOptions {
  * import { verifyAuth } from '@supabase/server/core'
  *
  * const { data: auth, error } = await verifyAuth(request, {
- *   allow: 'user',
+ *   auth: 'user',
  * })
  *
  * if (error) {
