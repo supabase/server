@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/supabase/server/compare/server-v0.2.0...server-v1.0.0) (2026-05-06)
+
+
+### Miscellaneous Chores
+
+* release 1.0.0 ([#50](https://github.com/supabase/server/issues/50)) ([67de77f](https://github.com/supabase/server/commit/67de77f00b7ebbf4e1de973489703959c7e3a838))
+
 ## [0.2.0](https://github.com/supabase/server/compare/server-v0.1.4...server-v0.2.0) (2026-04-24)
 
 ### ⚠ BREAKING CHANGES

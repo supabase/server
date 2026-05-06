@@ -1,13 +1,20 @@
 {
   "name": "@supabase/server",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "exports": {
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts"
   },
   "publish": {
-    "include": ["src/**/*.ts", "README.md", "LICENSE"],
-    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
+    "include": [
+      "src/**/*.ts",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      "src/**/*.test.ts",
+      "src/**/*.spec.ts"
+    ]
   }
 }
