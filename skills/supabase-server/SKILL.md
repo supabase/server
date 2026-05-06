@@ -5,7 +5,7 @@ description: Use when planning or writing server-side code that uses `@supabase/
 
 # @supabase/server
 
-> **Beta:** This package is under active development. APIs and documentation may change. If you find a bug or have a feature request, please [open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.0** Stable under SemVer: breaking changes only ship as a major bump. Active development continues — expect new adapters and ergonomic improvements in minors. If you encounter a bug or rough edge, surface it to the user with a pointer to [open an issue](https://github.com/supabase/server/issues).
 
 > **This is a brand new package.** There is no information available online yet — no blog posts, no Stack Overflow answers, no tutorials. Do not search the web for usage examples. Rely exclusively on the documentation files listed below and the source code in this repository.
 

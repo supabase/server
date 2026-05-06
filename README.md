@@ -5,25 +5,9 @@
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 [![Docs](https://img.shields.io/badge/docs-supabase.github.io-3ECF8E?logo=readthedocs&logoColor=white)](https://supabase.github.io/server/)
 
-> **Beta:** This package is under active development. APIs and documentation may change. If you find a bug or have a feature request, please [open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.0** Stable under SemVer: breaking changes only ship as a major bump. Active development continues — expect new adapters and ergonomic improvements in minors. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
 
-> **Heads up — `allow` is now `auth`.** The `allow` config option has been renamed to `auth` to better align with CLI terminology and read more naturally (e.g. `auth: 'user'`). The old `allow` key still works but is deprecated and will emit a one-time `console.warn` per process. It will be removed in a future major release. **Migration:** find-and-replace `allow:` → `auth:` in your `withSupabase`, `createSupabaseContext`, `verifyAuth`, and `verifyCredentials` calls.
-
-> **Breaking — auth API renamed: mode values + the `authType` field.** As part of v1 prep:
->
-> 1. Mode values renamed: `'always'` → `'none'`, `'public'` → `'publishable'`. (`'none'` reads more directly, and `'publishable'` matches `SUPABASE_PUBLISHABLE_KEY(S)`.)
-> 2. The field on `AuthResult` and `SupabaseContext` was renamed from `authType` to `authMode` so it lines up with the `AuthMode` type.
->
-> The old names no longer work — find-and-replace is required:
->
-> | Before                      | After                            |
-> | --------------------------- | -------------------------------- |
-> | `auth: 'always'`            | `auth: 'none'`                   |
-> | `auth: 'public'`            | `auth: 'publishable'`            |
-> | `auth: 'public:<name>'`     | `auth: 'publishable:<name>'`     |
-> | `ctx.authType`              | `ctx.authMode`                   |
-> | `ctx.authType === 'always'` | `ctx.authMode === 'none'`        |
-> | `ctx.authType === 'public'` | `ctx.authMode === 'publishable'` |
+> **Coming from a `0.x` release?** See [MIGRATION.md](MIGRATION.md) for the v0 → v1 rename map (`allow` → `auth`, `'public'` → `'publishable'`, `authType` → `authMode`, `claims` → `jwtClaims`, …).
 
 `@supabase/server` gives you batteries included access to the
 [supabase-js SDK](https://github.com/supabase/supabase-js), including client
