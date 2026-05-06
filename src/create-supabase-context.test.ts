@@ -17,7 +17,7 @@ describe('createSupabaseContext', () => {
   it('returns context with clients on successful auth', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'none',
       env: baseEnv,
     })
 
@@ -25,25 +25,25 @@ describe('createSupabaseContext', () => {
     expect(result.data).not.toBeNull()
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
-    expect(result.data!.authType).toBe('always')
-    expect(result.data!.authKeyName).toBeNull()
+    expect(result.data!.authMode).toBe('none')
+    expect(result.data!.authKeyName).toBeUndefined()
   })
 
   it('returns user and claims as null for non-user auth', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'none',
       env: baseEnv,
     })
 
     expect(result.data!.userClaims).toBeNull()
-    expect(result.data!.claims).toBeNull()
+    expect(result.data!.jwtClaims).toBeNull()
   })
 
   it('returns error when auth fails', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'user',
+      auth: 'user',
       env: baseEnv,
     })
 
@@ -53,7 +53,7 @@ describe('createSupabaseContext', () => {
     expect(result.error!.code).toBeDefined()
   })
 
-  it('defaults to allow: user when no options provided', async () => {
+  it('defaults to auth: user when no options provided', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, { env: baseEnv })
 
@@ -62,28 +62,28 @@ describe('createSupabaseContext', () => {
     expect(result.error!.status).toBe(401)
   })
 
-  it('accepts public key auth', async () => {
+  it('accepts publishable key auth', async () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'sb_publishable_xyz' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'public',
+      auth: 'publishable',
       env: baseEnv,
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('public')
+    expect(result.data!.authMode).toBe('publishable')
     expect(result.data!.authKeyName).toBe('default')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
   })
 
-  it('accepts public named key auth', async () => {
+  it('accepts publishable named key auth', async () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'sb_publishable_web' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'public:web',
+      auth: 'publishable:web',
       env: {
         ...baseEnv,
         publishableKeys: {
@@ -93,7 +93,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('public')
+    expect(result.data!.authMode).toBe('publishable')
     expect(result.data!.authKeyName).toBe('web')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
@@ -104,12 +104,12 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'sb_secret_xyz' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'secret',
+      auth: 'secret',
       env: baseEnv,
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('secret')
+    expect(result.data!.authMode).toBe('secret')
     expect(result.data!.authKeyName).toBe('default')
   })
 
@@ -118,7 +118,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'sb_secret_web' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'secret:web',
+      auth: 'secret:web',
       env: {
         ...baseEnv,
         secretKeys: {
@@ -128,7 +128,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('secret')
+    expect(result.data!.authMode).toBe('secret')
     expect(result.data!.authKeyName).toBe('web')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
@@ -139,7 +139,7 @@ describe('createSupabaseContext', () => {
       headers: { apikey: 'wrong_key' },
     })
     const result = await createSupabaseContext(req, {
-      allow: 'secret',
+      auth: 'secret',
       env: baseEnv,
     })
 
@@ -150,7 +150,7 @@ describe('createSupabaseContext', () => {
   it('returns error when client creation fails due to missing keys', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'none',
       env: {
         url: 'https://test.supabase.co',
         publishableKeys: {},
@@ -171,7 +171,7 @@ describe('createSupabaseContext', () => {
   it('passes supabaseOptions through to clients', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      allow: 'always',
+      auth: 'none',
       env: baseEnv,
       supabaseOptions: { db: { schema: 'api' } },
     })

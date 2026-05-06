@@ -5,7 +5,9 @@
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 [![Docs](https://img.shields.io/badge/docs-supabase.github.io-3ECF8E?logo=readthedocs&logoColor=white)](https://supabase.github.io/server/)
 
-> **Beta:** This package is under active development. APIs and documentation may change. If you find a bug or have a feature request, please [open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+
+> **Coming from a `0.x` release?** See [MIGRATION.md](MIGRATION.md) for the v0 → v1 rename map (`allow` → `auth`, `'public'` → `'publishable'`, `authType` → `authMode`, `claims` → `jwtClaims`, …).
 
 `@supabase/server` gives you batteries included access to the
 [supabase-js SDK](https://github.com/supabase/supabase-js), including client
@@ -16,7 +18,7 @@ Edge Functions and APIs.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     // RLS-scoped — this user only sees their own favorites
     const { data: myGames } = await ctx.supabase.from('favorite_games').select()
     return Response.json(myGames)
@@ -49,20 +51,20 @@ npx skills add supabase/server
 
 ## Quick Start
 
-Imagine you're building an app where users track their favorite games. They sign in and manage their own list. An admin dashboard curates featured titles. A cron job refreshes the "popular this week" rankings. Here's how each piece looks:
+Imagine you're building an app where users track their favorite games. They sign in and manage their own list. Pre-login screens browse the public catalog. An admin dashboard curates featured titles. A cron job refreshes the "popular this week" rankings. Here's how each piece looks:
 
 ### Authenticated endpoint
 
 ```ts
 // A signed-in user fetches their favorite games.
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
-    const { supabase, supabaseAdmin, userClaims, claims, authType } = ctx
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
+    const { supabase, supabaseAdmin, userClaims, jwtClaims, authMode } = ctx
     // supabase       — RLS-scoped to the authenticated user
     // supabaseAdmin  — bypasses RLS (service role)
     // userClaims     — user identity from JWT (id, email, role)
-    // claims         — full JWT claims
-    // authType       — which auth mode matched
+    // jwtClaims      — full JWT claims
+    // authMode       — which auth mode matched
 
     // RLS-scoped — this user only sees their own favorites
     const { data: myGames } = await supabase.from('favorite_games').select()
@@ -75,13 +77,43 @@ export default {
 
 ```ts
 // The frontend hits this before showing the login screen.
-// allow: 'always' means no credentials required.
+// auth: 'none' means no credentials required.
 export default {
-  fetch: withSupabase({ allow: 'always' }, async (_req, _ctx) => {
+  fetch: withSupabase({ auth: 'none' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok' })
   }),
 }
 ```
+
+### Publishable-key endpoint
+
+```ts
+// The mobile app browses the game catalog before the user signs in.
+// auth: 'publishable' validates the apikey header against a publishable key —
+// gating the endpoint to your own clients while staying anonymous to the DB.
+export default {
+  fetch: withSupabase({ auth: 'publishable' }, async (_req, ctx) => {
+    // ctx.supabase  — anonymous (anon role); RLS still applies
+    // ctx.userClaims, ctx.jwtClaims — null (no JWT)
+    // ctx.authMode === 'publishable', ctx.authKeyName === 'default'
+    const { data: catalog } = await ctx.supabase
+      .from('games')
+      .select('id, name, cover_url')
+    return Response.json(catalog)
+  }),
+}
+```
+
+The mobile app sends the publishable key in the `apikey` header:
+
+```ts
+const catalogEndpoint = 'https://<project>.supabase.co/functions/v1/catalog'
+const publishableKey = 'sb_publishable_...'
+
+await fetch(catalogEndpoint, { headers: { apikey: publishableKey } })
+```
+
+> Unlike `auth: 'secret'`, the `supabase` client here is anonymous, not admin — RLS is the source of truth for what's visible. The publishable key acts as a coarse "this request came from a known client" gate; it isn't a user identity.
 
 ### API key protected
 
@@ -89,7 +121,7 @@ export default {
 // An admin dashboard fetches the list of featured games to curate.
 // Secret key auth (not a user JWT) — supabaseAdmin bypasses RLS.
 export default {
-  fetch: withSupabase({ allow: 'secret' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'secret' }, async (_req, ctx) => {
     const { data: featuredGames } = await ctx.supabaseAdmin
       .from('featured_games')
       .select()
@@ -104,8 +136,8 @@ export default {
 // Users view their own play stats from the app (JWT).
 // A backend service pulls stats for any user (secret key + user_id in body).
 export default {
-  fetch: withSupabase({ allow: ['user', 'secret'] }, async (req, ctx) => {
-    const callerIsUser = ctx.authType === 'user'
+  fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
+    const callerIsUser = ctx.authMode === 'user'
 
     if (callerIsUser) {
       // RLS-scoped — the database enforces "own stats only"
@@ -130,7 +162,7 @@ export default {
 // A cron job refreshes the "popular this week" list every hour.
 // Named key ("cron") so it can be rotated without touching other services.
 export default {
-  fetch: withSupabase({ allow: 'secret:cron' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'secret:cron' }, async (_req, ctx) => {
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const { data: popularThisWeek } = await ctx.supabaseAdmin.rpc(
       'get_most_favorited_since',
@@ -164,15 +196,15 @@ await fetch(refreshEndpoint, {
 | Mode               | Credential            | Use case                                            |
 | ------------------ | --------------------- | --------------------------------------------------- |
 | `"user"` (default) | Valid JWT             | Authenticated user endpoints                        |
-| `"public"`         | Valid publishable key | Client-facing, key-validated endpoints              |
+| `"publishable"`    | Valid publishable key | Client-facing, key-validated endpoints              |
 | `"secret"`         | Valid secret key      | Server-to-server, internal calls                    |
-| `"always"`         | None                  | Open endpoints, wrappers that handle their own auth |
+| `"none"`           | None                  | Open endpoints, wrappers that handle their own auth |
 
-Array syntax (`allow: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
+Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
 
-Named key validation: `allow: "public:web_app"` or `allow: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
+Named key validation: `auth: "publishable:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
 
-> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'publishable'`, `auth: 'secret'`, or `auth: 'none'`, disable the platform-level JWT check in `supabase/config.toml`:
 >
 > ```toml
 > [functions.my-function]
@@ -188,13 +220,13 @@ interface SupabaseContext {
   supabase: SupabaseClient // RLS-scoped (user or anon depending on auth)
   supabaseAdmin: SupabaseClient // Bypasses RLS
   userClaims: UserClaims | null // JWT-derived identity (for full User, call supabase.auth.getUser())
-  claims: JWTClaims | null // Present when auth is JWT
-  authType: Allow // Which auth mode matched
-  authKeyName?: string | null // Auth key name of the API key that was used for this request
+  jwtClaims: JWTClaims | null // Present when auth is JWT
+  authMode: AuthMode // Which auth mode matched
+  authKeyName?: string // Auth key name of the API key that was used for this request (omitted for `'user'` / `'none'`)
 }
 ```
 
-`supabase` is always the safe client — it respects RLS. When `authType` is `"user"`, it's scoped to that user's permissions. Otherwise, it's initialized as anonymous.
+`supabase` is always the safe client — it respects RLS. When `authMode` is `"user"`, it's scoped to that user's permissions. Otherwise, it's initialized as anonymous.
 
 `supabaseAdmin` always bypasses RLS. Use it for operations that need full database access.
 
@@ -203,7 +235,7 @@ interface SupabaseContext {
 ```ts
 withSupabase(
   {
-    allow: 'user', // who can call this function
+    auth: 'user', // who can call this function
     cors: false, // disable CORS (default: supabase-js CORS headers)
     env: { url: '...' }, // env overrides (optional)
   },
@@ -216,7 +248,7 @@ withSupabase(
 ```ts
 withSupabase(
   {
-    allow: 'user',
+    auth: 'user',
     cors: {
       'Access-Control-Allow-Origin': 'https://myapp.com',
       'Access-Control-Allow-Headers': 'authorization, content-type',
@@ -230,6 +262,13 @@ withSupabase(
 
 ## Framework Adapters
 
+Adapters wrap `withSupabase` for a specific framework's middleware contract. **All adapters are community-maintained** — both Hono and H3 originated as community contributions. They live in this repo and ship with the core package, so a single `npm install @supabase/server` covers the framework you're using. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance model and the requirements for contributing a new adapter.
+
+| Framework | Import                           | Framework version | Docs                                           |
+| --------- | -------------------------------- | ----------------- | ---------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md) |
+| H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)     |
+
 ### Hono
 
 ```ts
@@ -237,21 +276,12 @@ import { Hono } from 'hono'
 import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
-
-// Protected — withSupabase middleware validates the JWT before the handler runs
-app.get('/games', withSupabase({ allow: 'user' }), async (c) => {
-  const { supabase } = c.var.supabaseContext
-  const { data: myGames } = await supabase.from('favorite_games').select()
-  return c.json(myGames)
-})
-
-// Public — no middleware means no auth
-app.get('/health', (c) => c.json({ status: 'ok' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 export default { fetch: app.fetch }
 ```
 
-The adapter does not handle CORS — use `hono/cors` for that. Per-route auth works naturally by applying the middleware to specific routes.
+See [docs/adapters/hono.md](docs/adapters/hono.md) for per-route auth, CORS, error handling, and other patterns.
 
 ### H3 / Nuxt
 
@@ -260,48 +290,12 @@ import { H3 } from 'h3'
 import { withSupabase } from '@supabase/server/adapters/h3'
 
 const app = new H3()
-
-// Protected — withSupabase validates the JWT before the handler runs
-app.use(withSupabase({ allow: 'user' }))
-
-app.get('/games', async (event) => {
-  const { supabase } = event.context.supabaseContext
-  const { data: myGames } = await supabase.from('favorite_games').select()
-  return myGames
-})
-
-// Public — no middleware means no auth
-app.get('/health', () => ({ status: 'ok' }))
+app.use(withSupabase({ auth: 'user' }))
 
 export default { fetch: app.fetch }
 ```
 
-For **Nuxt**, use `defineHandler` for file routes:
-
-```ts
-// server/api/games.get.ts
-import { defineHandler } from 'h3'
-import { withSupabase } from '@supabase/server/adapters/h3'
-
-export default defineHandler({
-  middleware: [withSupabase({ allow: 'user' })],
-  handler: async (event) => {
-    const { supabase } = event.context.supabaseContext
-    return supabase.from('favorite_games').select()
-  },
-})
-```
-
-For app-wide auth, register it as a server middleware:
-
-```ts
-// server/middleware/supabase.ts
-import { withSupabase } from '@supabase/server/adapters/h3'
-
-export default withSupabase({ allow: 'user' })
-```
-
-The adapter does not handle CORS — use H3's CORS utilities for that.
+See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
 
 ## Primitives
 
@@ -319,10 +313,10 @@ import {
 
 ### verifyAuth
 
-Extracts credentials from a Request and validates against the allow config.
+Extracts credentials from a Request and validates against the auth config.
 
 ```ts
-const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+const { data: auth, error } = await verifyAuth(req, { auth: 'user' })
 if (error) {
   return Response.json({ message: error.message }, { status: error.status })
 }
@@ -334,8 +328,8 @@ Low-level — works with raw credentials instead of a Request. Used by SSR adapt
 
 ```ts
 const credentials = { token: myToken, apikey: null }
-const { data: auth, error } = await verifyCredentials(credentials, {
-  allow: 'user',
+const { data: result, error } = await verifyCredentials(credentials, {
+  auth: 'user',
 })
 ```
 
@@ -352,7 +346,7 @@ const adminClient = createAdminClient() // bypasses RLS entirely
 Full context assembly from a Request — `verifyAuth` + client creation in one call.
 
 ```ts
-const { data: ctx, error } = await createSupabaseContext(req, { allow: 'user' })
+const { data: ctx, error } = await createSupabaseContext(req, { auth: 'user' })
 ```
 
 ### resolveEnv
@@ -383,14 +377,14 @@ export default {
 
     // Protected — verify the JWT, then create a user-scoped client
     if (url.pathname === '/games') {
-      const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+      const { data: result, error } = await verifyAuth(req, { auth: 'user' })
       if (error)
         return Response.json(
           { message: error.message },
           { status: error.status },
         )
 
-      const userScopedClient = createContextClient(auth.token)
+      const userScopedClient = createContextClient(result.token)
       const { data: myGames } = await userScopedClient
         .from('favorite_games')
         .select()
@@ -431,7 +425,11 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 - **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), or [core primitives](#primitives) with your framework of choice.
 - **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
 - **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
-- **Next.js / SvelteKit / Remix** — use core primitives to build a cookie-based auth adapter. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
+- **Next.js / SvelteKit / Remix** — compose with [`@supabase/ssr`](https://github.com/supabase/ssr): `@supabase/ssr` owns cookies + refresh-token rotation, `@supabase/server` adds verified claims and typed RLS / admin clients on top. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
+
+### Does this replace `@supabase/ssr`?
+
+No. `@supabase/ssr` handles cookie-based session management for frameworks like Next.js and SvelteKit. `@supabase/server` handles stateless, header-based auth for Edge Functions, Workers, and other backend runtimes. The composable primitives already work in SSR environments but require more setup — see [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for the Next.js example. The two packages coexist and are not replacements for each other. Deeper integration with `@supabase/ssr` is on the roadmap.
 
 ## Exports
 
@@ -444,17 +442,19 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 ## Documentation
 
-| Question                                                 | Doc file                                                         |
-| -------------------------------------------------------- | ---------------------------------------------------------------- |
-| How do I create a basic endpoint?                        | [`docs/getting-started.md`](docs/getting-started.md)             |
-| What auth modes are available? Array syntax? Named keys? | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
-| How do I use this with Hono?                             | [`docs/hono-adapter.md`](docs/hono-adapter.md)                   |
-| How do I use low-level primitives for custom flows?      | [`docs/core-primitives.md`](docs/core-primitives.md)             |
-| How do environment variables work across runtimes?       | [`docs/environment-variables.md`](docs/environment-variables.md) |
-| How do I handle errors? What codes exist?                | [`docs/error-handling.md`](docs/error-handling.md)               |
-| How do I get typed database queries?                     | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
-| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
-| What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                 |
+| Question                                                            | Doc file                                                         |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)             |
+| What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
+| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
+| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
+| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
+| How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
+| How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
+| How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
+| How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
+| What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                 |
 
 ## Development
 

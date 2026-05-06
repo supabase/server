@@ -20,7 +20,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * import { withSupabase } from '@supabase/server/adapters/hono'
  *
  * const app = new Hono()
- * app.use('*', withSupabase({ allow: 'user' }))
+ * app.use('*', withSupabase({ auth: 'user' }))
  *
  * app.get('/profile', async (c) => {
  *   const { supabase } = c.var.supabaseContext
@@ -38,8 +38,8 @@ export function withSupabase(
     Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
     // Skip if a previous middleware already set the context.
-    // This allows route-level overrides: a route can use withSupabase({ allow: 'secret' })
-    // while the app-wide middleware uses withSupabase({ allow: 'user' }), without the
+    // This enables route-level overrides: a route can use withSupabase({ auth: 'secret' })
+    // while the app-wide middleware uses withSupabase({ auth: 'user' }), without the
     // app-wide one overwriting the stricter context already established.
     if (c.var.supabaseContext) {
       await next()

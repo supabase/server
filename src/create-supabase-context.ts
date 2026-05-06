@@ -22,7 +22,7 @@ import { verifyAuth } from './core/verify-auth.js'
  *
  * @example
  * ```ts
- * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
+ * const { data: ctx, error } = await createSupabaseContext(request, { auth: 'user' })
  * if (error) {
  *   return Response.json({ message: error.message }, { status: error.status })
  * }
@@ -36,10 +36,9 @@ export async function createSupabaseContext<Database = unknown>(
   | { data: SupabaseContext<Database>; error: null }
   | { data: null; error: AuthError }
 > {
-  const allow = options?.allow ?? 'user'
-
   const { data: auth, error } = await verifyAuth(request, {
-    allow,
+    auth: options?.auth,
+    allow: options?.allow,
     env: options?.env,
   })
   if (error) {
@@ -52,13 +51,14 @@ export async function createSupabaseContext<Database = unknown>(
       supabaseOptions: options?.supabaseOptions,
     }
 
-    const publicKeyName = auth.authType === 'public' ? auth.keyName : undefined
+    const publishableKeyName =
+      auth.authMode === 'publishable' ? auth.keyName : undefined
     const supabase = createContextClient<Database>({
-      auth: { token: auth.token, keyName: publicKeyName },
+      auth: { token: auth.token, keyName: publishableKeyName },
       ...config,
     })
 
-    const adminKeyName = auth.authType === 'secret' ? auth.keyName : undefined
+    const adminKeyName = auth.authMode === 'secret' ? auth.keyName : undefined
     const supabaseAdmin = createAdminClient<Database>({
       auth: { keyName: adminKeyName },
       ...config,
@@ -69,9 +69,9 @@ export async function createSupabaseContext<Database = unknown>(
         supabase,
         supabaseAdmin,
         userClaims: auth.userClaims,
-        claims: auth.claims,
-        authType: auth.authType,
-        authKeyName: auth.keyName,
+        jwtClaims: auth.jwtClaims,
+        authMode: auth.authMode,
+        authKeyName: auth.keyName ?? undefined,
       },
       error: null,
     }

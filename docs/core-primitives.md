@@ -19,7 +19,7 @@ The primitives compose into a pipeline. Each step is independent — use only wh
 ```
 resolveEnv()                          → SupabaseEnv
 extractCredentials(request)           → Credentials { token, apikey }
-verifyCredentials(credentials, opts)  → AuthResult { authType, token, userClaims, claims, keyName }
+verifyCredentials(credentials, opts)  → AuthResult { authMode, token, userClaims, jwtClaims, keyName }
 createContextClient(options)          → SupabaseClient (RLS-scoped)
 createAdminClient(options)            → SupabaseClient (bypasses RLS)
 ```
@@ -77,14 +77,14 @@ import { verifyCredentials } from '@supabase/server/core'
 
 const credentials = { token: cookieToken, apikey: null }
 const { data: auth, error } = await verifyCredentials(credentials, {
-  allow: 'user',
+  auth: 'user',
 })
 
 if (error) {
   return Response.json({ message: error.message }, { status: error.status })
 }
 
-console.log(auth!.authType) // 'user'
+console.log(auth!.authMode) // 'user'
 console.log(auth!.userClaims) // { id: '...', email: '...', role: 'authenticated' }
 ```
 
@@ -93,17 +93,17 @@ Supports all auth mode syntax — single mode, arrays, and named keys:
 ```ts
 // Multiple modes
 const { data: auth } = await verifyCredentials(creds, {
-  allow: ['user', 'public'],
+  auth: ['user', 'publishable'],
 })
 
 // Named key
 const { data: auth } = await verifyCredentials(creds, {
-  allow: 'public:web',
+  auth: 'publishable:web',
 })
 
 // Wildcard
 const { data: auth } = await verifyCredentials(creds, {
-  allow: 'secret:*',
+  auth: 'secret:*',
 })
 ```
 
@@ -115,7 +115,7 @@ Convenience function that combines `extractCredentials` and `verifyCredentials` 
 import { verifyAuth } from '@supabase/server/core'
 
 const { data: auth, error } = await verifyAuth(request, {
-  allow: 'user',
+  auth: 'user',
 })
 
 if (error) {
@@ -134,7 +134,7 @@ Creates a Supabase client scoped to the caller's identity. RLS policies apply.
 import { verifyAuth, createContextClient } from '@supabase/server/core'
 
 // With a user's token (from verifyAuth)
-const { data: auth } = await verifyAuth(request, { allow: 'user' })
+const { data: auth } = await verifyAuth(request, { auth: 'user' })
 const supabase = createContextClient({
   auth: { token: auth!.token, keyName: auth!.keyName },
 })
@@ -194,7 +194,7 @@ export default {
 
     // User-authenticated route
     if (url.pathname === '/todos') {
-      const { data: auth, error } = await verifyAuth(req, { allow: 'user' })
+      const { data: auth, error } = await verifyAuth(req, { auth: 'user' })
       if (error) {
         return Response.json(
           { message: error.message },
@@ -212,7 +212,7 @@ export default {
     // Admin route — secret key only
     if (url.pathname === '/admin/users') {
       const { data: auth, error } = await verifyAuth(req, {
-        allow: 'secret',
+        auth: 'secret',
       })
       if (error) {
         return Response.json(
@@ -233,8 +233,8 @@ export default {
 }
 ```
 
-## SSR frameworks (Next.js, Nuxt, SvelteKit, Remix)
+## Cookie-based environments (with `@supabase/ssr`)
 
-In SSR frameworks, the JWT lives in session cookies rather than the `Authorization` header. Use `verifyCredentials` with a token extracted from cookies, then create clients as usual. This is the key primitive that enables SSR integration — it accepts pre-extracted credentials from any source.
+In Next.js, SvelteKit, Remix, and other cookie-based frameworks, the JWT lives in session cookies rather than the `Authorization` header. The recommended pattern is to **compose with [`@supabase/ssr`](https://github.com/supabase/ssr)**: let `@supabase/ssr` own the cookie session lifecycle and refresh-token rotation (via middleware), then hand its fresh access token to `verifyCredentials` and build typed clients with `createContextClient` + `createAdminClient`.
 
-For a complete guide with cookie parsing, JWKS caching, env bridging, and full framework adapters, see [ssr-frameworks.md](ssr-frameworks.md).
+For the full pattern — middleware setup, the composed adapter, JWKS caching, and other-framework adapting tips — see [ssr-frameworks.md](ssr-frameworks.md).

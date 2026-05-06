@@ -1,83 +1,192 @@
-# SSR Frameworks
+# Cookie-based environments (Next.js, SvelteKit, Remix)
 
 ## When you need this
 
-In SSR frameworks like Next.js, Nuxt, SvelteKit, and Remix, the user's JWT doesn't arrive in an `Authorization` header — it's stored in session cookies managed by `@supabase/ssr`. The high-level wrappers (`withSupabase`, `createSupabaseContext`) expect a standard `Request` with auth headers, so they don't work directly in SSR contexts.
+In cookie-based frameworks like Next.js, Nuxt, SvelteKit, and Remix, the user's JWT lives in session cookies rather than the `Authorization` header. The high-level wrappers (`withSupabase`, `createSupabaseContext`) expect a standard `Request` with auth headers, so they don't work directly here.
 
-Instead, use the [core primitives](core-primitives.md) to build a lightweight adapter for your framework. The pattern is the same everywhere — only the cookie-reading part changes.
+The recommended pattern is to **compose `@supabase/server` with [`@supabase/ssr`](https://github.com/supabase/ssr)**:
 
-## The pattern
+- `@supabase/ssr` owns the cookie session lifecycle — reads cookies, writes cookies, and handles refresh-token rotation via middleware.
+- `@supabase/server` adds JWT verification (`verifyCredentials`), an RLS-scoped server client (`createContextClient`), and a service-role client (`createAdminClient`) on top.
 
-Every SSR adapter follows these steps:
+You hand `@supabase/ssr`'s fresh access token to `verifyCredentials`, then build typed clients from the result.
 
-1. **Extract the access token from cookies** (framework-specific)
-2. **Bridge environment variables** to the `SupabaseEnv` shape
-3. **Resolve JWKS** for JWT verification
-4. **Call `verifyCredentials`** with the extracted token
-5. **Create clients** with `createContextClient` + `createAdminClient`
-6. **Return a `SupabaseContext`**
+## How the pieces fit
 
-## Reading Supabase session cookies
+1. **`@supabase/ssr` middleware** runs on every request and refreshes the access token cookie. Without it, the cookie goes stale, `verifyCredentials` rejects expired tokens, and the user appears logged out — even with a valid refresh token. (Server Components can't write cookies, which is why the refresh has to happen in middleware.)
+2. **`@supabase/ssr` `createServerClient`** runs inside your Server Component / Route Handler, reads the (now-fresh) cookie, and exposes `auth.getSession()` / `auth.getUser()`.
+3. **`verifyCredentials`** from `@supabase/server/core` cryptographically verifies that access token against JWKS and returns the parsed claims.
+4. **`createContextClient`** builds an RLS-scoped `supabase-js` client bound to the verified token.
+5. **`createAdminClient`** builds a service-role client (no token needed).
 
-`@supabase/ssr` stores the session in cookies using a chunked, base64-encoded format:
+## Step 1 — `@supabase/ssr` middleware (refresh-token rotation)
 
-- **Cookie name:** `sb-<project-ref>-auth-token` (the project ref is extracted from your Supabase URL)
-- **Chunking:** if the session is too large for a single cookie, it's split into `sb-<ref>-auth-token.0`, `.1`, `.2`, etc.
-- **Base64 encoding:** the cookie value may be prefixed with `base64-`, indicating base64url encoding
-
-To extract the access token:
+This middleware is required. It refreshes the access token cookie before any Server Component or Route Handler runs:
 
 ```ts
-const BASE64_PREFIX = 'base64-'
+// middleware.ts
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-function getAccessTokenFromCookies(
-  getCookie: (name: string) => string | undefined,
-  supabaseUrl: string,
-): string | null {
-  // Extract project ref from URL: "https://abc123.supabase.co" → "abc123"
-  const ref = new URL(supabaseUrl).hostname.split('.')[0]
-  const storageKey = `sb-${ref}-auth-token`
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request })
 
-  // Try single cookie first, then chunked
-  let raw = getCookie(storageKey) ?? null
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          )
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options),
+          )
+        },
+      },
+    },
+  )
 
-  if (!raw) {
-    const chunks: string[] = []
-    for (let i = 0; ; i++) {
-      const chunk = getCookie(`${storageKey}.${i}`)
-      if (!chunk) break
-      chunks.push(chunk)
-    }
-    if (chunks.length > 0) raw = chunks.join('')
+  // Triggers refresh-token rotation and writes the new cookies via setAll.
+  await supabase.auth.getUser()
+
+  return supabaseResponse
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}
+```
+
+If you skip this middleware, the cookie's access token will eventually expire and `verifyCredentials` will reject the request.
+
+## Step 2 — composed adapter
+
+The adapter reads the (middleware-refreshed) cookie via `@supabase/ssr`, then hands the access token to `@supabase/server`'s primitives. The return shape matches the high-level `createSupabaseContext`, so callers see a familiar `{ supabase, supabaseAdmin, userClaims, jwtClaims, authMode }` bundle.
+
+```ts
+// lib/supabase/context.ts
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import {
+  verifyCredentials,
+  createContextClient,
+  createAdminClient,
+} from '@supabase/server/core'
+import type {
+  AuthModeWithKey,
+  SupabaseContext,
+  SupabaseEnv,
+} from '@supabase/server'
+
+function resolveNextEnv(): Partial<SupabaseEnv> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const secretKey = process.env.SUPABASE_SECRET_KEY
+
+  return {
+    url: url ?? undefined,
+    publishableKeys: publishableKey ? { default: publishableKey } : {},
+    secretKeys: secretKey ? { default: secretKey } : {},
   }
+}
 
-  if (!raw) return null
+let cachedJwks: SupabaseEnv['jwks'] = null
 
-  // Decode base64url if needed
-  let decoded = raw
-  if (decoded.startsWith(BASE64_PREFIX)) {
-    try {
-      const base64 = decoded
-        .substring(BASE64_PREFIX.length)
-        .replace(/-/g, '+')
-        .replace(/_/g, '/')
-      decoded = atob(base64)
-    } catch {
-      return null
-    }
-  }
-
-  // Parse the session JSON and extract access_token
+async function getJwks(supabaseUrl: string): Promise<SupabaseEnv['jwks']> {
+  if (cachedJwks) return cachedJwks
   try {
-    const session = JSON.parse(decoded)
-    return session.access_token ?? null
+    const res = await fetch(`${supabaseUrl}/auth/v1/.well-known/jwks.json`)
+    if (!res.ok) return null
+    cachedJwks = await res.json()
+    return cachedJwks
   } catch {
     return null
   }
 }
+
+export async function createSupabaseContext(
+  options: { auth?: AuthModeWithKey | AuthModeWithKey[] } = { auth: 'user' },
+): Promise<
+  { data: SupabaseContext; error: null } | { data: null; error: Error }
+> {
+  const nextEnv = resolveNextEnv()
+
+  if (!nextEnv.url || !nextEnv.publishableKeys?.default) {
+    return {
+      data: null,
+      error: new Error('Missing SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY'),
+    }
+  }
+
+  // Read the @supabase/ssr session cookie. The middleware above has already
+  // refreshed the access token, so getSession() returns a fresh JWT.
+  const cookieStore = await cookies()
+  const ssrClient = createServerClient(
+    nextEnv.url,
+    nextEnv.publishableKeys.default,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            )
+          } catch {
+            // Server Components can't write cookies — middleware handles it.
+          }
+        },
+      },
+    },
+  )
+
+  const {
+    data: { session },
+  } = await ssrClient.auth.getSession()
+  const token = session?.access_token ?? null
+
+  const jwks = await getJwks(nextEnv.url)
+  const env: Partial<SupabaseEnv> = { ...nextEnv, jwks }
+
+  const { data: auth, error } = await verifyCredentials(
+    { token, apikey: null },
+    { auth: options.auth ?? 'user', env },
+  )
+
+  if (error) {
+    return { data: null, error }
+  }
+
+  const supabase = createContextClient({
+    auth: { token: auth!.token },
+    env,
+  })
+  const supabaseAdmin = createAdminClient({ env })
+
+  return {
+    data: {
+      supabase,
+      supabaseAdmin,
+      userClaims: auth!.userClaims,
+      jwtClaims: auth!.jwtClaims,
+      authMode: auth!.authMode,
+    },
+    error: null,
+  }
+}
 ```
 
-The `getCookie` parameter is a function that reads a cookie by name — its implementation depends on your framework (e.g., `cookies().get(name)?.value` in Next.js, `event.cookies.get(name)` in SvelteKit).
+## Does this replace `@supabase/ssr`?
+
+No. `@supabase/ssr` handles cookie-based session management for frameworks like Next.js and SvelteKit. `@supabase/server` handles stateless, header-based auth for Edge Functions, Workers, and other backend runtimes. As you can see in the Next.js example above, the composable primitives already work in SSR environments but require more setup. The two packages coexist and are not replacements for each other. Deeper integration with `@supabase/ssr` is on the roadmap.
 
 ## Environment variable bridging
 
@@ -130,139 +239,6 @@ async function getJwks(supabaseUrl: string): Promise<SupabaseEnv['jwks']> {
 
 The cache lives in module scope, so it persists across requests for the lifetime of the server process. For serverless environments (e.g., Vercel), the cache is per-invocation — consider using an external cache or always setting `SUPABASE_JWKS`.
 
-## Complete example: Next.js adapter
-
-A full adapter for Next.js App Router — works in Server Components, Server Actions, and Route Handlers:
-
-```ts
-// lib/supabase/context.ts
-import { cookies } from 'next/headers'
-import {
-  verifyCredentials,
-  createContextClient,
-  createAdminClient,
-} from '@supabase/server/core'
-import type {
-  AllowWithKey,
-  SupabaseContext,
-  SupabaseEnv,
-} from '@supabase/server'
-
-const BASE64_PREFIX = 'base64-'
-
-function getAccessTokenFromCookies(
-  cookieStore: Awaited<ReturnType<typeof cookies>>,
-  url: string,
-): string | null {
-  const ref = new URL(url).hostname.split('.')[0]
-  const storageKey = `sb-${ref}-auth-token`
-
-  let raw = cookieStore.get(storageKey)?.value ?? null
-
-  if (!raw) {
-    const chunks: string[] = []
-    for (let i = 0; ; i++) {
-      const chunk = cookieStore.get(`${storageKey}.${i}`)?.value
-      if (!chunk) break
-      chunks.push(chunk)
-    }
-    if (chunks.length > 0) raw = chunks.join('')
-  }
-
-  if (!raw) return null
-
-  let decoded = raw
-  if (decoded.startsWith(BASE64_PREFIX)) {
-    try {
-      const base64 = decoded
-        .substring(BASE64_PREFIX.length)
-        .replace(/-/g, '+')
-        .replace(/_/g, '/')
-      decoded = atob(base64)
-    } catch {
-      return null
-    }
-  }
-
-  try {
-    const session = JSON.parse(decoded)
-    return session.access_token ?? null
-  } catch {
-    return null
-  }
-}
-
-function resolveNextEnv(): Partial<SupabaseEnv> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  const secretKey = process.env.SUPABASE_SECRET_KEY
-
-  return {
-    url: url ?? undefined,
-    publishableKeys: publishableKey ? { default: publishableKey } : {},
-    secretKeys: secretKey ? { default: secretKey } : {},
-  }
-}
-
-let cachedJwks: SupabaseEnv['jwks'] = null
-
-async function getJwks(supabaseUrl: string): Promise<SupabaseEnv['jwks']> {
-  if (cachedJwks) return cachedJwks
-  try {
-    const res = await fetch(`${supabaseUrl}/auth/v1/.well-known/jwks.json`)
-    if (!res.ok) return null
-    cachedJwks = await res.json()
-    return cachedJwks
-  } catch {
-    return null
-  }
-}
-
-export async function createSupabaseContext(
-  options: { allow?: AllowWithKey | AllowWithKey[] } = { allow: 'user' },
-): Promise<
-  { data: SupabaseContext; error: null } | { data: null; error: Error }
-> {
-  const nextEnv = resolveNextEnv()
-
-  if (!nextEnv.url) {
-    return { data: null, error: new Error('Missing SUPABASE_URL') }
-  }
-
-  const cookieStore = await cookies()
-  const token = getAccessTokenFromCookies(cookieStore, nextEnv.url)
-
-  const jwks = await getJwks(nextEnv.url)
-  const env: Partial<SupabaseEnv> = { ...nextEnv, jwks }
-
-  const { data: auth, error } = await verifyCredentials(
-    { token, apikey: null },
-    { allow: options.allow ?? 'user', env },
-  )
-
-  if (error) {
-    return { data: null, error }
-  }
-
-  const supabase = createContextClient({
-    auth: { token: auth!.token },
-    env,
-  })
-  const supabaseAdmin = createAdminClient({ env })
-
-  return {
-    data: {
-      supabase,
-      supabaseAdmin,
-      userClaims: auth!.userClaims,
-      claims: auth!.claims,
-      authType: auth!.authType,
-    },
-    error: null,
-  }
-}
-```
-
 ## Usage
 
 ### In a Server Component
@@ -313,18 +289,18 @@ export async function GET() {
 
 ```ts
 // Public endpoint — no auth required
-const { data: ctx } = await createSupabaseContext({ allow: 'always' })
+const { data: ctx } = await createSupabaseContext({ auth: 'none' })
 
 // Accept either user JWT or skip auth
-const { data: ctx } = await createSupabaseContext({ allow: ['user', 'always'] })
+const { data: ctx } = await createSupabaseContext({ auth: ['user', 'none'] })
 ```
 
 ## Adapting for other frameworks
 
-The adapter above is Next.js-specific only in how it reads cookies (`await cookies()` from `next/headers`). To adapt for another framework, replace the cookie-reading logic:
+The adapter above is Next.js-specific only in how it wires `@supabase/ssr`'s cookie adapter. To adapt for another framework, swap the cookie adapter you pass to `createServerClient` from `@supabase/ssr` — see `@supabase/ssr`'s framework guides for the canonical patterns:
 
-- **SvelteKit:** `event.cookies.get(name)` in `+page.server.ts` or `+server.ts`
-- **Nuxt:** `useCookie(name)` in server routes, or `getCookie(event, name)` from `h3`
-- **Remix:** `request.headers.get('cookie')` then parse with a cookie library
+- **SvelteKit:** `event.cookies.getAll()` / `event.cookies.set(name, value, options)` in `+page.server.ts` or `+server.ts`.
+- **Remix:** parse cookies from `request.headers.get('cookie')` and emit them via `Set-Cookie` in the response.
+- **Nuxt:** use `useCookie` / `getCookie` / `setCookie` from `h3` inside server routes.
 
 Everything else — env bridging, JWKS fetching, `verifyCredentials`, client creation — stays the same.

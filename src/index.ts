@@ -9,6 +9,8 @@ export { createSupabaseContext } from './create-supabase-context.js'
 export type {
   Allow,
   AllowWithKey,
+  AuthMode,
+  AuthModeWithKey,
   AuthResult,
   ClientAuth,
   CreateAdminClientOptions,

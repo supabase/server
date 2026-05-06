@@ -21,7 +21,7 @@ import { withSupabase } from '@supabase/server'
 import type { Database } from './database.types.ts'
 
 export default {
-  fetch: withSupabase<Database>({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase<Database>({ auth: 'user' }, async (_req, ctx) => {
     // ctx.supabase is SupabaseClient<Database>
     // Fully typed: column names, return type, etc.
     const { data } = await ctx.supabase
@@ -40,7 +40,7 @@ import { createSupabaseContext } from '@supabase/server'
 import type { Database } from './database.types.ts'
 
 const { data: ctx, error } = await createSupabaseContext<Database>(request, {
-  allow: 'user',
+  auth: 'user',
 })
 
 if (error) {
@@ -61,7 +61,7 @@ import {
 } from '@supabase/server/core'
 import type { Database } from './database.types.ts'
 
-const { data: auth } = await verifyAuth(request, { allow: 'user' })
+const { data: auth } = await verifyAuth(request, { auth: 'user' })
 
 const supabase = createContextClient<Database>({
   auth: { token: auth!.token },
@@ -86,7 +86,7 @@ import type { Database } from './database.types.ts'
 
 const app = new Hono()
 
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 app.get('/todos', async (c) => {
   const { supabase } = c.var.supabaseContext as SupabaseContext<Database>
@@ -106,7 +106,7 @@ import type { Database } from './database.types.ts'
 export default {
   fetch: withSupabase<Database>(
     {
-      allow: 'user',
+      auth: 'user',
       supabaseOptions: { db: { schema: 'api' } },
     },
     async (_req, ctx) => {
@@ -128,7 +128,7 @@ export default {
 ```ts
 withSupabase<Database>(
   {
-    allow: 'user',
+    auth: 'user',
     supabaseOptions: {
       db: { schema: 'api' },
       global: {

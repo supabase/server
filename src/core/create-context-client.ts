@@ -18,7 +18,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @example
  * ```ts
- * const { data: auth } = await verifyAuth(request, { allow: 'user' })
+ * const { data: auth } = await verifyAuth(request, { auth: 'user' })
  * const supabase = createContextClient({
  *   auth: { token: auth.token, keyName: auth.keyName },
  * })
