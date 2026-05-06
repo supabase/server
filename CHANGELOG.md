@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/supabase/server/compare/server-v0.1.4...server-v0.2.0) (2026-04-24)
+
+### ⚠ BREAKING CHANGES
+
+- when multiple auth modes are allowed, a present-but-invalid JWT is now rejected with InvalidCredentialsError instead of falling through to the next mode. Clients that previously relied on silent fallthrough (e.g., stale token + valid apikey) must now either omit the Authorization header or refresh the token.
+
+### Features
+
+- add H3 adapter ([#36](https://github.com/supabase/server/issues/36)) ([4310142](https://github.com/supabase/server/commit/43101427e64c01b986376ca5d94c5e008d0adcdf))
+
+### Bug Fixes
+
+- reject invalid JWTs immediately instead of falling through to next auth mode ([#35](https://github.com/supabase/server/issues/35)) ([0251690](https://github.com/supabase/server/commit/0251690a7f57eb3e2d72074348d8a96f5fb55231))
+
 ## [0.1.4](https://github.com/supabase/server/compare/server-v0.1.3...server-v0.1.4) (2026-04-01)
 
 ### Features
