@@ -67,7 +67,7 @@ If you skip this middleware, the cookie's access token will eventually expire an
 
 ## Step 2 — composed adapter
 
-The adapter reads the (middleware-refreshed) cookie via `@supabase/ssr`, then hands the access token to `@supabase/server`'s primitives. The return shape matches the high-level `createSupabaseContext`, so callers see a familiar `{ supabase, supabaseAdmin, userClaims, claims, authType }` bundle.
+The adapter reads the (middleware-refreshed) cookie via `@supabase/ssr`, then hands the access token to `@supabase/server`'s primitives. The return shape matches the high-level `createSupabaseContext`, so callers see a familiar `{ supabase, supabaseAdmin, userClaims, jwtClaims, authMode }` bundle.
 
 ```ts
 // lib/supabase/context.ts
@@ -79,7 +79,7 @@ import {
   createAdminClient,
 } from '@supabase/server/core'
 import type {
-  AllowWithKey,
+  AuthModeWithKey,
   SupabaseContext,
   SupabaseEnv,
 } from '@supabase/server'
@@ -111,7 +111,7 @@ async function getJwks(supabaseUrl: string): Promise<SupabaseEnv['jwks']> {
 }
 
 export async function createSupabaseContext(
-  options: { allow?: AllowWithKey | AllowWithKey[] } = { allow: 'user' },
+  options: { auth?: AuthModeWithKey | AuthModeWithKey[] } = { auth: 'user' },
 ): Promise<
   { data: SupabaseContext; error: null } | { data: null; error: Error }
 > {
@@ -158,7 +158,7 @@ export async function createSupabaseContext(
 
   const { data: auth, error } = await verifyCredentials(
     { token, apikey: null },
-    { allow: options.allow ?? 'user', env },
+    { auth: options.auth ?? 'user', env },
   )
 
   if (error) {
@@ -176,8 +176,8 @@ export async function createSupabaseContext(
       supabase,
       supabaseAdmin,
       userClaims: auth!.userClaims,
-      claims: auth!.claims,
-      authType: auth!.authType,
+      jwtClaims: auth!.jwtClaims,
+      authMode: auth!.authMode,
     },
     error: null,
   }

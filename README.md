@@ -291,7 +291,7 @@ import { Hono } from 'hono'
 import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 export default { fetch: app.fetch }
 ```
@@ -305,7 +305,7 @@ import { H3 } from 'h3'
 import { withSupabase } from '@supabase/server/adapters/h3'
 
 const app = new H3()
-app.use(withSupabase({ allow: 'user' }))
+app.use(withSupabase({ auth: 'user' }))
 
 export default { fetch: app.fetch }
 ```

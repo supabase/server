@@ -38,7 +38,7 @@ export function withSupabase(
     Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
     // Skip if a previous middleware already set the context.
-    // This allows route-level overrides: a route can use withSupabase({ allow: 'secret' })
+    // This enables route-level overrides: a route can use withSupabase({ auth: 'secret' })
     // while the app-wide middleware uses withSupabase({ auth: 'user' }), without the
     // app-wide one overwriting the stricter context already established.
     if (c.var.supabaseContext) {

@@ -153,7 +153,7 @@ BREAKING CHANGE: auth configuration now uses a discriminated union
 
 ## Contributing a framework adapter
 
-Framework adapters (Hono, H3, …) are community-maintained and live in this repo under `src/adapters/`. They have **additional requirements** on top of the general PR guidelines above — tests covering every allow mode, no new runtime deps beyond a peer-dep, matching the existing adapter shape, and updating both adapter tables (in `README.md` and `src/adapters/README.md`).
+Framework adapters (Hono, H3, …) are community-maintained and live in this repo under `src/adapters/`. They have **additional requirements** on top of the general PR guidelines above — tests covering every auth mode, no new runtime deps beyond a peer-dep, matching the existing adapter shape, and updating both adapter tables (in `README.md` and `src/adapters/README.md`).
 
 See [`src/adapters/README.md`](src/adapters/README.md) for the full checklist before opening an adapter PR.
 

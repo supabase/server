@@ -23,7 +23,7 @@ Before you start, **read [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and agree wi
 
 **Code quality bar:**
 
-- **Tests for every allow mode.** Cover `'user'`, `'public'`, `'secret'`, `'always'`, the array form, and the failure paths (missing token, invalid JWT, missing apikey). The Hono adapter's [`hono/middleware.test.ts`](hono/middleware.test.ts) is the canonical reference — your test file should look structurally similar.
+- **Tests for every auth mode.** Cover `'user'`, `'publishable'`, `'secret'`, `'none'`, the array form, and the failure paths (missing token, invalid JWT, missing apikey). The Hono adapter's [`hono/middleware.test.ts`](hono/middleware.test.ts) is the canonical reference — your test file should look structurally similar.
 - **Strict TypeScript.** No `any`, no `// @ts-ignore`. Public types must be exported from the adapter's `index.ts` so consumers can extend them.
 - **No new runtime dependencies** beyond the framework you're adapting. The framework itself goes in `peerDependencies` (and `peerDependenciesMeta` if optional). Don't pull in a wrapper, polyfill, or utility lib just to make the adapter shorter.
 - **Match the existing adapter shape.** Export `withSupabase(config, handler)` returning the framework's native middleware/handler type. Use `verifyAuth`, `createContextClient`, and `createAdminClient` from `@supabase/server/core` — never re-implement auth or env handling inside an adapter.
