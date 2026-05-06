@@ -339,6 +339,9 @@ export interface SupabaseContext<Database = unknown> {
   /** The auth mode that was used for this request. */
   authMode: AuthMode
 
-  /** The auth key name of the API key that was used for this request. */
-  authKeyName?: string | null
+  /**
+   * The auth key name of the API key that was used for this request.
+   * Omitted for `'user'` and `'none'` modes, which don't match a named key.
+   */
+  authKeyName?: string
 }

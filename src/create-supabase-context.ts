@@ -71,7 +71,7 @@ export async function createSupabaseContext<Database = unknown>(
         userClaims: auth.userClaims,
         jwtClaims: auth.jwtClaims,
         authMode: auth.authMode,
-        authKeyName: auth.keyName,
+        authKeyName: auth.keyName ?? undefined,
       },
       error: null,
     }

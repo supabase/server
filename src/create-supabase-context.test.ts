@@ -26,7 +26,7 @@ describe('createSupabaseContext', () => {
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
     expect(result.data!.authMode).toBe('none')
-    expect(result.data!.authKeyName).toBeNull()
+    expect(result.data!.authKeyName).toBeUndefined()
   })
 
   it('returns user and claims as null for non-user auth', async () => {

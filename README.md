@@ -207,7 +207,7 @@ interface SupabaseContext {
   userClaims: UserClaims | null // JWT-derived identity (for full User, call supabase.auth.getUser())
   jwtClaims: JWTClaims | null // Present when auth is JWT
   authMode: AuthMode // Which auth mode matched
-  authKeyName?: string | null // Auth key name of the API key that was used for this request
+  authKeyName?: string // Auth key name of the API key that was used for this request (omitted for `'user'` / `'none'`)
 }
 ```
 

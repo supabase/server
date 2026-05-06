@@ -163,6 +163,7 @@ interface SupabaseContext<Database = unknown> {
   userClaims: UserClaims | null
   jwtClaims: JWTClaims | null
   authMode: AuthMode
+  authKeyName?: string
 }
 ```
 

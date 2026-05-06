@@ -73,14 +73,14 @@ export default {
 
 Every handler receives a `SupabaseContext` with these fields:
 
-| Field           | Type                 | Description                                                                                            |
-| --------------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `supabase`      | `SupabaseClient`     | Client scoped to the caller. RLS policies apply.                                                       |
-| `supabaseAdmin` | `SupabaseClient`     | Admin client. Bypasses RLS.                                                                            |
-| `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
-| `jwtClaims`     | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
-| `authMode`      | `AuthMode`           | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
-| `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
+| Field           | Type                  | Description                                                                                            |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `supabase`      | `SupabaseClient`      | Client scoped to the caller. RLS policies apply.                                                       |
+| `supabaseAdmin` | `SupabaseClient`      | Admin client. Bypasses RLS.                                                                            |
+| `userClaims`    | `UserClaims \| null`  | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
+| `jwtClaims`     | `JWTClaims \| null`   | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
+| `authMode`      | `AuthMode`            | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
+| `authKeyName`   | `string \| undefined` | Which auth key name of the API key that was used. Omitted for `'user'` / `'none'`.                     |
 
 The `supabase` client respects Row-Level Security. When `authMode` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
 
