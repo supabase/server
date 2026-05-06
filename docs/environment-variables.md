@@ -19,7 +19,7 @@ Set these based on which auth modes your app uses:
 | -------------------------- | ----------------------------------------- |
 | `SUPABASE_URL`             | Always                                    |
 | `SUPABASE_SECRET_KEY`      | `auth: 'secret'` or using `supabaseAdmin` |
-| `SUPABASE_PUBLISHABLE_KEY` | `auth: 'public'`                          |
+| `SUPABASE_PUBLISHABLE_KEY` | `auth: 'publishable'`                     |
 | `SUPABASE_JWKS`            | `auth: 'user'` (JWT verification)         |
 
 ### Minimal `.env` example
@@ -48,7 +48,7 @@ You can then validate against specific keys with named key syntax:
 
 ```ts
 // Only accept the "web" publishable key
-withSupabase({ auth: 'public:web' }, handler)
+withSupabase({ auth: 'publishable:web' }, handler)
 
 // Accept any secret key
 withSupabase({ auth: 'secret:*' }, handler)
@@ -69,7 +69,7 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_default_abc
 SUPABASE_PUBLISHABLE_KEYS={"default":"sb_publishable_default_abc"}
 ```
 
-The singular form is a convenience for the common case where you only have one key. The SDK stores it internally as `{ default: "<value>" }`, so `auth: 'public'` (which looks for the `"default"` key) works with both forms.
+The singular form is a convenience for the common case where you only have one key. The SDK stores it internally as `{ default: "<value>" }`, so `auth: 'publishable'` (which looks for the `"default"` key) works with both forms.
 
 ### Priority
 

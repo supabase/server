@@ -139,16 +139,16 @@ Defaults to `auth: 'user'` when config is omitted.
 ### AuthMode
 
 ```ts
-type AuthMode = 'always' | 'public' | 'secret' | 'user'
+type AuthMode = 'none' | 'publishable' | 'secret' | 'user'
 ```
 
 ### AuthModeWithKey
 
 ```ts
-type AuthModeWithKey = AuthMode | `public:${string}` | `secret:${string}`
+type AuthModeWithKey = AuthMode | `publishable:${string}` | `secret:${string}`
 ```
 
-Extended auth mode with named key support. Examples: `'public:web'`, `'secret:*'`, `'secret:internal'`.
+Extended auth mode with named key support. Examples: `'publishable:web'`, `'secret:*'`, `'secret:internal'`.
 
 ### Allow / AllowWithKey (deprecated aliases)
 

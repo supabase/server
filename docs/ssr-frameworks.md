@@ -313,10 +313,10 @@ export async function GET() {
 
 ```ts
 // Public endpoint — no auth required
-const { data: ctx } = await createSupabaseContext({ auth: 'always' })
+const { data: ctx } = await createSupabaseContext({ auth: 'none' })
 
 // Accept either user JWT or skip auth
-const { data: ctx } = await createSupabaseContext({ auth: ['user', 'always'] })
+const { data: ctx } = await createSupabaseContext({ auth: ['user', 'none'] })
 ```
 
 ## Adapting for other frameworks

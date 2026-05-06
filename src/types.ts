@@ -6,8 +6,8 @@ import type {
 /**
  * Authentication mode that determines what credentials a request must provide.
  *
- * - `"always"` — No credentials required. Every request is accepted.
- * - `"public"` — Requires a valid publishable key in the `apikey` header.
+ * - `"none"` — No credentials required. Every request is accepted.
+ * - `"publishable"` — Requires a valid publishable key in the `apikey` header.
  * - `"secret"` — Requires a valid secret key in the `apikey` header (timing-safe comparison).
  * - `"user"` — Requires a valid JWT in the `Authorization: Bearer <token>` header.
  *
@@ -20,10 +20,10 @@ import type {
  * // A mode is tried only when its credential is present; a JWT that is
  * // present but fails verification rejects immediately rather than falling
  * // through to the next mode.
- * withSupabase({ auth: ['user', 'public'] }, handler)
+ * withSupabase({ auth: ['user', 'publishable'] }, handler)
  * ```
  */
-export type AuthMode = 'always' | 'public' | 'secret' | 'user'
+export type AuthMode = 'none' | 'publishable' | 'secret' | 'user'
 
 /**
  * @deprecated Use {@link AuthMode} instead. Will be removed in a future major release.
@@ -33,23 +33,26 @@ export type Allow = AuthMode
 /**
  * Extended auth mode that supports targeting a specific named key.
  *
- * Use the colon syntax (`"public:web_app"`) to require a specific named key
+ * Use the colon syntax (`"publishable:web_app"`) to require a specific named key
  * from the `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS` JSON object.
- * Use `"public:*"` or `"secret:*"` to accept any key in the set.
+ * Use `"publishable:*"` or `"secret:*"` to accept any key in the set.
  *
  * @example
  * ```ts
  * // Accept only the "mobile" publishable key
- * withSupabase({ auth: 'public:mobile' }, handler)
+ * withSupabase({ auth: 'publishable:mobile' }, handler)
  *
  * // Accept any secret key
  * withSupabase({ auth: 'secret:*' }, handler)
  *
  * // Mix named keys with other modes
- * withSupabase({ auth: ['user', 'public:web_app'] }, handler)
+ * withSupabase({ auth: ['user', 'publishable:web_app'] }, handler)
  * ```
  */
-export type AuthModeWithKey = AuthMode | `public:${string}` | `secret:${string}`
+export type AuthModeWithKey =
+  | AuthMode
+  | `publishable:${string}`
+  | `secret:${string}`
 
 /**
  * @deprecated Use {@link AuthModeWithKey} instead. Will be removed in a future major release.
@@ -220,7 +223,7 @@ export interface UserClaims {
  * }
  *
  * // No auth required, CORS disabled
- * const config: WithSupabaseConfig = { auth: 'always', cors: false }
+ * const config: WithSupabaseConfig = { auth: 'none', cors: false }
  * ```
  */
 export interface WithSupabaseConfig {

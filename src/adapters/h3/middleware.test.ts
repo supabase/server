@@ -13,7 +13,7 @@ describe('h3 supabase middleware', () => {
 
   it('sets supabase context on successful auth', async () => {
     const app = new H3()
-    app.use(withSupabase({ auth: 'always', env }))
+    app.use(withSupabase({ auth: 'none', env }))
     app.get('/', (event) => {
       const ctx = event.context.supabaseContext
       return {
@@ -26,7 +26,7 @@ describe('h3 supabase middleware', () => {
     const res = await app.request('/')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.authType).toBe('always')
+    expect(body.authType).toBe('none')
     expect(body.hasSupabase).toBe(true)
     expect(body.hasAdmin).toBe(true)
   })
@@ -68,8 +68,8 @@ describe('h3 supabase middleware', () => {
   it('skips if context is already set by prior middleware', async () => {
     const app = new H3()
 
-    // First middleware sets context with 'always' auth
-    app.use(withSupabase({ auth: 'always', env }))
+    // First middleware sets context with 'none' auth
+    app.use(withSupabase({ auth: 'none', env }))
     // Second middleware would require 'secret' — but should skip
     app.use(withSupabase({ auth: 'secret', env }))
 
@@ -83,12 +83,12 @@ describe('h3 supabase middleware', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     // First middleware's auth type is preserved
-    expect(body.authType).toBe('always')
+    expect(body.authType).toBe('none')
   })
 
   it('does not add CORS headers', async () => {
     const app = new H3()
-    app.use(withSupabase({ auth: 'always', env }))
+    app.use(withSupabase({ auth: 'none', env }))
     app.get('/', () => ({ ok: true }))
 
     const res = await app.request('/')

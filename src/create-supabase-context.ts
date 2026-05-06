@@ -51,9 +51,10 @@ export async function createSupabaseContext<Database = unknown>(
       supabaseOptions: options?.supabaseOptions,
     }
 
-    const publicKeyName = auth.authType === 'public' ? auth.keyName : undefined
+    const publishableKeyName =
+      auth.authType === 'publishable' ? auth.keyName : undefined
     const supabase = createContextClient<Database>({
-      auth: { token: auth.token, keyName: publicKeyName },
+      auth: { token: auth.token, keyName: publishableKeyName },
       ...config,
     })
 

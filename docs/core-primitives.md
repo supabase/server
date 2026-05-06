@@ -93,12 +93,12 @@ Supports all auth mode syntax — single mode, arrays, and named keys:
 ```ts
 // Multiple modes
 const { data: auth } = await verifyCredentials(creds, {
-  auth: ['user', 'public'],
+  auth: ['user', 'publishable'],
 })
 
 // Named key
 const { data: auth } = await verifyCredentials(creds, {
-  auth: 'public:web',
+  auth: 'publishable:web',
 })
 
 // Wildcard

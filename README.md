@@ -8,6 +8,16 @@
 
 > **Heads up — `allow` is now `auth`.** The `allow` config option has been renamed to `auth` to better align with CLI terminology and read more naturally (e.g. `auth: 'user'`). The old `allow` key still works but is deprecated and will emit a one-time `console.warn` per process. It will be removed in a future major release. **Migration:** find-and-replace `allow:` → `auth:` in your `withSupabase`, `createSupabaseContext`, `verifyAuth`, and `verifyCredentials` calls.
 
+> **Breaking — auth mode values renamed: `'always'` → `'none'`, `'public'` → `'publishable'`.** The mode literals were renamed to match Supabase CLI terminology: `'none'` reads more directly than `'always'`, and `'publishable'` matches `SUPABASE_PUBLISHABLE_KEY(S)`. The old values no longer work — find-and-replace is required:
+>
+> | Before                      | After                            |
+> | --------------------------- | -------------------------------- |
+> | `auth: 'always'`            | `auth: 'none'`                   |
+> | `auth: 'public'`            | `auth: 'publishable'`            |
+> | `auth: 'public:<name>'`     | `auth: 'publishable:<name>'`     |
+> | `ctx.authType === 'always'` | `ctx.authType === 'none'`        |
+> | `ctx.authType === 'public'` | `ctx.authType === 'publishable'` |
+
 `@supabase/server` gives you batteries included access to the
 [supabase-js SDK](https://github.com/supabase/supabase-js), including client
 creation and authentication automatically scoped to the inbound requests to your
@@ -76,9 +86,9 @@ export default {
 
 ```ts
 // The frontend hits this before showing the login screen.
-// auth: 'always' means no credentials required.
+// auth: 'none' means no credentials required.
 export default {
-  fetch: withSupabase({ auth: 'always' }, async (_req, _ctx) => {
+  fetch: withSupabase({ auth: 'none' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok' })
   }),
 }
@@ -165,15 +175,15 @@ await fetch(refreshEndpoint, {
 | Mode               | Credential            | Use case                                            |
 | ------------------ | --------------------- | --------------------------------------------------- |
 | `"user"` (default) | Valid JWT             | Authenticated user endpoints                        |
-| `"public"`         | Valid publishable key | Client-facing, key-validated endpoints              |
+| `"publishable"`    | Valid publishable key | Client-facing, key-validated endpoints              |
 | `"secret"`         | Valid secret key      | Server-to-server, internal calls                    |
-| `"always"`         | None                  | Open endpoints, wrappers that handle their own auth |
+| `"none"`           | None                  | Open endpoints, wrappers that handle their own auth |
 
 Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
 
-Named key validation: `auth: "public:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
+Named key validation: `auth: "publishable:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
 
-> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'public'`, `auth: 'secret'`, or `auth: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'publishable'`, `auth: 'secret'`, or `auth: 'none'`, disable the platform-level JWT check in `supabase/config.toml`:
 >
 > ```toml
 > [functions.my-function]
@@ -190,7 +200,7 @@ interface SupabaseContext {
   supabaseAdmin: SupabaseClient // Bypasses RLS
   userClaims: UserClaims | null // JWT-derived identity (for full User, call supabase.auth.getUser())
   claims: JWTClaims | null // Present when auth is JWT
-  authType: Allow // Which auth mode matched
+  authType: AuthMode // Which auth mode matched
   authKeyName?: string | null // Auth key name of the API key that was used for this request
 }
 ```

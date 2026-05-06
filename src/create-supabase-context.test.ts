@@ -17,7 +17,7 @@ describe('createSupabaseContext', () => {
   it('returns context with clients on successful auth', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      auth: 'always',
+      auth: 'none',
       env: baseEnv,
     })
 
@@ -25,14 +25,14 @@ describe('createSupabaseContext', () => {
     expect(result.data).not.toBeNull()
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
-    expect(result.data!.authType).toBe('always')
+    expect(result.data!.authType).toBe('none')
     expect(result.data!.authKeyName).toBeNull()
   })
 
   it('returns user and claims as null for non-user auth', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      auth: 'always',
+      auth: 'none',
       env: baseEnv,
     })
 
@@ -62,28 +62,28 @@ describe('createSupabaseContext', () => {
     expect(result.error!.status).toBe(401)
   })
 
-  it('accepts public key auth', async () => {
+  it('accepts publishable key auth', async () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'sb_publishable_xyz' },
     })
     const result = await createSupabaseContext(req, {
-      auth: 'public',
+      auth: 'publishable',
       env: baseEnv,
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('public')
+    expect(result.data!.authType).toBe('publishable')
     expect(result.data!.authKeyName).toBe('default')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
   })
 
-  it('accepts public named key auth', async () => {
+  it('accepts publishable named key auth', async () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'sb_publishable_web' },
     })
     const result = await createSupabaseContext(req, {
-      auth: 'public:web',
+      auth: 'publishable:web',
       env: {
         ...baseEnv,
         publishableKeys: {
@@ -93,7 +93,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('public')
+    expect(result.data!.authType).toBe('publishable')
     expect(result.data!.authKeyName).toBe('web')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
@@ -150,7 +150,7 @@ describe('createSupabaseContext', () => {
   it('returns error when client creation fails due to missing keys', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      auth: 'always',
+      auth: 'none',
       env: {
         url: 'https://test.supabase.co',
         publishableKeys: {},
@@ -171,7 +171,7 @@ describe('createSupabaseContext', () => {
   it('passes supabaseOptions through to clients', async () => {
     const req = new Request('http://localhost')
     const result = await createSupabaseContext(req, {
-      auth: 'always',
+      auth: 'none',
       env: baseEnv,
       supabaseOptions: { db: { schema: 'api' } },
     })

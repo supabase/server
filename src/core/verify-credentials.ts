@@ -43,9 +43,9 @@ interface VerifyCredentialsOptions {
  *
  * @example
  * ```
- * parseAuthMode('user')         → { base: 'user',   keyName: null }
- * parseAuthMode('public:web')   → { base: 'public', keyName: 'web' }
- * parseAuthMode('secret:*')     → { base: 'secret', keyName: '*' }
+ * parseAuthMode('user')              → { base: 'user',        keyName: null }
+ * parseAuthMode('publishable:web')   → { base: 'publishable', keyName: 'web' }
+ * parseAuthMode('secret:*')          → { base: 'secret',      keyName: '*' }
  * ```
  *
  * @internal
@@ -55,8 +55,8 @@ function parseAuthMode(mode: AuthModeWithKey): {
   keyName: string | null
 } {
   if (
-    mode === 'always' ||
-    mode === 'public' ||
+    mode === 'none' ||
+    mode === 'publishable' ||
     mode === 'secret' ||
     mode === 'user'
   ) {
@@ -103,16 +103,16 @@ async function tryMode(
   const { base, keyName } = parseAuthMode(mode)
 
   switch (base) {
-    case 'always':
+    case 'none':
       return {
-        authType: 'always',
+        authType: 'none',
         token: null,
         userClaims: null,
         claims: null,
         keyName: null,
       }
 
-    case 'public': {
+    case 'publishable': {
       if (!credentials.apikey) return null
       const keys = env.publishableKeys
 
@@ -120,7 +120,7 @@ async function tryMode(
         for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
-              authType: 'public',
+              authType: 'publishable',
               token: null,
               userClaims: null,
               claims: null,
@@ -133,7 +133,7 @@ async function tryMode(
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
           return {
-            authType: 'public',
+            authType: 'publishable',
             token: null,
             userClaims: null,
             claims: null,
@@ -220,7 +220,7 @@ async function tryMode(
  * ```ts
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {
- *   auth: ['user', 'public'],
+ *   auth: ['user', 'publishable'],
  * })
  * if (error) {
  *   return Response.json({ message: error.message }, { status: error.status })

@@ -56,13 +56,13 @@ Your handler only runs when auth succeeds.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ auth: 'always' }, async (_req, _ctx) => {
+  fetch: withSupabase({ auth: 'none' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok', time: new Date().toISOString() })
   }),
 }
 ```
 
-> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'public'`, `auth: 'secret'`, or `auth: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'publishable'`, `auth: 'secret'`, or `auth: 'none'`, disable the platform-level JWT check in `supabase/config.toml`:
 >
 > ```toml
 > [functions.my-function]
@@ -79,7 +79,7 @@ Every handler receives a `SupabaseContext` with these fields:
 | `supabaseAdmin` | `SupabaseClient`     | Admin client. Bypasses RLS.                                                                            |
 | `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
 | `claims`        | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
-| `authType`      | `AuthMode`           | Which auth mode matched: `'user'`, `'public'`, `'secret'`, or `'always'`.                              |
+| `authType`      | `AuthMode`           | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
 | `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
 
 The `supabase` client respects Row-Level Security. When `authType` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.

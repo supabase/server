@@ -14,16 +14,16 @@ describe('verifyAuth', () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'sb_publishable_xyz' },
     })
-    const result = await verifyAuth(req, { auth: 'public', env })
+    const result = await verifyAuth(req, { auth: 'publishable', env })
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('public')
+    expect(result.data!.authType).toBe('publishable')
   })
 
   it('fails when credentials do not match', async () => {
     const req = new Request('http://localhost', {
       headers: { apikey: 'wrong' },
     })
-    const result = await verifyAuth(req, { auth: 'public', env })
+    const result = await verifyAuth(req, { auth: 'publishable', env })
     expect(result.error).not.toBeNull()
   })
 })
