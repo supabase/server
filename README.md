@@ -8,15 +8,21 @@
 
 > **Heads up — `allow` is now `auth`.** The `allow` config option has been renamed to `auth` to better align with CLI terminology and read more naturally (e.g. `auth: 'user'`). The old `allow` key still works but is deprecated and will emit a one-time `console.warn` per process. It will be removed in a future major release. **Migration:** find-and-replace `allow:` → `auth:` in your `withSupabase`, `createSupabaseContext`, `verifyAuth`, and `verifyCredentials` calls.
 
-> **Breaking — auth mode values renamed: `'always'` → `'none'`, `'public'` → `'publishable'`.** The mode literals were renamed to match Supabase CLI terminology: `'none'` reads more directly than `'always'`, and `'publishable'` matches `SUPABASE_PUBLISHABLE_KEY(S)`. The old values no longer work — find-and-replace is required:
+> **Breaking — auth API renamed: mode values + the `authType` field.** As part of v1 prep:
+>
+> 1. Mode values renamed: `'always'` → `'none'`, `'public'` → `'publishable'`. (`'none'` reads more directly, and `'publishable'` matches `SUPABASE_PUBLISHABLE_KEY(S)`.)
+> 2. The field on `AuthResult` and `SupabaseContext` was renamed from `authType` to `authMode` so it lines up with the `AuthMode` type.
+>
+> The old names no longer work — find-and-replace is required:
 >
 > | Before                      | After                            |
 > | --------------------------- | -------------------------------- |
 > | `auth: 'always'`            | `auth: 'none'`                   |
 > | `auth: 'public'`            | `auth: 'publishable'`            |
 > | `auth: 'public:<name>'`     | `auth: 'publishable:<name>'`     |
-> | `ctx.authType === 'always'` | `ctx.authType === 'none'`        |
-> | `ctx.authType === 'public'` | `ctx.authType === 'publishable'` |
+> | `ctx.authType`              | `ctx.authMode`                   |
+> | `ctx.authType === 'always'` | `ctx.authMode === 'none'`        |
+> | `ctx.authType === 'public'` | `ctx.authMode === 'publishable'` |
 
 `@supabase/server` gives you batteries included access to the
 [supabase-js SDK](https://github.com/supabase/supabase-js), including client
@@ -68,12 +74,12 @@ Imagine you're building an app where users track their favorite games. They sign
 // A signed-in user fetches their favorite games.
 export default {
   fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
-    const { supabase, supabaseAdmin, userClaims, claims, authType } = ctx
+    const { supabase, supabaseAdmin, userClaims, claims, authMode } = ctx
     // supabase       — RLS-scoped to the authenticated user
     // supabaseAdmin  — bypasses RLS (service role)
     // userClaims     — user identity from JWT (id, email, role)
     // claims         — full JWT claims
-    // authType       — which auth mode matched
+    // authMode       — which auth mode matched
 
     // RLS-scoped — this user only sees their own favorites
     const { data: myGames } = await supabase.from('favorite_games').select()
@@ -116,7 +122,7 @@ export default {
 // A backend service pulls stats for any user (secret key + user_id in body).
 export default {
   fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
-    const callerIsUser = ctx.authType === 'user'
+    const callerIsUser = ctx.authMode === 'user'
 
     if (callerIsUser) {
       // RLS-scoped — the database enforces "own stats only"
@@ -200,12 +206,12 @@ interface SupabaseContext {
   supabaseAdmin: SupabaseClient // Bypasses RLS
   userClaims: UserClaims | null // JWT-derived identity (for full User, call supabase.auth.getUser())
   claims: JWTClaims | null // Present when auth is JWT
-  authType: AuthMode // Which auth mode matched
+  authMode: AuthMode // Which auth mode matched
   authKeyName?: string | null // Auth key name of the API key that was used for this request
 }
 ```
 
-`supabase` is always the safe client — it respects RLS. When `authType` is `"user"`, it's scoped to that user's permissions. Otherwise, it's initialized as anonymous.
+`supabase` is always the safe client — it respects RLS. When `authMode` is `"user"`, it's scoped to that user's permissions. Otherwise, it's initialized as anonymous.
 
 `supabaseAdmin` always bypasses RLS. Use it for operations that need full database access.
 

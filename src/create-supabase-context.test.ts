@@ -25,7 +25,7 @@ describe('createSupabaseContext', () => {
     expect(result.data).not.toBeNull()
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
-    expect(result.data!.authType).toBe('none')
+    expect(result.data!.authMode).toBe('none')
     expect(result.data!.authKeyName).toBeNull()
   })
 
@@ -72,7 +72,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('publishable')
+    expect(result.data!.authMode).toBe('publishable')
     expect(result.data!.authKeyName).toBe('default')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
@@ -93,7 +93,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('publishable')
+    expect(result.data!.authMode).toBe('publishable')
     expect(result.data!.authKeyName).toBe('web')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()
@@ -109,7 +109,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('secret')
+    expect(result.data!.authMode).toBe('secret')
     expect(result.data!.authKeyName).toBe('default')
   })
 
@@ -128,7 +128,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('secret')
+    expect(result.data!.authMode).toBe('secret')
     expect(result.data!.authKeyName).toBe('web')
     expect(result.data!.supabase).toBeDefined()
     expect(result.data!.supabaseAdmin).toBeDefined()

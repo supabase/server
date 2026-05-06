@@ -16,7 +16,7 @@ describe('verifyAuth', () => {
     })
     const result = await verifyAuth(req, { auth: 'publishable', env })
     expect(result.error).toBeNull()
-    expect(result.data!.authType).toBe('publishable')
+    expect(result.data!.authMode).toBe('publishable')
   })
 
   it('fails when credentials do not match', async () => {

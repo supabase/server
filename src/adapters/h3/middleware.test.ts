@@ -17,7 +17,7 @@ describe('h3 supabase middleware', () => {
     app.get('/', (event) => {
       const ctx = event.context.supabaseContext
       return {
-        authType: ctx.authType,
+        authMode: ctx.authMode,
         hasSupabase: !!ctx.supabase,
         hasAdmin: !!ctx.supabaseAdmin,
       }
@@ -26,7 +26,7 @@ describe('h3 supabase middleware', () => {
     const res = await app.request('/')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.authType).toBe('none')
+    expect(body.authMode).toBe('none')
     expect(body.hasSupabase).toBe(true)
     expect(body.hasAdmin).toBe(true)
   })
@@ -75,7 +75,7 @@ describe('h3 supabase middleware', () => {
 
     app.get('/', (event) => {
       const ctx = event.context.supabaseContext
-      return { authType: ctx.authType }
+      return { authMode: ctx.authMode }
     })
 
     // No apikey header — would fail 'secret' if it ran
@@ -83,7 +83,7 @@ describe('h3 supabase middleware', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     // First middleware's auth type is preserved
-    expect(body.authType).toBe('none')
+    expect(body.authMode).toBe('none')
   })
 
   it('does not add CORS headers', async () => {

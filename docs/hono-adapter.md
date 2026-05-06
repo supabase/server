@@ -39,7 +39,7 @@ app.get('/profile', async (c) => {
 export default { fetch: app.fetch }
 ```
 
-The context is stored in `c.var.supabaseContext` and contains the same `SupabaseContext` fields as the main `withSupabase` wrapper: `supabase`, `supabaseAdmin`, `userClaims`, `claims`, and `authType`.
+The context is stored in `c.var.supabaseContext` and contains the same `SupabaseContext` fields as the main `withSupabase` wrapper: `supabase`, `supabaseAdmin`, `userClaims`, `claims`, and `authMode`.
 
 ## Per-route auth
 
@@ -72,8 +72,8 @@ app.post('/admin/sync', withSupabase({ auth: 'secret' }), async (c) => {
 
 // Dual auth — users or services
 app.get('/reports', withSupabase({ auth: ['user', 'secret'] }), async (c) => {
-  const { supabase, authType } = c.var.supabaseContext
-  return c.json({ authType })
+  const { supabase, authMode } = c.var.supabaseContext
+  return c.json({ authMode })
 })
 
 export default { fetch: app.fetch }

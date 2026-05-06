@@ -79,10 +79,10 @@ Every handler receives a `SupabaseContext` with these fields:
 | `supabaseAdmin` | `SupabaseClient`     | Admin client. Bypasses RLS.                                                                            |
 | `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
 | `claims`        | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
-| `authType`      | `AuthMode`           | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
+| `authMode`      | `AuthMode`           | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
 | `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
 
-The `supabase` client respects Row-Level Security. When `authType` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
+The `supabase` client respects Row-Level Security. When `authMode` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
 
 The `supabaseAdmin` client always bypasses RLS. Use it for operations that need full database access regardless of who's calling.
 

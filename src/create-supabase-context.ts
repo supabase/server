@@ -52,13 +52,13 @@ export async function createSupabaseContext<Database = unknown>(
     }
 
     const publishableKeyName =
-      auth.authType === 'publishable' ? auth.keyName : undefined
+      auth.authMode === 'publishable' ? auth.keyName : undefined
     const supabase = createContextClient<Database>({
       auth: { token: auth.token, keyName: publishableKeyName },
       ...config,
     })
 
-    const adminKeyName = auth.authType === 'secret' ? auth.keyName : undefined
+    const adminKeyName = auth.authMode === 'secret' ? auth.keyName : undefined
     const supabaseAdmin = createAdminClient<Database>({
       auth: { keyName: adminKeyName },
       ...config,
@@ -70,7 +70,7 @@ export async function createSupabaseContext<Database = unknown>(
         supabaseAdmin,
         userClaims: auth.userClaims,
         claims: auth.claims,
-        authType: auth.authType,
+        authMode: auth.authMode,
         authKeyName: auth.keyName,
       },
       error: null,

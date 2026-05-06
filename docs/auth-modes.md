@@ -6,7 +6,7 @@ Every request is validated against one or more auth modes before your handler ru
 
 > **`allow` is deprecated.** The `auth` option replaces the legacy `allow` option. `allow` still works (with a one-time `console.warn`) but will be removed in a future major release. Migration is a find-and-replace: `allow:` → `auth:`.
 
-> **Breaking — mode values renamed.** `'always'` is now `'none'` and `'public'` is now `'publishable'` (including the colon variants `'public:<name>'` → `'publishable:<name>'`). The old values no longer work. Update both the option values you pass in and any runtime checks on `ctx.authType`.
+> **Breaking — auth API renamed.** `'always'` is now `'none'` and `'public'` is now `'publishable'` (including the colon variants `'public:<name>'` → `'publishable:<name>'`). The field on `AuthResult` and `SupabaseContext` was also renamed from `authType` to `authMode` so it matches the `AuthMode` type. The old names no longer work — update the option values you pass in **and** any runtime checks on `ctx.authType` (now `ctx.authMode`).
 
 | Mode            | Credential required                          | Typical use case                       |
 | --------------- | -------------------------------------------- | -------------------------------------- |
@@ -112,7 +112,7 @@ import { withSupabase } from '@supabase/server'
 
 export default {
   fetch: withSupabase({ auth: 'none' }, async (_req, ctx) => {
-    // ctx.authType is 'none'
+    // ctx.authMode is 'none'
     // ctx.userClaims is null
     // ctx.supabase is anonymous (RLS anon role)
     return Response.json({ status: 'healthy' })
@@ -131,8 +131,8 @@ import { withSupabase } from '@supabase/server'
 
 export default {
   fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
-    // ctx.authType tells you which mode matched
-    if (ctx.authType === 'user') {
+    // ctx.authMode tells you which mode matched
+    if (ctx.authMode === 'user') {
       // Called by an authenticated user
       const { data } = await ctx.supabase.from('reports').select()
       return Response.json(data)
@@ -189,14 +189,14 @@ withSupabase({ auth: 'secret:*' }, handler)
 
 ### Which key matched?
 
-When using named keys, `ctx.authType` tells you the mode and `keyName` on the `AuthResult` (from core primitives) tells you which key matched. In the high-level `withSupabase` wrapper, the matched key is used internally for client creation.
+When using named keys, `ctx.authMode` tells you the mode and `keyName` on the `AuthResult` (from core primitives) tells you which key matched. In the high-level `withSupabase` wrapper, the matched key is used internally for client creation.
 
 ### Combining named keys with other modes
 
 ```ts
 withSupabase({ auth: ['user', 'publishable:web'] }, async (_req, ctx) => {
   // Accepts either a valid JWT or the "web" publishable key
-  return Response.json({ authType: ctx.authType })
+  return Response.json({ authMode: ctx.authMode })
 })
 ```
 
@@ -204,6 +204,6 @@ withSupabase({ auth: ['user', 'publishable:web'] }, async (_req, ctx) => {
 
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
 2. Each mode in `auth` is tried in order against the extracted credentials
-3. First match wins — returns an `AuthResult` with `authType`, `token`, `userClaims`, `claims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
+3. First match wins — returns an `AuthResult` with `authMode`, `token`, `userClaims`, `claims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
 4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key)
 5. Everything is bundled into a `SupabaseContext` and passed to your handler

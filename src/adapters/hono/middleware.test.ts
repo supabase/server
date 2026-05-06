@@ -20,7 +20,7 @@ describe('hono supabase middleware', () => {
     app.get('/', (c) => {
       const ctx = c.get('supabaseContext')
       return c.json({
-        authType: ctx.authType,
+        authMode: ctx.authMode,
         hasSupabase: !!ctx.supabase,
         hasAdmin: !!ctx.supabaseAdmin,
       })
@@ -29,7 +29,7 @@ describe('hono supabase middleware', () => {
     const res = await app.request('/')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.authType).toBe('none')
+    expect(body.authMode).toBe('none')
     expect(body.hasSupabase).toBe(true)
     expect(body.hasAdmin).toBe(true)
   })
@@ -76,7 +76,7 @@ describe('hono supabase middleware', () => {
 
     app.get('/', (c) => {
       const ctx = c.get('supabaseContext')
-      return c.json({ authType: ctx.authType })
+      return c.json({ authMode: ctx.authMode })
     })
 
     // No apikey header — would fail 'secret' if it ran
@@ -84,7 +84,7 @@ describe('hono supabase middleware', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     // First middleware's auth type is preserved
-    expect(body.authType).toBe('none')
+    expect(body.authMode).toBe('none')
   })
 
   it('does not add CORS headers', async () => {

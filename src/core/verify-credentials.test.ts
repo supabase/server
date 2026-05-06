@@ -25,7 +25,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('none')
+      expect(result.data!.authMode).toBe('none')
       expect(result.data!.keyName).toBeNull()
     })
   })
@@ -41,7 +41,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('publishable')
+      expect(result.data!.authMode).toBe('publishable')
       expect(result.data!.keyName).toBe('default')
     })
 
@@ -138,7 +138,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('publishable')
+      expect(result.data!.authMode).toBe('publishable')
     })
 
     it('wildcard returns correct keyName for non-first key', async () => {
@@ -170,7 +170,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('secret')
+      expect(result.data!.authMode).toBe('secret')
       expect(result.data!.keyName).toBe('default')
     })
 
@@ -246,7 +246,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('secret')
+      expect(result.data!.authMode).toBe('secret')
     })
 
     it('wildcard returns correct keyName for non-first key', async () => {
@@ -296,7 +296,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('user')
+      expect(result.data!.authMode).toBe('user')
       expect(result.data!.keyName).toBeNull()
       expect(result.data!.userClaims!.id).toBe('user-123')
       expect(result.data!.userClaims!.email).toBe('test@example.com')
@@ -358,7 +358,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('publishable')
+      expect(result.data!.authMode).toBe('publishable')
     })
 
     it('treats multiple colons as part of key name', async () => {
@@ -374,7 +374,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('publishable')
+      expect(result.data!.authMode).toBe('publishable')
     })
 
     it('fails wildcard with empty key object', async () => {
@@ -403,7 +403,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('publishable')
+      expect(result.data!.authMode).toBe('publishable')
       expect(result.data!.keyName).toBe('default')
     })
 
@@ -414,7 +414,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('none')
+      expect(result.data!.authMode).toBe('none')
     })
   })
 
@@ -468,7 +468,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('none')
+      expect(result.data!.authMode).toBe('none')
     })
 
     it('rejects invalid JWT even when publishable mode follows', async () => {
@@ -532,7 +532,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('none')
+      expect(result.data!.authMode).toBe('none')
     })
 
     it('emits a deprecation warning when `allow` is used', async () => {
@@ -579,7 +579,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).toBeNull()
-      expect(result.data!.authType).toBe('secret')
+      expect(result.data!.authMode).toBe('secret')
       // No warning since `auth` is the operative option.
       expect(warn).not.toHaveBeenCalled()
       warn.mockRestore()

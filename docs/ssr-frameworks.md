@@ -256,7 +256,7 @@ export async function createSupabaseContext(
       supabaseAdmin,
       userClaims: result!.userClaims,
       claims: result!.claims,
-      authType: result!.authType,
+      authMode: result!.authMode,
     },
     error: null,
   }

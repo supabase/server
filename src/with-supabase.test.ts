@@ -39,7 +39,7 @@ describe('withSupabase', () => {
       { auth: 'none', env: baseEnv },
       async (_req, ctx) => {
         return Response.json({
-          authType: ctx.authType,
+          authMode: ctx.authMode,
           hasSupabase: !!ctx.supabase,
           hasAdmin: !!ctx.supabaseAdmin,
         })
@@ -49,7 +49,7 @@ describe('withSupabase', () => {
     const req = new Request('http://localhost')
     const res = await handler(req)
     const body = await res.json()
-    expect(body.authType).toBe('none')
+    expect(body.authMode).toBe('none')
     expect(body.hasSupabase).toBe(true)
     expect(body.hasAdmin).toBe(true)
   })
@@ -107,14 +107,14 @@ describe('withSupabase', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const handler = withSupabase(
         { allow: 'none', env: baseEnv },
-        async (_req, ctx) => Response.json({ authType: ctx.authType }),
+        async (_req, ctx) => Response.json({ authMode: ctx.authMode }),
       )
 
       const req = new Request('http://localhost')
       const res = await handler(req)
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.authType).toBe('none')
+      expect(body.authMode).toBe('none')
       expect(warn).toHaveBeenCalled()
       warn.mockRestore()
     })

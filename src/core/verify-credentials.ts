@@ -105,7 +105,7 @@ async function tryMode(
   switch (base) {
     case 'none':
       return {
-        authType: 'none',
+        authMode: 'none',
         token: null,
         userClaims: null,
         claims: null,
@@ -120,7 +120,7 @@ async function tryMode(
         for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
-              authType: 'publishable',
+              authMode: 'publishable',
               token: null,
               userClaims: null,
               claims: null,
@@ -133,7 +133,7 @@ async function tryMode(
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
           return {
-            authType: 'publishable',
+            authMode: 'publishable',
             token: null,
             userClaims: null,
             claims: null,
@@ -152,7 +152,7 @@ async function tryMode(
         for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
-              authType: 'secret',
+              authMode: 'secret',
               token: null,
               userClaims: null,
               claims: null,
@@ -165,7 +165,7 @@ async function tryMode(
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
           return {
-            authType: 'secret',
+            authMode: 'secret',
             token: null,
             userClaims: null,
             claims: null,
@@ -187,7 +187,7 @@ async function tryMode(
         }
         const claims = payload as unknown as JWTClaims
         return {
-          authType: 'user',
+          authMode: 'user',
           token: credentials.token,
           userClaims: claimsToUserClaims(claims),
           claims,

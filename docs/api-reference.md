@@ -162,7 +162,7 @@ interface SupabaseContext<Database = unknown> {
   supabaseAdmin: SupabaseClient<Database>
   userClaims: UserClaims | null
   claims: JWTClaims | null
-  authType: AuthMode
+  authMode: AuthMode
 }
 ```
 
@@ -203,7 +203,7 @@ interface Credentials {
 
 ```ts
 interface AuthResult {
-  authType: AuthMode
+  authMode: AuthMode
   token: string | null
   userClaims: UserClaims | null
   claims: JWTClaims | null

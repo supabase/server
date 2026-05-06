@@ -128,7 +128,7 @@ export interface Credentials {
  */
 export interface AuthResult {
   /** The auth mode that was successfully matched. */
-  authType: AuthMode
+  authMode: AuthMode
 
   /** The verified JWT, or `null` for non-user auth modes. */
   token: string | null
@@ -337,7 +337,7 @@ export interface SupabaseContext<Database = unknown> {
   claims: JWTClaims | null
 
   /** The auth mode that was used for this request. */
-  authType: AuthMode
+  authMode: AuthMode
 
   /** The auth key name of the API key that was used for this request. */
   authKeyName?: string | null
