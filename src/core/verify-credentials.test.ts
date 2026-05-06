@@ -300,7 +300,7 @@ describe('verifyCredentials', () => {
       expect(result.data!.keyName).toBeNull()
       expect(result.data!.userClaims!.id).toBe('user-123')
       expect(result.data!.userClaims!.email).toBe('test@example.com')
-      expect(result.data!.claims!.sub).toBe('user-123')
+      expect(result.data!.jwtClaims!.sub).toBe('user-123')
       expect(result.data!.token).toBe(validToken)
     })
 

@@ -73,13 +73,13 @@ function parseAuthMode(mode: AuthModeWithKey): {
  * Converts raw {@link JWTClaims} (snake_case) to a normalized {@link UserClaims} (camelCase).
  * @internal
  */
-function claimsToUserClaims(claims: JWTClaims): UserClaims {
+function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
   return {
-    id: claims.sub,
-    role: claims.role,
-    email: claims.email,
-    appMetadata: claims.app_metadata,
-    userMetadata: claims.user_metadata,
+    id: jwtClaims.sub,
+    role: jwtClaims.role,
+    email: jwtClaims.email,
+    appMetadata: jwtClaims.app_metadata,
+    userMetadata: jwtClaims.user_metadata,
   }
 }
 
@@ -108,7 +108,7 @@ async function tryMode(
         authMode: 'none',
         token: null,
         userClaims: null,
-        claims: null,
+        jwtClaims: null,
         keyName: null,
       }
 
@@ -123,7 +123,7 @@ async function tryMode(
               authMode: 'publishable',
               token: null,
               userClaims: null,
-              claims: null,
+              jwtClaims: null,
               keyName: name,
             }
           }
@@ -136,7 +136,7 @@ async function tryMode(
             authMode: 'publishable',
             token: null,
             userClaims: null,
-            claims: null,
+            jwtClaims: null,
             keyName: name,
           }
         }
@@ -155,7 +155,7 @@ async function tryMode(
               authMode: 'secret',
               token: null,
               userClaims: null,
-              claims: null,
+              jwtClaims: null,
               keyName: name,
             }
           }
@@ -168,7 +168,7 @@ async function tryMode(
             authMode: 'secret',
             token: null,
             userClaims: null,
-            claims: null,
+            jwtClaims: null,
             keyName: name,
           }
         }
@@ -185,12 +185,12 @@ async function tryMode(
         if (typeof payload.sub !== 'string') {
           return INVALID
         }
-        const claims = payload as unknown as JWTClaims
+        const jwtClaims = payload as unknown as JWTClaims
         return {
           authMode: 'user',
           token: credentials.token,
-          userClaims: claimsToUserClaims(claims),
-          claims,
+          userClaims: jwtClaimsToUserClaims(jwtClaims),
+          jwtClaims,
           keyName: null,
         }
       } catch {

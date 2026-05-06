@@ -74,11 +74,11 @@ Imagine you're building an app where users track their favorite games. They sign
 // A signed-in user fetches their favorite games.
 export default {
   fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
-    const { supabase, supabaseAdmin, userClaims, claims, authMode } = ctx
+    const { supabase, supabaseAdmin, userClaims, jwtClaims, authMode } = ctx
     // supabase       — RLS-scoped to the authenticated user
     // supabaseAdmin  — bypasses RLS (service role)
     // userClaims     — user identity from JWT (id, email, role)
-    // claims         — full JWT claims
+    // jwtClaims      — full JWT claims
     // authMode       — which auth mode matched
 
     // RLS-scoped — this user only sees their own favorites
@@ -205,7 +205,7 @@ interface SupabaseContext {
   supabase: SupabaseClient // RLS-scoped (user or anon depending on auth)
   supabaseAdmin: SupabaseClient // Bypasses RLS
   userClaims: UserClaims | null // JWT-derived identity (for full User, call supabase.auth.getUser())
-  claims: JWTClaims | null // Present when auth is JWT
+  jwtClaims: JWTClaims | null // Present when auth is JWT
   authMode: AuthMode // Which auth mode matched
   authKeyName?: string | null // Auth key name of the API key that was used for this request
 }

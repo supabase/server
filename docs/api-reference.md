@@ -161,7 +161,7 @@ interface SupabaseContext<Database = unknown> {
   supabase: SupabaseClient<Database>
   supabaseAdmin: SupabaseClient<Database>
   userClaims: UserClaims | null
-  claims: JWTClaims | null
+  jwtClaims: JWTClaims | null
   authMode: AuthMode
 }
 ```
@@ -206,7 +206,7 @@ interface AuthResult {
   authMode: AuthMode
   token: string | null
   userClaims: UserClaims | null
-  claims: JWTClaims | null
+  jwtClaims: JWTClaims | null
   keyName?: string | null
 }
 ```

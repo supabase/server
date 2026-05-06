@@ -78,7 +78,7 @@ Every handler receives a `SupabaseContext` with these fields:
 | `supabase`      | `SupabaseClient`     | Client scoped to the caller. RLS policies apply.                                                       |
 | `supabaseAdmin` | `SupabaseClient`     | Admin client. Bypasses RLS.                                                                            |
 | `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
-| `claims`        | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
+| `jwtClaims`     | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
 | `authMode`      | `AuthMode`           | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
 | `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
 

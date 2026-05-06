@@ -37,9 +37,9 @@ export default {
     console.log(ctx.userClaims!.email) // "user@example.com"
     console.log(ctx.userClaims!.role) // "authenticated"
 
-    // ctx.claims has the raw JWT payload
-    console.log(ctx.claims!.sub) // same as userClaims.id
-    console.log(ctx.claims!.exp) // token expiration (epoch seconds)
+    // ctx.jwtClaims has the raw JWT payload
+    console.log(ctx.jwtClaims!.sub) // same as userClaims.id
+    console.log(ctx.jwtClaims!.exp) // token expiration (epoch seconds)
 
     // ctx.supabase is scoped to this user — RLS applies
     const { data } = await ctx.supabase.from('todos').select()
@@ -204,6 +204,6 @@ withSupabase({ auth: ['user', 'publishable:web'] }, async (_req, ctx) => {
 
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
 2. Each mode in `auth` is tried in order against the extracted credentials
-3. First match wins — returns an `AuthResult` with `authMode`, `token`, `userClaims`, `claims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
+3. First match wins — returns an `AuthResult` with `authMode`, `token`, `userClaims`, `jwtClaims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
 4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key)
 5. Everything is bundled into a `SupabaseContext` and passed to your handler

@@ -37,7 +37,7 @@ describe('createSupabaseContext', () => {
     })
 
     expect(result.data!.userClaims).toBeNull()
-    expect(result.data!.claims).toBeNull()
+    expect(result.data!.jwtClaims).toBeNull()
   })
 
   it('returns error when auth fails', async () => {

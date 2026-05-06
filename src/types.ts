@@ -137,7 +137,7 @@ export interface AuthResult {
   userClaims: UserClaims | null
 
   /** Raw JWT payload, or `null` when no JWT is present. */
-  claims: JWTClaims | null
+  jwtClaims: JWTClaims | null
 
   /** Name of the matched key (e.g. `"default"`, `"mobile"`), or `null` for `"user"` / `"always"` modes. */
   keyName?: string | null
@@ -334,7 +334,7 @@ export interface SupabaseContext<Database = unknown> {
   userClaims: UserClaims | null
 
   /** Raw JWT payload. `null` for non-user auth modes. */
-  claims: JWTClaims | null
+  jwtClaims: JWTClaims | null
 
   /** The auth mode that was used for this request. */
   authMode: AuthMode

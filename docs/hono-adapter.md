@@ -39,7 +39,7 @@ app.get('/profile', async (c) => {
 export default { fetch: app.fetch }
 ```
 
-The context is stored in `c.var.supabaseContext` and contains the same `SupabaseContext` fields as the main `withSupabase` wrapper: `supabase`, `supabaseAdmin`, `userClaims`, `claims`, and `authMode`.
+The context is stored in `c.var.supabaseContext` and contains the same `SupabaseContext` fields as the main `withSupabase` wrapper: `supabase`, `supabaseAdmin`, `userClaims`, `jwtClaims`, and `authMode`.
 
 ## Per-route auth
 

@@ -19,7 +19,7 @@ The primitives compose into a pipeline. Each step is independent — use only wh
 ```
 resolveEnv()                          → SupabaseEnv
 extractCredentials(request)           → Credentials { token, apikey }
-verifyCredentials(credentials, opts)  → AuthResult { authMode, token, userClaims, claims, keyName }
+verifyCredentials(credentials, opts)  → AuthResult { authMode, token, userClaims, jwtClaims, keyName }
 createContextClient(options)          → SupabaseClient (RLS-scoped)
 createAdminClient(options)            → SupabaseClient (bypasses RLS)
 ```

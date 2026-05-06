@@ -69,7 +69,7 @@ export async function createSupabaseContext<Database = unknown>(
         supabase,
         supabaseAdmin,
         userClaims: auth.userClaims,
-        claims: auth.claims,
+        jwtClaims: auth.jwtClaims,
         authMode: auth.authMode,
         authKeyName: auth.keyName,
       },
