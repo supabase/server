@@ -66,7 +66,7 @@ npx skills add supabase/server
 
 ## Quick Start
 
-Imagine you're building an app where users track their favorite games. They sign in and manage their own list. An admin dashboard curates featured titles. A cron job refreshes the "popular this week" rankings. Here's how each piece looks:
+Imagine you're building an app where users track their favorite games. They sign in and manage their own list. Pre-login screens browse the public catalog. An admin dashboard curates featured titles. A cron job refreshes the "popular this week" rankings. Here's how each piece looks:
 
 ### Authenticated endpoint
 
@@ -99,6 +99,36 @@ export default {
   }),
 }
 ```
+
+### Publishable-key endpoint
+
+```ts
+// The mobile app browses the game catalog before the user signs in.
+// auth: 'publishable' validates the apikey header against a publishable key —
+// gating the endpoint to your own clients while staying anonymous to the DB.
+export default {
+  fetch: withSupabase({ auth: 'publishable' }, async (_req, ctx) => {
+    // ctx.supabase  — anonymous (anon role); RLS still applies
+    // ctx.userClaims, ctx.jwtClaims — null (no JWT)
+    // ctx.authMode === 'publishable', ctx.authKeyName === 'default'
+    const { data: catalog } = await ctx.supabase
+      .from('games')
+      .select('id, name, cover_url')
+    return Response.json(catalog)
+  }),
+}
+```
+
+The mobile app sends the publishable key in the `apikey` header:
+
+```ts
+const catalogEndpoint = 'https://<project>.supabase.co/functions/v1/catalog'
+const publishableKey = 'sb_publishable_...'
+
+await fetch(catalogEndpoint, { headers: { apikey: publishableKey } })
+```
+
+> Unlike `auth: 'secret'`, the `supabase` client here is anonymous, not admin — RLS is the source of truth for what's visible. The publishable key acts as a coarse "this request came from a known client" gate; it isn't a user identity.
 
 ### API key protected
 
