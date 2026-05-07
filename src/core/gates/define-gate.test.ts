@@ -266,13 +266,13 @@ describe('defineGate', () => {
               const remaining: number = ctx.rateLimit.remaining
               const flagName: string = ctx.flag.name
               const action: string = ctx.turnstile.action
-              const authType: string = ctx.authType
+              const authMode: string = ctx.authMode
 
               void userId
               void remaining
               void flagName
               void action
-              void authType
+              void authMode
 
               return Response.json({ ok: true })
             },
