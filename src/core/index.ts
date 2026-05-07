@@ -7,6 +7,7 @@ export { resolveEnv } from './resolve-env.js'
 export { extractCredentials } from './extract-credentials.js'
 export { verifyCredentials } from './verify-credentials.js'
 export { verifyAuth } from './verify-auth.js'
+export { verifyUserAuth } from './verify-user-auth.js'
 export { createContextClient } from './create-context-client.js'
 export { createAdminClient } from './create-admin-client.js'
 
@@ -14,4 +15,6 @@ export type {
   ClientAuth,
   CreateAdminClientOptions,
   CreateContextClientOptions,
+  UserAuthResult,
+  VerifyUserAuthOptions,
 } from '../types.js'

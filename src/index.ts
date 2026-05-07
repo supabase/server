@@ -19,8 +19,12 @@ export type {
   JWTClaims,
   SupabaseContext,
   SupabaseEnv,
+  SupabaseUserContext,
+  UserAuthResult,
   UserClaims,
+  VerifyUserAuthOptions,
   WithSupabaseConfig,
+  WithSupabaseUserAuthConfig,
 } from './types.js'
 
 export {

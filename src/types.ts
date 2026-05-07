@@ -144,6 +144,24 @@ export interface AuthResult {
 }
 
 /**
+ * Verified Supabase user auth result.
+ *
+ * Contains only user-token data and non-null JWT-derived identity.
+ *
+ * @see {@link verifyUserAuth}
+ */
+export interface UserAuthResult {
+  /** The verified JWT. */
+  token: string
+
+  /** Normalized user identity derived from the JWT. */
+  userClaims: UserClaims
+
+  /** Raw JWT payload. */
+  jwtClaims: JWTClaims
+}
+
+/**
  * Standard JWT claims as defined by RFC 7519, extended with Supabase-specific fields.
  *
  * This is the raw JWT payload — use {@link UserClaims} for a normalized, camelCase view.
@@ -281,6 +299,39 @@ export interface WithSupabaseConfig {
 }
 
 /**
+ * Configuration for {@link verifyUserAuth}.
+ *
+ * Verifies a Supabase user JWT without creating Supabase clients.
+ */
+export interface VerifyUserAuthOptions {
+  /**
+   * Override auto-detected environment variables. Useful for testing
+   * or when running in environments without standard env var support.
+   */
+  env?: Partial<SupabaseEnv>
+
+  /**
+   * Expected Supabase Auth user ID(s). When provided, the verified JWT `sub`
+   * must match one of these values.
+   */
+  userId?: string | string[]
+
+  /**
+   * Expected JWT audience(s). Defaults to `"authenticated"`.
+   */
+  audience?: string | string[]
+}
+
+/** Options for Hono's {@link withSupabaseUserAuth} middleware. */
+export interface WithSupabaseUserAuthConfig extends VerifyUserAuthOptions {
+  /**
+   * Options forwarded to `createClient()`. `accessToken` is stripped, and auth
+   * settings are force-overwritten to server-safe values.
+   */
+  supabaseOptions?: SupabaseClientOptions<string>
+}
+
+/**
  * Auth identity for client creation functions.
  *
  * @see {@link verifyAuth}, {@link verifyCredentials}
@@ -344,4 +395,24 @@ export interface SupabaseContext<Database = unknown> {
    * Omitted for `'user'` and `'none'` modes, which don't match a named key.
    */
   authKeyName?: string
+}
+
+/**
+ * User-scoped Supabase context created after user JWT authentication.
+ *
+ * Contains only the RLS-scoped client and non-null JWT-derived identity. It
+ * intentionally omits `supabaseAdmin`, so it does not require a secret key.
+ */
+export interface SupabaseUserContext<Database = unknown> extends Pick<
+  SupabaseContext<Database>,
+  'supabase'
+> {
+  /** Verified bearer token from the request. */
+  token: string
+
+  /** JWT-derived identity. */
+  userClaims: UserClaims
+
+  /** Raw JWT payload. */
+  jwtClaims: JWTClaims
 }

@@ -4,4 +4,4 @@
  * @packageDocumentation
  */
 
-export { withSupabase } from './middleware.js'
+export { withSupabase, withSupabaseUserAuth } from './middleware.js'

@@ -1,10 +1,17 @@
+import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { Hono } from 'hono'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
-import type { SupabaseContext } from '../../types.js'
-import { withSupabase } from './middleware.js'
+import type {
+  JsonWebKeySet,
+  SupabaseContext,
+  SupabaseEnv,
+  SupabaseUserContext,
+} from '../../types.js'
+import { withSupabase, withSupabaseUserAuth } from './middleware.js'
 
 type Env = { Variables: { supabaseContext: SupabaseContext } }
+type UserEnv = { Variables: { supabaseUserContext: SupabaseUserContext } }
 
 describe('hono supabase middleware', () => {
   const env = {
@@ -94,5 +101,98 @@ describe('hono supabase middleware', () => {
 
     const res = await app.request('/')
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
+  })
+})
+
+describe('hono supabase user auth middleware', () => {
+  let jwks: JsonWebKeySet
+  let makeToken: (claims?: Record<string, unknown>) => Promise<string>
+
+  beforeAll(async () => {
+    const { privateKey, publicKey } = await generateKeyPair('RS256')
+    const publicJwk = await exportJWK(publicKey)
+    publicJwk.alg = 'RS256'
+    publicJwk.use = 'sig'
+    jwks = { keys: [publicJwk] }
+
+    makeToken = async (claims = {}) => {
+      let jwt = new SignJWT({
+        sub: 'user-123',
+        role: 'authenticated',
+        email: 'test@example.com',
+        ...claims,
+      })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+      if (!('aud' in claims)) {
+        jwt = jwt.setAudience('authenticated')
+      }
+      return jwt.sign(privateKey)
+    }
+  })
+
+  function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
+    return {
+      url: 'https://test.supabase.co',
+      publishableKeys: { default: 'sb_publishable_xyz' },
+      secretKeys: {},
+      jwks,
+      ...overrides,
+    }
+  }
+
+  it('sets a user-scoped context without a secret key', async () => {
+    const token = await makeToken()
+    const app = new Hono<UserEnv>()
+    app.use(
+      '*',
+      withSupabaseUserAuth({
+        userId: 'user-123',
+        env: makeEnv(),
+      }),
+    )
+    app.get('/', (c) => {
+      const ctx = c.get('supabaseUserContext')
+      return c.json({
+        hasSupabase: !!ctx.supabase,
+        hasAdmin:
+          'supabaseAdmin' in (ctx as unknown as Record<string, unknown>),
+        tokenMatches: ctx.token === token,
+        userId: ctx.userClaims.id,
+      })
+    })
+
+    const res = await app.request('/', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toEqual({
+      hasSupabase: true,
+      hasAdmin: false,
+      tokenMatches: true,
+      userId: 'user-123',
+    })
+  })
+
+  it('rejects a token for a different user ID', async () => {
+    const token = await makeToken()
+    const app = new Hono<UserEnv>()
+    app.use(
+      '*',
+      withSupabaseUserAuth({
+        userId: 'user-456',
+        env: makeEnv(),
+      }),
+    )
+    app.get('/', (c) => c.json({ ok: true }))
+
+    const res = await app.request('/', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    expect(res.status).toBe(401)
   })
 })
