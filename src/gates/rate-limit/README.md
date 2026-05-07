@@ -3,23 +3,20 @@
 Fixed-window rate-limit gate backed by Supabase Postgres. Counts hits per key within a window via an atomic SQL function; rejects with `429 Too Many Requests` once the limit is exceeded.
 
 ```ts
-import { createClient } from '@supabase/supabase-js'
+import { withSupabase } from '@supabase/server'
 import { withRateLimit } from '@supabase/server/gates/rate-limit'
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!,
-)
-
 export default {
-  fetch: withRateLimit(
-    {
-      limit: 60,
-      windowMs: 60_000,
-      key: (req) => req.headers.get('cf-connecting-ip') ?? 'anon',
-      client: supabaseAdmin,
-    },
-    async (req, ctx) => Response.json({ remaining: ctx.rateLimit.remaining }),
+  fetch: withSupabase(
+    { allow: 'always' },
+    withRateLimit(
+      {
+        limit: 60,
+        windowMs: 60_000,
+        key: (req) => req.headers.get('cf-connecting-ip') ?? 'anon',
+      },
+      async (req, ctx) => Response.json({ remaining: ctx.rateLimit.remaining }),
+    ),
   ),
 }
 ```
@@ -70,17 +67,16 @@ $$;
 alter table public._supabase_server_rate_limits enable row level security;
 ```
 
-The gate calls `client.rpc('_supabase_server_rate_limit_hit', { p_key, p_window_ms })`. Override the function name via `rpc:` in the config if you'd rather pick your own.
+The gate calls `ctx.supabaseAdmin.rpc('_supabase_server_rate_limit_hit', { p_key, p_window_ms })`. Override the function name via `rpc:` in the config if you'd rather pick your own.
 
 ## Config
 
-| Field      | Type                                          | Description                                                 |
-| ---------- | --------------------------------------------- | ----------------------------------------------------------- |
-| `limit`    | `number`                                      | Maximum hits per `windowMs` per key.                        |
-| `windowMs` | `number`                                      | Window length in milliseconds.                              |
-| `key`      | `(req: Request) => string \| Promise<string>` | Bucketing key. Per-IP, per-user, per-tenant, etc.           |
-| `client`   | `SupabaseRpcClient`                           | Supabase admin client (any structurally compatible object). |
-| `rpc`      | `string?`                                     | RPC name. Default: `_supabase_server_rate_limit_hit`.       |
+| Field      | Type                                          | Description                                           |
+| ---------- | --------------------------------------------- | ----------------------------------------------------- |
+| `limit`    | `number`                                      | Maximum hits per `windowMs` per key.                  |
+| `windowMs` | `number`                                      | Window length in milliseconds.                        |
+| `key`      | `(req: Request) => string \| Promise<string>` | Bucketing key. Per-IP, per-user, per-tenant, etc.     |
+| `rpc`      | `string?`                                     | RPC name. Default: `_supabase_server_rate_limit_hit`. |
 
 ## Contribution
 
@@ -100,24 +96,22 @@ ctx.rateLimit = {
 ## Composing with `withSupabase`
 
 ```ts
-import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
 
 withSupabase(
   { allow: 'user' },
-  withRateLimit<SupabaseContext>(
+  withRateLimit(
     {
       limit: 30,
       windowMs: 60_000,
       key: (req) => req.headers.get('cf-connecting-ip') ?? 'anon',
-      client: supabaseAdmin,
     },
     async (_req, ctx) => Response.json({ user: ctx.userClaims!.id }),
   ),
 )
 ```
 
-The `<SupabaseContext>` annotation threads the host's keys into the inner handler's `ctx`.
+The inner handler's `ctx` includes both `withSupabase` keys and `ctx.rateLimit`.
 
 ## See also
 

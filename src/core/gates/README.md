@@ -11,14 +11,13 @@ Gates compose by direct nesting — each `withFoo(config, handler)` is a fetch-h
 ## Quick start (consumer)
 
 ```ts
-import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
 import { withFlag } from './gates/with-flag.ts'
 
 export default {
   fetch: withSupabase(
     { allow: 'user' },
-    withFlag<SupabaseContext>(
+    withFlag(
       { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
       async (req, ctx) => {
         // ctx.supabase, ctx.userClaims  — from withSupabase
@@ -153,13 +152,11 @@ Pick a different key for each gate. Gates that may be applied multiple times can
 
 ### Threading state through nested gates
 
-When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript can't bidirectionally infer this from the outer call site, so the inner gate's `Base` must be passed explicitly to surface the upstream keys in the handler's `ctx` type:
+When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript infers that `Base` through the nested fetch-handler signatures, so the handler sees the full accumulated `ctx` without explicit annotations:
 
 ```ts
-import type { SupabaseContext } from '@supabase/server'
-
 withSupabase({ allow: 'user' },
-  withRateLimit<SupabaseContext>({ limit: 30, windowMs: 60_000, key: ... },
+  withRateLimit({ limit: 30, windowMs: 60_000, key: ... },
     async (_req, ctx) => {
       // ctx.userClaims    — from withSupabase
       // ctx.rateLimit     — from withRateLimit
@@ -169,19 +166,24 @@ withSupabase({ allow: 'user' },
 )
 ```
 
-For multi-gate stacks, intersect the accumulated types:
+For multi-gate stacks, keep nesting directly:
 
 ```ts
-type AfterRateLimit = SupabaseContext & { rateLimit: RateLimitState }
-
 withSupabase({ allow: 'user' },
-  withRateLimit<SupabaseContext>(...,
-    withFlag<AfterRateLimit>(..., handler),
+  withRateLimit(...,
+    withFlag(...,
+      withTurnstile(..., async (_req, ctx) => {
+        // ctx.userClaims   — from withSupabase
+        // ctx.rateLimit    — from withRateLimit
+        // ctx.flag         — from withFlag
+        // ctx.turnstile    — from withTurnstile
+      }),
+    ),
   ),
 )
 ```
 
-Without the explicit `<Base>`, the inner handler's `ctx` only types the gate's own key — runtime works, types narrow to that one gate's slice.
+If you manually call a prerequisite-free gate with a `baseCtx` and no contextual outer wrapper, you can still pass `<Base>` explicitly to describe that base context.
 
 ## API
 

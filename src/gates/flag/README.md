@@ -55,13 +55,12 @@ Soft reveal. A `403 Forbidden` tells the caller "this exists, but you can't see 
 Place `withFlag` _after_ `withSupabase` to target by user identity:
 
 ```ts
-import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
 import { withFlag } from '@supabase/server/gates/flag'
 
 withSupabase(
   { allow: 'user' },
-  withFlag<SupabaseContext>(
+  withFlag(
     {
       name: 'beta-checkout',
       evaluate: async (req) => {

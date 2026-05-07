@@ -8,21 +8,19 @@ Persistence (deposit-address → PaymentIntent-id mapping) lives in Supabase Pos
 
 ```ts
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { withSupabase } from '@supabase/server'
 import { withPayment } from '@supabase/server/gates/x402'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-03-04.preview' as never,
 })
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!,
-)
 
 export default {
-  fetch: withPayment(
-    { stripe, amountCents: 1, client: supabaseAdmin },
-    async (req, ctx) => Response.json({ ok: true, paid: ctx.payment.intentId }),
+  fetch: withSupabase(
+    { allow: 'always' },
+    withPayment({ stripe, amountCents: 1 }, async (req, ctx) =>
+      Response.json({ ok: true, paid: ctx.payment.intentId }),
+    ),
   ),
 }
 ```
@@ -79,34 +77,29 @@ Override the function names via `registerRpc` / `lookupRpc` in the config if you
 
 ## Config
 
-| Field         | Type                | Description                                            |
-| ------------- | ------------------- | ------------------------------------------------------ |
-| `stripe`      | `StripeLike`        | Stripe client (or any structurally compatible object). |
-| `amountCents` | `number`            | Price per call in USD cents. Stripe converts to USDC.  |
-| `network`     | `Network?`          | `'base' \| 'tempo' \| 'solana'`. Default `'base'`.     |
-| `client`      | `SupabaseRpcClient` | Supabase admin client.                                 |
-| `registerRpc` | `string?`           | Default: `_supabase_server_x402_register`.             |
-| `lookupRpc`   | `string?`           | Default: `_supabase_server_x402_lookup`.               |
+| Field         | Type         | Description                                            |
+| ------------- | ------------ | ------------------------------------------------------ |
+| `stripe`      | `StripeLike` | Stripe client (or any structurally compatible object). |
+| `amountCents` | `number`     | Price per call in USD cents. Stripe converts to USDC.  |
+| `network`     | `Network?`   | `'base' \| 'tempo' \| 'solana'`. Default `'base'`.     |
+| `registerRpc` | `string?`    | Default: `_supabase_server_x402_register`.             |
+| `lookupRpc`   | `string?`    | Default: `_supabase_server_x402_lookup`.               |
 
 `StripeLike` is structurally typed — this package does not depend on the `stripe` SDK at runtime or types-level. Pass any object exposing `paymentIntents.create` and `paymentIntents.retrieve`.
 
 ## Composing with `withSupabase`
 
 ```ts
-import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
 
 withSupabase(
   { allow: 'user' },
-  withPayment<SupabaseContext>(
-    { stripe, amountCents: 5, client: supabaseAdmin },
-    async (req, ctx) => {
-      // ctx.supabase is the user-scoped client (from withSupabase)
-      // ctx.payment.intentId is the settled PaymentIntent id
-      const { data } = await ctx.supabase.from('premium_reports').select()
-      return Response.json({ data, paid: ctx.payment.intentId })
-    },
-  ),
+  withPayment({ stripe, amountCents: 5 }, async (req, ctx) => {
+    // ctx.supabase is the user-scoped client (from withSupabase)
+    // ctx.payment.intentId is the settled PaymentIntent id
+    const { data } = await ctx.supabase.from('premium_reports').select()
+    return Response.json({ data, paid: ctx.payment.intentId })
+  }),
 )
 ```
 

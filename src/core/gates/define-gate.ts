@@ -140,11 +140,21 @@ export function defineGate<
 type IsAny<T> = boolean extends (T extends never ? true : false) ? true : false
 
 /**
- * The shape of a wrapped fetch handler. Required `baseCtx` for gates with
- * prerequisites, optional otherwise.
+ * The shape of a wrapped fetch handler.
+ *
+ * Gates without prerequisites expose both signatures:
+ *
+ * - `(req, baseCtx)` for composition, so TypeScript can infer `Base` from the
+ *   outer wrapper's handler context through nested gate calls.
+ * - `(req)` for standalone handlers, preserving the ergonomic top-level use.
+ *
+ * A single optional `baseCtx?: Base` signature looks equivalent at runtime, but
+ * it prevents the outer context from flowing into nested generic calls because
+ * the parameter type becomes `Base | undefined`.
  */
 type Wrapped<Base, In> = keyof In extends never
-  ? (req: Request, baseCtx?: Base) => Promise<Response>
+  ? ((req: Request, baseCtx: Base) => Promise<Response>) &
+      ((req: Request) => Promise<Response>)
   : (req: Request, baseCtx: Base) => Promise<Response>
 
 /**

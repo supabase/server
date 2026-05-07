@@ -308,26 +308,22 @@ The adapter does not handle CORS — use H3's CORS utilities for that.
 Compose preconditions around a handler. A **gate** runs against the inbound `Request`, either short-circuits with a `Response` or contributes typed data to a flat key on `ctx`. Each gate is a fetch-handler wrapper — nest them directly the same way `withSupabase` nests, no separate composer.
 
 ```ts
-import type { SupabaseContext } from '@supabase/server'
 import { withSupabase } from '@supabase/server'
 import { withPayment } from '@supabase/server/gates/x402'
 
 export default {
   fetch: withSupabase(
     { allow: 'user' },
-    withPayment<SupabaseContext>(
-      { stripe, amountCents: 5 },
-      async (req, ctx) => {
-        // ctx.supabase, ctx.userClaims    — from withSupabase
-        // ctx.payment.intentId            — from withPayment
-        return Response.json({ paid: ctx.payment.intentId })
-      },
-    ),
+    withPayment({ stripe, amountCents: 5 }, async (req, ctx) => {
+      // ctx.supabase, ctx.userClaims    — from withSupabase
+      // ctx.payment.intentId            — from withPayment
+      return Response.json({ paid: ctx.payment.intentId })
+    }),
   ),
 }
 ```
 
-`withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates nest inside it (or stand alone). Pass `<Base>` to thread upstream keys into the gate handler's `ctx` type.
+`withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates nest inside it (or stand alone), and TypeScript infers the accumulated `ctx` shape through the nested wrappers.
 
 - [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, ctx rules, prerequisite enforcement, conflict detection).
 - [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — `withTurnstile`, `withAccess`.

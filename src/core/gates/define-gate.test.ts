@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { withSupabase } from '../../with-supabase.js'
+import { withTurnstile } from '../../gates/cloudflare/with-turnstile.js'
+import { withFlag } from '../../gates/flag/with-flag.js'
+import { withRateLimit } from '../../gates/rate-limit/with-rate-limit.js'
 import { defineGate } from './define-gate.js'
 
 const innerOk = async () => Response.json({ ok: true })
@@ -174,5 +178,48 @@ describe('defineGate', () => {
       tenantId: 'acme',
     })
     expect(await res.json()).toEqual({ tenant: 'acme', stamp: 42 })
+  })
+
+  it('infers upstream context through a Supabase gate stack without annotations', () => {
+    const fetchHandler = withSupabase(
+      { allow: 'user', cors: false },
+      withRateLimit(
+        {
+          limit: 30,
+          windowMs: 60_000,
+          key: () => 'anon',
+        },
+        withFlag(
+          {
+            name: 'beta-feedback',
+            evaluate: () => true,
+          },
+          withTurnstile(
+            {
+              secretKey: 'secret',
+              expectedAction: 'submit-feedback',
+              siteverifyUrl: 'http://localhost/siteverify',
+            },
+            async (_req, ctx) => {
+              const userId: string | undefined = ctx.userClaims?.id
+              const remaining: number = ctx.rateLimit.remaining
+              const flagName: string = ctx.flag.name
+              const action: string = ctx.turnstile.action
+              const authType: string = ctx.authType
+
+              void userId
+              void remaining
+              void flagName
+              void action
+              void authType
+
+              return Response.json({ ok: true })
+            },
+          ),
+        ),
+      ),
+    )
+
+    void fetchHandler
   })
 })
