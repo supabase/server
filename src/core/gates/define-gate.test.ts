@@ -180,6 +180,67 @@ describe('defineGate', () => {
     expect(await res.json()).toEqual({ tenant: 'acme', stamp: 42 })
   })
 
+  // Unit-level regression test for the load-bearing inference mechanic in
+  // `Wrapped<Base, In>`. If someone simplifies that type to a single-arity
+  // `(req, baseCtx?: Base) => ...` form, `ctx.upstream` / `ctx.alpha` on
+  // the inner handler fail to typecheck — this catches the regression
+  // without depending on the real Supabase gate stack.
+  it('infers Base through nested gates when an outer wrapper provides it', async () => {
+    interface Upstream {
+      external: string
+    }
+
+    // Minimal stand-in for a Base-providing outer wrapper (think:
+    // withSupabase). Its handler position is what gives TS the contextual
+    // type that propagates Base into the nested gate stack.
+    const withUpstream =
+      (
+        handler: (req: Request, ctx: Upstream) => Promise<Response>,
+      ): ((req: Request) => Promise<Response>) =>
+      async (req) =>
+        handler(req, { external: 'x1' })
+
+    const withAlpha = passingGate('alpha', { v: 1 })
+    const withBeta = passingGate('beta', { v: 2 })
+
+    const fetchHandler = withUpstream(
+      withAlpha(
+        undefined,
+        withBeta(undefined, async (_req, ctx) =>
+          Response.json({
+            ext: ctx.external,
+            a: ctx.alpha.v,
+            b: ctx.beta.v,
+          }),
+        ),
+      ),
+    )
+
+    const res = await fetchHandler(new Request('http://localhost/'))
+    expect(await res.json()).toEqual({ ext: 'x1', a: 1, b: 2 })
+  })
+
+  it("throws if run() returns an object missing the gate's key", async () => {
+    const broken = defineGate<
+      'broken',
+      undefined,
+      Record<never, never>,
+      { v: number }
+    >({
+      key: 'broken',
+      // Cast around the type system so we can exercise the runtime invariant —
+      // it catches authoring bugs that slip past excess-property checks via a
+      // wider-typed return.
+      run: () => async () => ({ wrongKey: { v: 1 } }) as never,
+    })
+
+    const fetchHandler = broken(undefined, innerOk)
+
+    await expect(
+      fetchHandler(new Request('http://localhost/')),
+    ).rejects.toThrow(/'broken'/)
+  })
+
   it('infers upstream context through a Supabase gate stack without annotations', () => {
     const fetchHandler = withSupabase(
       { allow: 'user', cors: false },

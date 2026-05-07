@@ -152,7 +152,9 @@ Pick a different key for each gate. Gates that may be applied multiple times can
 
 ### Threading state through nested gates
 
-When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript infers that `Base` through the nested fetch-handler signatures, so the handler sees the full accumulated `ctx` without explicit annotations:
+When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript infers that `Base` through the nested fetch-handler signatures, so the handler sees the full accumulated `ctx` without explicit annotations.
+
+> **How this works.** The inference is enabled by a callable-intersection in `Wrapped<Base, In>` (see the JSDoc on that type in `define-gate.ts`). The two-signature form is load-bearing — collapsing it to a single optional `(req, baseCtx?: Base)` looks equivalent at runtime but breaks contextual `Base` propagation through nested generic calls. Don't simplify it without reading the comment.
 
 ```ts
 withSupabase({ allow: 'user' },

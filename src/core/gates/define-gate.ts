@@ -111,6 +111,18 @@ export function defineGate<
       const upstream = baseCtx ?? ({} as object)
       const result = await inner(req, upstream as In)
       if (result instanceof Response) return result
+      // Defensive: catches authoring bugs the type system can't, e.g. a
+      // typo in the returned key (`{ flagg: ... }` for key 'flag') that
+      // slipped past excess-property checks via a wider-typed return.
+      if (
+        result === null ||
+        typeof result !== 'object' ||
+        !(spec.key in result)
+      ) {
+        throw new Error(
+          `defineGate '${spec.key}': run() returned an object missing the gate's key '${spec.key}'`,
+        )
+      }
       const ctx = {
         ...upstream,
         [spec.key]: (result as Record<string, unknown>)[spec.key],
