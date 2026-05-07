@@ -7,7 +7,7 @@
  * Statsig, a header check, a database lookup).
  */
 
-import { defineGate, type GateFactory } from '../../core/gates/index.js'
+import { defineGate, type Gate } from '../../core/gates/index.js'
 
 export interface WithFlagConfig {
   /** Human-readable name for the flag, recorded in `ctx.flag.name`. */
@@ -85,7 +85,7 @@ export interface FlagState {
  * })
  * ```
  */
-export const withFlag: GateFactory<
+export const withFlag: Gate<
   'flag',
   WithFlagConfig,
   Record<never, never>,

@@ -189,8 +189,8 @@ If you manually call a prerequisite-free gate with a `baseCtx` and no contextual
 
 ## API
 
-| Export                                       | Description                                                           |
-| -------------------------------------------- | --------------------------------------------------------------------- |
-| `defineGate(spec)`                           | Author helper: declare a gate. Returns a `(config, handler)` factory. |
-| `Conflict<Key>`                              | Sentinel string returned when a gate would shadow an upstream key.    |
-| `GateFactory<Key, Config, In, Contribution>` | The shape of a gate factory produced by `defineGate`.                 |
+| Export                                | Description                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------- |
+| `defineGate(spec)`                    | Author helper: declare a gate. Returns a `(config, handler)` callable. |
+| `Conflict<Key>`                       | Sentinel string returned when a gate would shadow an upstream key.     |
+| `Gate<Key, Config, In, Contribution>` | The shape of a gate produced by `defineGate`.                          |

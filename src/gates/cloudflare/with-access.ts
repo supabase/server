@@ -13,7 +13,7 @@
 
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 
-import { defineGate, type GateFactory } from '../../core/gates/index.js'
+import { defineGate, type Gate } from '../../core/gates/index.js'
 
 const HEADER_NAME = 'cf-access-jwt-assertion'
 
@@ -73,7 +73,7 @@ export interface AccessState {
  * }
  * ```
  */
-export const withAccess: GateFactory<
+export const withAccess: Gate<
   'access',
   WithAccessConfig,
   Record<never, never>,

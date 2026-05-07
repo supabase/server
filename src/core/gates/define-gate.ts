@@ -11,7 +11,7 @@ import type { Conflict } from './types.js'
  * returned object are ignored at runtime, and TypeScript flags them at
  * fresh-literal returns via excess-property checks.
  *
- * The returned factory has the shape `withFoo(config, handler) → fetchHandler`,
+ * The returned gate has the shape `withFoo(config, handler) → fetchHandler`,
  * so gates nest the same way `withSupabase` does — no separate composer.
  *
  * Two type-level guarantees fall out of plain TS constraints:
@@ -29,7 +29,7 @@ import type { Conflict } from './types.js'
  *
  * @typeParam Key - The literal-string key the gate contributes to ctx.
  * Cannot collide with any key already on the upstream context.
- * @typeParam Config - Configuration object the factory accepts.
+ * @typeParam Config - Configuration object the gate accepts.
  * @typeParam In - Structural shape the gate requires from upstream.
  * Defaults to `{}` (no prerequisites). Use this to declare cross-gate
  * dependencies, e.g. `In = { supabase: SupabaseClient }`.
@@ -104,7 +104,7 @@ export function defineGate<
     req: Request,
     ctx: In,
   ) => Promise<Response | { [K in Key]: Contribution }>
-}): GateFactory<Key, Config, In, Contribution> {
+}): Gate<Key, Config, In, Contribution> {
   return ((config: Config, handler: never) => {
     const inner = spec.run(config)
     return async (req: Request, baseCtx?: object) => {
@@ -131,11 +131,12 @@ export function defineGate<
         handler as unknown as (req: Request, ctx: object) => Promise<Response>
       )(req, ctx)
     }
-  }) as GateFactory<Key, Config, In, Contribution>
+  }) as Gate<Key, Config, In, Contribution>
 }
 
 /**
- * The factory shape that {@link defineGate} produces. Two arms:
+ * The shape of a gate — a `(config, handler) => fetchHandler` callable that
+ * {@link defineGate} produces. Two arms:
  *
  * - **No prerequisites** (`In` keys empty): `baseCtx` is optional, so the
  *   gate works as a standalone outermost handler.
@@ -196,7 +197,7 @@ type NoConflict<Key extends string, Base> =
       ? Conflict<Key>
       : object
 
-export interface GateFactory<
+export interface Gate<
   Key extends string,
   Config,
   In extends object,
