@@ -161,36 +161,27 @@ export const withPayment = defineGate<
             const pi =
               await config.stripe.paymentIntents.retrieve(paymentIntentId)
             if (pi.status === 'succeeded') {
-              return {
-                kind: 'pass',
-                contribution: { intentId: paymentIntentId },
-              }
+              return { payment: { intentId: paymentIntentId } }
             }
-            return {
-              kind: 'reject',
-              response: Response.json(
-                {
-                  x402Version: 1,
-                  error: 'payment_not_settled',
-                  status: pi.status,
-                },
-                { status: 402 },
-              ),
-            }
+            return Response.json(
+              {
+                x402Version: 1,
+                error: 'payment_not_settled',
+                status: pi.status,
+              },
+              { status: 402 },
+            )
           }
         }
       }
 
-      return {
-        kind: 'reject',
-        response: await issuePaymentRequired(
-          req,
-          ctx.supabaseAdmin,
-          config,
-          network,
-          registerRpc,
-        ),
-      }
+      return issuePaymentRequired(
+        req,
+        ctx.supabaseAdmin,
+        config,
+        network,
+        registerRpc,
+      )
     }
   },
 })

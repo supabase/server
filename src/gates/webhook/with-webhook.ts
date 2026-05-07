@@ -51,22 +51,22 @@ export interface WebhookState {
  *
  * @example
  * ```ts
- * import { chain } from '@supabase/server/core/gates'
  * import { withWebhook } from '@supabase/server/gates/webhook'
  *
  * export default {
- *   fetch: chain(
- *     withWebhook({
+ *   fetch: withWebhook(
+ *     {
  *       provider: {
  *         kind: 'stripe',
  *         secret: process.env.STRIPE_WEBHOOK_SECRET!,
  *       },
- *     }),
- *   )(async (req, ctx) => {
- *     // ctx.webhook.event is the parsed Stripe event
- *     // ctx.webhook.rawBody is the raw bytes (preserved here)
- *     return new Response(null, { status: 204 })
- *   }),
+ *     },
+ *     async (req, ctx) => {
+ *       // ctx.webhook.event is the parsed Stripe event
+ *       // ctx.webhook.rawBody is the raw bytes (preserved here)
+ *       return new Response(null, { status: 204 })
+ *     },
+ *   ),
  * }
  * ```
  */
@@ -85,18 +85,14 @@ export const withWebhook = defineGate<
         : await verifyStripe(req, rawBody, config.provider)
 
     if (!result.ok) {
-      return {
-        kind: 'reject',
-        response: Response.json(
-          { error: result.error ?? 'invalid_signature' },
-          { status: result.status ?? 401 },
-        ),
-      }
+      return Response.json(
+        { error: result.error ?? 'invalid_signature' },
+        { status: result.status ?? 401 },
+      )
     }
 
     return {
-      kind: 'pass',
-      contribution: {
+      webhook: {
         event: result.event,
         rawBody,
         deliveryId: result.deliveryId,

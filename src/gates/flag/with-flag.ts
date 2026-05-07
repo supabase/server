@@ -60,18 +60,16 @@ export interface FlagState {
  *
  * @example
  * ```ts
- * import { chain } from '@supabase/server/core/gates'
  * import { withFlag } from '@supabase/server/gates/flag'
  *
  * export default {
- *   fetch: chain(
- *     withFlag({
+ *   fetch: withFlag(
+ *     {
  *       name: 'beta-checkout',
  *       evaluate: (req) => req.headers.get('x-beta') === '1',
- *     }),
- *   )(async (_req, ctx) => {
- *     return Response.json({ feature: ctx.flag.name })
- *   }),
+ *     },
+ *     async (_req, ctx) => Response.json({ feature: ctx.flag.name }),
+ *   ),
  * }
  * ```
  *
@@ -100,18 +98,14 @@ export const withFlag = defineGate<
       typeof result === 'boolean' ? { enabled: result } : result
 
     if (!verdict.enabled) {
-      return {
-        kind: 'reject',
-        response: Response.json(
-          config.rejectBody ?? { error: 'feature_disabled', flag: config.name },
-          { status: config.rejectStatus ?? 404 },
-        ),
-      }
+      return Response.json(
+        config.rejectBody ?? { error: 'feature_disabled', flag: config.name },
+        { status: config.rejectStatus ?? 404 },
+      )
     }
 
     return {
-      kind: 'pass',
-      contribution: {
+      flag: {
         name: config.name,
         enabled: true,
         variant: verdict.variant ?? null,

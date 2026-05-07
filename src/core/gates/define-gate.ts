@@ -1,12 +1,15 @@
-import type { Conflict, GateResult } from './types.js'
+import type { Conflict } from './types.js'
 
 /**
  * Defines a gate.
  *
  * A gate is a small unit that runs against an inbound `Request` and the
- * upstream context. It either short-circuits with a `Response` (rejection) or
- * contributes a typed value at `ctx[key]` (pass), then calls the inner
- * handler with the merged context.
+ * upstream context. It either short-circuits by returning a `Response`, or
+ * contributes a typed value at `ctx[key]` by returning a single-key object
+ * `{ [key]: contribution }` — the framework picks `result[key]`, merges it
+ * into the context, and calls the inner handler. Any other keys on the
+ * returned object are ignored at runtime, and TypeScript flags them at
+ * fresh-literal returns via excess-property checks.
  *
  * The returned factory has the shape `withFoo(config, handler) → fetchHandler`,
  * so gates nest the same way `withSupabase` does — no separate composer.
@@ -30,7 +33,9 @@ import type { Conflict, GateResult } from './types.js'
  * @typeParam In - Structural shape the gate requires from upstream.
  * Defaults to `{}` (no prerequisites). Use this to declare cross-gate
  * dependencies, e.g. `In = { supabase: SupabaseClient }`.
- * @typeParam Contribution - Shape of the value placed at `ctx[Key]`.
+ * @typeParam Contribution - Shape of the value placed at `ctx[Key]`. The
+ * `run` return type wraps this as `{ [Key]: Contribution }`, so the gate
+ * author types the slot key directly in the return position.
  *
  * @example No prerequisites:
  * ```ts
@@ -45,12 +50,9 @@ import type { Conflict, GateResult } from './types.js'
  *   key: 'flag',
  *   run: (config) => async (req) => {
  *     if (!config.evaluate(req)) {
- *       return {
- *         kind: 'reject',
- *         response: Response.json({ error: 'feature_disabled' }, { status: 404 }),
- *       }
+ *       return Response.json({ error: 'feature_disabled' }, { status: 404 })
  *     }
- *     return { kind: 'pass', contribution: { name: config.name, enabled: true } }
+ *     return { flag: { name: config.name, enabled: true } }
  *   },
  * })
  *
@@ -73,12 +75,9 @@ import type { Conflict, GateResult } from './types.js'
  *     // ctx is typed as `{ supabase, userClaims }` — the In shape.
  *     const allowed = await canRead(ctx.supabase, ctx.userClaims, config.reportId)
  *     if (!allowed) {
- *       return {
- *         kind: 'reject',
- *         response: Response.json({ error: 'forbidden' }, { status: 403 }),
- *       }
+ *       return Response.json({ error: 'forbidden' }, { status: 403 })
  *     }
- *     return { kind: 'pass', contribution: { allowed } }
+ *     return { reportAccess: { allowed } }
  *   },
  * })
  *
@@ -101,15 +100,21 @@ export function defineGate<
   key: Key
   run: (
     config: Config,
-  ) => (req: Request, ctx: In) => Promise<GateResult<Contribution>>
+  ) => (
+    req: Request,
+    ctx: In,
+  ) => Promise<Response | { [K in Key]: Contribution }>
 }): GateFactory<Key, Config, In, Contribution> {
   return ((config: Config, handler: never) => {
     const inner = spec.run(config)
     return async (req: Request, baseCtx?: object) => {
       const upstream = baseCtx ?? ({} as object)
       const result = await inner(req, upstream as In)
-      if (result.kind === 'reject') return result.response
-      const ctx = { ...upstream, [spec.key]: result.contribution }
+      if (result instanceof Response) return result
+      const ctx = {
+        ...upstream,
+        [spec.key]: (result as Record<string, unknown>)[spec.key],
+      }
       return (
         handler as unknown as (req: Request, ctx: object) => Promise<Response>
       )(req, ctx)
@@ -143,22 +148,31 @@ type Wrapped<Base, In> = keyof In extends never
   : (req: Request, baseCtx: Base) => Promise<Response>
 
 /**
- * Result of calling a gate factory: either the wrapped handler (no conflict),
- * or a `Conflict<Key>` sentinel string (key already on `Base`). The sentinel
- * surfaces at the *use site* of the returned value — when it's passed as a
- * handler to an outer wrapper that expected a function, TypeScript reports
- * "Type '…' is not assignable to type 'gate-conflict: …'", citing the literal
- * conflict message.
+ * Constraint that surfaces a key collision as a TypeScript error at the
+ * offending gate's call site. When the upstream `Base` already has the gate's
+ * `Key`, this resolves to `Conflict<Key>` (a sentinel string), which `Base`
+ * (an `object`) cannot extend — TypeScript reports the conflict citing the
+ * literal conflict message.
  *
- * `any` Base (common in tests via `vi.fn` inference) skips conflict detection
- * because `keyof any` would false-positive every key.
+ * Critically, this constraint sits next to `Base extends In` in the type
+ * parameter list, *not* in the return-type or handler-parameter position. A
+ * conditional type wrapping the return or handler types would block contextual
+ * inference of `Base` from the outer caller. By contrast, a constraint is
+ * checked but doesn't gate inference flow: TS infers `Base` from the
+ * contextual handler shape first, then validates the conflict constraint.
+ *
+ * This is what lets nested gates pick up their upstream context types
+ * automatically — no explicit `<Base>` annotations needed at each level.
+ *
+ * `any` Base (common in tests via `vi.fn` inference) skips the check because
+ * `keyof any` would false-positive every key.
  */
-type FactoryReturn<Key extends string, Base, In> =
+type NoConflict<Key extends string, Base> =
   IsAny<Base> extends true
-    ? Wrapped<Base, In>
+    ? object
     : Key extends keyof Base
       ? Conflict<Key>
-      : Wrapped<Base, In>
+      : object
 
 export interface GateFactory<
   Key extends string,
@@ -166,11 +180,11 @@ export interface GateFactory<
   In extends object,
   Contribution,
 > {
-  <Base extends In>(
+  <Base extends In & NoConflict<Key, Base>>(
     config: Config,
     handler: (
       req: Request,
       ctx: Base & { [K in Key]: Contribution },
     ) => Promise<Response>,
-  ): FactoryReturn<Key, Base, In>
+  ): Wrapped<Base, In>
 }

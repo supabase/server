@@ -136,26 +136,22 @@ export const withRateLimit = defineGate<
           1,
           Math.ceil((data.reset_at - Date.now()) / 1000),
         )
-        return {
-          kind: 'reject',
-          response: Response.json(
-            { error: 'rate_limit_exceeded', retryAfter },
-            {
-              status: 429,
-              headers: {
-                'Retry-After': String(retryAfter),
-                'X-RateLimit-Limit': String(config.limit),
-                'X-RateLimit-Remaining': '0',
-                'X-RateLimit-Reset': String(resetSec),
-              },
+        return Response.json(
+          { error: 'rate_limit_exceeded', retryAfter },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(retryAfter),
+              'X-RateLimit-Limit': String(config.limit),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(resetSec),
             },
-          ),
-        }
+          },
+        )
       }
 
       return {
-        kind: 'pass',
-        contribution: {
+        rateLimit: {
           limit: config.limit,
           remaining,
           reset: data.reset_at,

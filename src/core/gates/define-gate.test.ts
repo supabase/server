@@ -4,19 +4,19 @@ import { defineGate } from './define-gate.js'
 
 const innerOk = async () => Response.json({ ok: true })
 
-const passingGate = <Key extends string, C>(key: Key, contribution: C) =>
+const passingGate = <Key extends string, C extends object>(
+  key: Key,
+  contribution: C,
+) =>
   defineGate<Key, undefined, Record<never, never>, C>({
     key,
-    run: () => async () => ({ kind: 'pass', contribution }),
+    run: () => async () => ({ [key]: contribution }) as { [K in Key]: C },
   })
 
 const rejectingGate = <Key extends string>(key: Key, status = 401) =>
   defineGate<Key, undefined, Record<never, never>, Record<never, never>>({
     key,
-    run: () => async () => ({
-      kind: 'reject',
-      response: new Response(`rejected by ${key}`, { status }),
-    }),
+    run: () => async () => new Response(`rejected by ${key}`, { status }),
   })
 
 describe('defineGate', () => {
@@ -28,10 +28,7 @@ describe('defineGate', () => {
       { hello: string }
     >({
       key: 'greeting',
-      run: (config) => async () => ({
-        kind: 'pass',
-        contribution: { hello: config.who },
-      }),
+      run: (config) => async () => ({ greeting: { hello: config.who } }),
     })
 
     const fetchHandler = withGreeting({ who: 'world' }, async (_req, ctx) =>
@@ -70,16 +67,16 @@ describe('defineGate', () => {
   it('refuses to compose where the gate would shadow an upstream key', () => {
     const withFoo = passingGate('foo', { v: 1 })
 
-    // Calling the gate with a Base that already includes 'foo' returns a
-    // `Conflict<'foo'>` sentinel string instead of a fetch handler. The error
-    // surfaces when the result is used in a function position.
-    const conflicted = withFoo<{ foo: { v: number } }>(undefined, async () =>
-      Response.json({ ok: true }),
-    )
-
-    // @ts-expect-error — Conflict<Key> string is not assignable to a fetch handler
-    const _fn: (req: Request) => Promise<Response> = conflicted
-    void _fn
+    // When the upstream Base already has the gate's key, the `Base` type
+    // parameter fails its `NoConflict<Key, Base>` constraint and TypeScript
+    // reports the conflict at the offending gate's call site, citing the
+    // literal conflict message.
+    const conflicted =
+      withFoo<// @ts-expect-error — gate would shadow upstream key 'foo'
+      { foo: { v: number } }>(undefined, async () =>
+        Response.json({ ok: true }),
+      )
+    void conflicted
   })
 
   it('enforces prerequisites: gates with `In` keys require the upstream to provide them', async () => {
@@ -99,8 +96,7 @@ describe('defineGate', () => {
         // ctx is typed as Upstream — `from` is callable here
         const probe = ctx.supabase.from(`reports:${config.reportId}`)
         return {
-          kind: 'pass',
-          contribution: { allowed: probe.ok && ctx.userClaims.id !== '' },
+          reportAccess: { allowed: probe.ok && ctx.userClaims.id !== '' },
         }
       },
     })
@@ -143,15 +139,9 @@ describe('defineGate', () => {
       key: 'tenant',
       run: (config) => async (_req, ctx) => {
         if (!config.allowed.includes(ctx.tenantId)) {
-          return {
-            kind: 'reject',
-            response: Response.json(
-              { error: 'tenant_forbidden' },
-              { status: 403 },
-            ),
-          }
+          return Response.json({ error: 'tenant_forbidden' }, { status: 403 })
         }
-        return { kind: 'pass', contribution: { tenantId: ctx.tenantId } }
+        return { tenant: { tenantId: ctx.tenantId } }
       },
     })
 

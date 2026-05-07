@@ -13,4 +13,4 @@
 
 export { defineGate } from './define-gate.js'
 export type { GateFactory } from './define-gate.js'
-export type { Conflict, GateResult } from './types.js'
+export type { Conflict } from './types.js'

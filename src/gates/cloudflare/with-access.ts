@@ -60,18 +60,16 @@ export interface AccessState {
  *
  * @example
  * ```ts
- * import { chain } from '@supabase/server/core/gates'
  * import { withAccess } from '@supabase/server/gates/cloudflare'
  *
  * export default {
- *   fetch: chain(
- *     withAccess({
+ *   fetch: withAccess(
+ *     {
  *       teamDomain: 'acme.cloudflareaccess.com',
  *       audience: process.env.CF_ACCESS_AUD!,
- *     }),
- *   )(async (req, ctx) => {
- *     return Response.json({ user: ctx.access.email })
- *   }),
+ *     },
+ *     async (req, ctx) => Response.json({ user: ctx.access.email }),
+ *   ),
  * }
  * ```
  */
@@ -90,13 +88,7 @@ export const withAccess = defineGate<
     return async (req) => {
       const token = req.headers.get(HEADER_NAME)
       if (!token) {
-        return {
-          kind: 'reject',
-          response: Response.json(
-            { error: 'access_token_missing' },
-            { status: 401 },
-          ),
-        }
+        return Response.json({ error: 'access_token_missing' }, { status: 401 })
       }
 
       try {
@@ -112,8 +104,7 @@ export const withAccess = defineGate<
             : null
 
         return {
-          kind: 'pass',
-          contribution: {
+          access: {
             email,
             sub: payload.sub ?? '',
             identityNonce,
@@ -122,16 +113,13 @@ export const withAccess = defineGate<
           },
         }
       } catch (err) {
-        return {
-          kind: 'reject',
-          response: Response.json(
-            {
-              error: 'access_token_invalid',
-              detail: err instanceof Error ? err.message : 'unknown',
-            },
-            { status: 401 },
-          ),
-        }
+        return Response.json(
+          {
+            error: 'access_token_invalid',
+            detail: err instanceof Error ? err.message : 'unknown',
+          },
+          { status: 401 },
+        )
       }
     }
   },

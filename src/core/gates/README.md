@@ -1,6 +1,6 @@
 # `@supabase/server/core/gates`
 
-Composable preconditions for fetch handlers. A **gate** is a small unit that runs against an inbound `Request` and either short-circuits with a `Response` or contributes typed data to a flat key on `ctx` for the handler.
+Composable preconditions for fetch handlers. A **gate** is a small unit that runs against an inbound `Request` and either short-circuits by returning a `Response` or contributes typed data to a flat key on `ctx` for the handler.
 
 This module exports:
 
@@ -85,12 +85,9 @@ export const withFlag = defineGate<
   run: (config) => async (req) => {
     const enabled = config.evaluate(req)
     if (!enabled) {
-      return {
-        kind: 'reject',
-        response: Response.json({ error: 'feature_disabled' }, { status: 404 }),
-      }
+      return Response.json({ error: 'feature_disabled' }, { status: 404 })
     }
-    return { kind: 'pass', contribution: { enabled } }
+    return { flag: { enabled } } // ← keyed slot, visible at ctx.flag
   },
 })
 ```
@@ -108,16 +105,12 @@ withFlag({ name: 'beta', evaluate: ... }, async (req, ctx) => {
 
 ```ts
 run: (config: Config) => (req: Request, ctx: In) =>
-  Promise<GateResult<Contribution>>
-
-type GateResult<C> =
-  | { kind: 'pass'; contribution: C }
-  | { kind: 'reject'; response: Response }
+  Promise<Response | { [K in Key]: Contribution }>
 ```
 
 The outer `(config) =>` is invoked once when the consumer constructs the gate. Initialize per-instance state (stores, clients, computed config) here. The inner `(req, ctx) =>` is invoked per-request.
 
-Return `{ kind: 'pass', contribution }` to admit the request and contribute typed state. Return `{ kind: 'reject', response }` to short-circuit with a canonical 4xx response.
+Return a `Response` to short-circuit. Otherwise, return a single-key object `{ [key]: contribution }` — the gate author types the slot key directly in the return position, so the relationship between the gate's `key` and where its data lands on `ctx` is visible at the call site. The runtime picks `result[key]` and ignores any other fields, so accidentally returning a wider object (e.g. `{ ...ctx, [key]: ... }`) is a runtime no-op for upstream values, and TypeScript flags excess keys on fresh-literal returns.
 
 ### Declaring upstream prerequisites
 
@@ -135,19 +128,13 @@ export const withSubscription = defineGate<
   key: 'subscription',
   run: (config) => async (_req, ctx) => {
     if (!ctx.userClaims) {
-      return {
-        kind: 'reject',
-        response: Response.json({ error: 'unauthenticated' }, { status: 401 }),
-      }
+      return Response.json({ error: 'unauthenticated' }, { status: 401 })
     }
     const plan = await config.lookup(ctx.userClaims.id)
     if (!plan) {
-      return {
-        kind: 'reject',
-        response: Response.json({ error: 'no_plan' }, { status: 402 }),
-      }
+      return Response.json({ error: 'no_plan' }, { status: 402 })
     }
-    return { kind: 'pass', contribution: { plan } }
+    return { subscription: { plan } }
   },
 })
 ```
@@ -198,9 +185,8 @@ Without the explicit `<Base>`, the inner handler's `ctx` only types the gate's o
 
 ## API
 
-| Export                                       | Description                                                                             |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `defineGate(spec)`                           | Author helper: declare a gate. Returns a `(config, handler)` factory.                   |
-| `GateResult<Contribution>`                   | Discriminated union: `{ kind: 'pass', contribution }` / `{ kind: 'reject', response }`. |
-| `Conflict<Key>`                              | Sentinel string returned when a gate would shadow an upstream key.                      |
-| `GateFactory<Key, Config, In, Contribution>` | The shape of a gate factory produced by `defineGate`.                                   |
+| Export                                       | Description                                                           |
+| -------------------------------------------- | --------------------------------------------------------------------- |
+| `defineGate(spec)`                           | Author helper: declare a gate. Returns a `(config, handler)` factory. |
+| `Conflict<Key>`                              | Sentinel string returned when a gate would shadow an upstream key.    |
+| `GateFactory<Key, Config, In, Contribution>` | The shape of a gate factory produced by `defineGate`.                 |

@@ -74,18 +74,17 @@ interface SiteverifyResponse {
  *
  * @example
  * ```ts
- * import { chain } from '@supabase/server/core/gates'
  * import { withTurnstile } from '@supabase/server/gates/cloudflare'
  *
  * export default {
- *   fetch: chain(
- *     withTurnstile({
+ *   fetch: withTurnstile(
+ *     {
  *       secretKey: process.env.TURNSTILE_SECRET_KEY!,
  *       expectedAction: 'login',
- *     }),
- *   )(async (req, ctx) => {
- *     return Response.json({ ok: true, action: ctx.turnstile.action })
- *   }),
+ *     },
+ *     async (req, ctx) =>
+ *       Response.json({ ok: true, action: ctx.turnstile.action }),
+ *   ),
  * }
  * ```
  */
@@ -103,13 +102,10 @@ export const withTurnstile = defineGate<
     return async (req) => {
       const token = await getToken(req)
       if (!token) {
-        return {
-          kind: 'reject',
-          response: Response.json(
-            { error: 'turnstile_token_missing' },
-            { status: 401 },
-          ),
-        }
+        return Response.json(
+          { error: 'turnstile_token_missing' },
+          { status: 401 },
+        )
       }
 
       const params = new URLSearchParams()
@@ -124,53 +120,43 @@ export const withTurnstile = defineGate<
       })
 
       if (!verifyResponse.ok) {
-        return {
-          kind: 'reject',
-          response: Response.json(
-            {
-              error: 'turnstile_verification_unavailable',
-              status: verifyResponse.status,
-            },
-            { status: 503 },
-          ),
-        }
+        return Response.json(
+          {
+            error: 'turnstile_verification_unavailable',
+            status: verifyResponse.status,
+          },
+          { status: 503 },
+        )
       }
 
       const result = (await verifyResponse.json()) as SiteverifyResponse
 
       if (!result.success) {
-        return {
-          kind: 'reject',
-          response: Response.json(
-            {
-              error: 'turnstile_verification_failed',
-              codes: result['error-codes'] ?? [],
-            },
-            { status: 401 },
-          ),
-        }
+        return Response.json(
+          {
+            error: 'turnstile_verification_failed',
+            codes: result['error-codes'] ?? [],
+          },
+          { status: 401 },
+        )
       }
 
       if (
         config.expectedAction !== undefined &&
         result.action !== config.expectedAction
       ) {
-        return {
-          kind: 'reject',
-          response: Response.json(
-            {
-              error: 'turnstile_action_mismatch',
-              expected: config.expectedAction,
-              actual: result.action ?? null,
-            },
-            { status: 401 },
-          ),
-        }
+        return Response.json(
+          {
+            error: 'turnstile_action_mismatch',
+            expected: config.expectedAction,
+            actual: result.action ?? null,
+          },
+          { status: 401 },
+        )
       }
 
       return {
-        kind: 'pass',
-        contribution: {
+        turnstile: {
           challengeTs: result.challenge_ts ?? '',
           hostname: result.hostname ?? '',
           action: result.action ?? '',

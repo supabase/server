@@ -1,8 +1,8 @@
 /**
  * Cloudflare gates.
  *
- * Each gate slots into {@link chain} from `@supabase/server/core/gates` and
- * contributes typed state to `ctx.state[namespace]`.
+ * Each gate is a fetch-handler wrapper — compose by direct nesting — and
+ * contributes typed state under its own key on `ctx`.
  *
  * @packageDocumentation
  */
