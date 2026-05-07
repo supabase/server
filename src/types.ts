@@ -6,45 +6,58 @@ import type {
 /**
  * Authentication mode that determines what credentials a request must provide.
  *
- * - `"always"` — No credentials required. Every request is accepted.
- * - `"public"` — Requires a valid publishable key in the `apikey` header.
+ * - `"none"` — No credentials required. Every request is accepted.
+ * - `"publishable"` — Requires a valid publishable key in the `apikey` header.
  * - `"secret"` — Requires a valid secret key in the `apikey` header (timing-safe comparison).
  * - `"user"` — Requires a valid JWT in the `Authorization: Bearer <token>` header.
  *
  * @example
  * ```ts
  * // Single mode
- * withSupabase({ allow: 'user' }, handler)
+ * withSupabase({ auth: 'user' }, handler)
  *
  * // Multiple modes — the first match wins.
  * // A mode is tried only when its credential is present; a JWT that is
  * // present but fails verification rejects immediately rather than falling
  * // through to the next mode.
- * withSupabase({ allow: ['user', 'public'] }, handler)
+ * withSupabase({ auth: ['user', 'publishable'] }, handler)
  * ```
  */
-export type Allow = 'always' | 'public' | 'secret' | 'user'
+export type AuthMode = 'none' | 'publishable' | 'secret' | 'user'
+
+/**
+ * @deprecated Use {@link AuthMode} instead. Will be removed in a future major release.
+ */
+export type Allow = AuthMode
 
 /**
  * Extended auth mode that supports targeting a specific named key.
  *
- * Use the colon syntax (`"public:web_app"`) to require a specific named key
+ * Use the colon syntax (`"publishable:web_app"`) to require a specific named key
  * from the `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS` JSON object.
- * Use `"public:*"` or `"secret:*"` to accept any key in the set.
+ * Use `"publishable:*"` or `"secret:*"` to accept any key in the set.
  *
  * @example
  * ```ts
  * // Accept only the "mobile" publishable key
- * withSupabase({ allow: 'public:mobile' }, handler)
+ * withSupabase({ auth: 'publishable:mobile' }, handler)
  *
  * // Accept any secret key
- * withSupabase({ allow: 'secret:*' }, handler)
+ * withSupabase({ auth: 'secret:*' }, handler)
  *
  * // Mix named keys with other modes
- * withSupabase({ allow: ['user', 'public:web_app'] }, handler)
+ * withSupabase({ auth: ['user', 'publishable:web_app'] }, handler)
  * ```
  */
-export type AllowWithKey = Allow | `public:${string}` | `secret:${string}`
+export type AuthModeWithKey =
+  | AuthMode
+  | `publishable:${string}`
+  | `secret:${string}`
+
+/**
+ * @deprecated Use {@link AuthModeWithKey} instead. Will be removed in a future major release.
+ */
+export type AllowWithKey = AuthModeWithKey
 
 /**
  * Resolved Supabase environment configuration.
@@ -115,7 +128,7 @@ export interface Credentials {
  */
 export interface AuthResult {
   /** The auth mode that was successfully matched. */
-  authType: Allow
+  authMode: AuthMode
 
   /** The verified JWT, or `null` for non-user auth modes. */
   token: string | null
@@ -124,7 +137,7 @@ export interface AuthResult {
   userClaims: UserClaims | null
 
   /** Raw JWT payload, or `null` when no JWT is present. */
-  claims: JWTClaims | null
+  jwtClaims: JWTClaims | null
 
   /** Name of the matched key (e.g. `"default"`, `"mobile"`), or `null` for `"user"` / `"always"` modes. */
   keyName?: string | null
@@ -201,16 +214,16 @@ export interface UserClaims {
  * @example
  * ```ts
  * // Require authenticated users, auto-CORS enabled (default)
- * const config: WithSupabaseConfig = { allow: 'user' }
+ * const config: WithSupabaseConfig = { auth: 'user' }
  *
  * // Accept users or service-to-service calls, custom CORS headers
  * const config: WithSupabaseConfig = {
- *   allow: ['user', 'secret'],
+ *   auth: ['user', 'secret'],
  *   cors: { 'Access-Control-Allow-Origin': 'https://myapp.com' },
  * }
  *
  * // No auth required, CORS disabled
- * const config: WithSupabaseConfig = { allow: 'always', cors: false }
+ * const config: WithSupabaseConfig = { auth: 'none', cors: false }
  * ```
  */
 export interface WithSupabaseConfig {
@@ -221,7 +234,14 @@ export interface WithSupabaseConfig {
    *
    * @defaultValue `"user"`
    */
-  allow?: AllowWithKey | AllowWithKey[]
+  auth?: AuthModeWithKey | AuthModeWithKey[]
+
+  /**
+   * @deprecated Use {@link WithSupabaseConfig.auth} instead. The `allow` option
+   * is kept for backward compatibility and will be removed in a future major release.
+   * When both `auth` and `allow` are provided, `auth` takes precedence.
+   */
+  allow?: AuthModeWithKey | AuthModeWithKey[]
 
   /**
    * Override auto-detected environment variables. Useful for testing
@@ -252,7 +272,7 @@ export interface WithSupabaseConfig {
    * @example
    * ```ts
    * withSupabase({
-   *   allow: 'user',
+   *   auth: 'user',
    *   supabaseOptions: { db: { schema: 'api' } },
    * }, handler)
    * ```
@@ -314,11 +334,14 @@ export interface SupabaseContext<Database = unknown> {
   userClaims: UserClaims | null
 
   /** Raw JWT payload. `null` for non-user auth modes. */
-  claims: JWTClaims | null
+  jwtClaims: JWTClaims | null
 
   /** The auth mode that was used for this request. */
-  authType: Allow
+  authMode: AuthMode
 
-  /** The auth key name of the API key that was used for this request. */
-  authKeyName?: string | null
+  /**
+   * The auth key name of the API key that was used for this request.
+   * Omitted for `'user'` and `'none'` modes, which don't match a named key.
+   */
+  authKeyName?: string
 }

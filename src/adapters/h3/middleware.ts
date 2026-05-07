@@ -19,7 +19,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * import { withSupabase } from '@supabase/server/adapters/h3'
  *
  * const app = new H3()
- * app.use(withSupabase({ allow: 'user' }))
+ * app.use(withSupabase({ auth: 'user' }))
  *
  * app.get('/games', async (event) => {
  *   const { supabase } = event.context.supabaseContext
@@ -35,7 +35,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * import { withSupabase } from '@supabase/server/adapters/h3'
  *
  * export default defineHandler({
- *   middleware: [withSupabase({ allow: 'user' })],
+ *   middleware: [withSupabase({ auth: 'user' })],
  *   handler: async (event) => {
  *     const { supabase } = event.context.supabaseContext
  *     return supabase.from('favorite_games').select()

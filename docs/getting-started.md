@@ -32,14 +32,14 @@ The fastest way to get a working authenticated endpoint:
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     const { data } = await ctx.supabase.from('todos').select()
     return Response.json(data)
   }),
 }
 ```
 
-> The `export default { fetch }` pattern is the standard module worker interface supported by Deno (including Supabase Edge Functions), Bun, and Cloudflare Workers. For Node.js, use the [Hono adapter](hono-adapter.md) or [core primitives](core-primitives.md) with your framework of choice.
+> The `export default { fetch }` pattern is the standard module worker interface supported by Deno (including Supabase Edge Functions), Bun, and Cloudflare Workers. For Node.js, use the [Hono adapter](adapters/hono.md) or [core primitives](core-primitives.md) with your framework of choice.
 
 This single wrapper does four things for every request:
 
@@ -56,13 +56,13 @@ Your handler only runs when auth succeeds.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'always' }, async (_req, _ctx) => {
+  fetch: withSupabase({ auth: 'none' }, async (_req, _ctx) => {
     return Response.json({ status: 'ok', time: new Date().toISOString() })
   }),
 }
 ```
 
-> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, disable the platform-level JWT check in `supabase/config.toml`:
+> **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'publishable'`, `auth: 'secret'`, or `auth: 'none'`, disable the platform-level JWT check in `supabase/config.toml`:
 >
 > ```toml
 > [functions.my-function]
@@ -73,16 +73,16 @@ export default {
 
 Every handler receives a `SupabaseContext` with these fields:
 
-| Field           | Type                 | Description                                                                                            |
-| --------------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `supabase`      | `SupabaseClient`     | Client scoped to the caller. RLS policies apply.                                                       |
-| `supabaseAdmin` | `SupabaseClient`     | Admin client. Bypasses RLS.                                                                            |
-| `userClaims`    | `UserClaims \| null` | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
-| `claims`        | `JWTClaims \| null`  | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
-| `authType`      | `Allow`              | Which auth mode matched: `'user'`, `'public'`, `'secret'`, or `'always'`.                              |
-| `authKeyName`   | `string \| null`     | Which auth key name of the API key that was used.                                                      |
+| Field           | Type                  | Description                                                                                            |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `supabase`      | `SupabaseClient`      | Client scoped to the caller. RLS policies apply.                                                       |
+| `supabaseAdmin` | `SupabaseClient`      | Admin client. Bypasses RLS.                                                                            |
+| `userClaims`    | `UserClaims \| null`  | JWT-derived identity (`id`, `email`, `role`, `appMetadata`, `userMetadata`). `null` for non-user auth. |
+| `jwtClaims`     | `JWTClaims \| null`   | Raw JWT payload (snake_case). `null` for non-user auth.                                                |
+| `authMode`      | `AuthMode`            | Which auth mode matched: `'user'`, `'publishable'`, `'secret'`, or `'none'`.                           |
+| `authKeyName`   | `string \| undefined` | Which auth key name of the API key that was used. Omitted for `'user'` / `'none'`.                     |
 
-The `supabase` client respects Row-Level Security. When `authType` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
+The `supabase` client respects Row-Level Security. When `authMode` is `'user'`, the client is scoped to that user's permissions. For other auth modes, it's initialized as anonymous.
 
 The `supabaseAdmin` client always bypasses RLS. Use it for operations that need full database access regardless of who's calling.
 
@@ -98,7 +98,7 @@ import { createSupabaseContext } from '@supabase/server'
 export default {
   fetch: async (req: Request) => {
     const { data: ctx, error } = await createSupabaseContext(req, {
-      allow: 'user',
+      auth: 'user',
     })
 
     if (error) {
@@ -124,7 +124,7 @@ CORS is enabled by default with standard supabase-js headers. You can customize 
 // Custom CORS headers
 withSupabase(
   {
-    allow: 'user',
+    auth: 'user',
     cors: {
       'Access-Control-Allow-Origin': 'https://myapp.com',
       'Access-Control-Allow-Headers': 'authorization, content-type',
@@ -134,7 +134,7 @@ withSupabase(
 )
 
 // Disable CORS (e.g., when a framework handles it)
-withSupabase({ allow: 'user', cors: false }, handler)
+withSupabase({ auth: 'user', cors: false }, handler)
 ```
 
 ## Runtimes
@@ -143,7 +143,7 @@ withSupabase({ allow: 'user', cors: false }, handler)
 
 - **Supabase Edge Functions** — environment variables are automatically injected by the platform. Zero config needed.
 - **Deno / Bun** — works out of the box with the module worker pattern.
-- **Node.js** — set variables via `.env` files or your hosting platform. Use the [Hono adapter](hono-adapter.md) or [core primitives](core-primitives.md) to integrate with any framework.
+- **Node.js** — set variables via `.env` files or your hosting platform. Use the [Hono adapter](adapters/hono.md) or [core primitives](core-primitives.md) to integrate with any framework.
 - **Cloudflare Workers** — enable `nodejs_compat` or pass env overrides via the `env` config option.
 
 For full details on environment setup per runtime, see [environment-variables.md](environment-variables.md).

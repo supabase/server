@@ -62,7 +62,7 @@ import { createSupabaseContext } from '@supabase/server'
 export default {
   fetch: async (req: Request) => {
     const { data: ctx, error } = await createSupabaseContext(req, {
-      allow: 'user',
+      auth: 'user',
     })
 
     if (error) {
@@ -93,7 +93,7 @@ import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
 
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 app.onError((err, c) => {
   if (err instanceof HTTPException && err.cause) {
@@ -115,7 +115,7 @@ Result-tuple functions:
 import { verifyAuth, resolveEnv } from '@supabase/server/core'
 
 // verifyAuth returns { data, error }
-const { data: auth, error } = await verifyAuth(request, { allow: 'user' })
+const { data: auth, error } = await verifyAuth(request, { auth: 'user' })
 if (error) {
   return Response.json({ message: error.message }, { status: error.status })
 }
@@ -137,7 +137,7 @@ import {
 } from '@supabase/server/core'
 import { EnvError } from '@supabase/server'
 
-const { data: auth, error } = await verifyAuth(request, { allow: 'user' })
+const { data: auth, error } = await verifyAuth(request, { auth: 'user' })
 // ... handle error ...
 
 try {

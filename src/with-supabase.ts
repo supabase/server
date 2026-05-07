@@ -18,7 +18,7 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  * import { withSupabase } from '@supabase/server'
  *
  * export default {
- *   fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
+ *   fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
  *     const { data } = await ctx.supabase.rpc('get_my_profile')
  *     return Response.json(data)
  *   }),

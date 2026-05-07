@@ -1,13 +1,17 @@
 ---
 name: supabase-server
-description: Use when writing server-side code with Supabase — Edge Functions, Hono apps, webhook handlers, or any backend that needs Supabase auth and client creation. Trigger whenever the user imports from `@supabase/server`, mentions `supabase/server`, Supabase Edge Functions, or needs server-side auth (JWT verification, API key validation, CORS handling) with Supabase. Also trigger when you see legacy patterns in existing code — `Deno.serve`, `createClient(Deno.env.get('SUPABASE_URL'))`, imports from `esm.sh/@supabase`, `deno.land/std` serve, or usage of `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — these indicate code that should be migrated to this package.
+description: Use when planning or writing server-side code that uses `@supabase/server` — Edge Functions, Hono apps, webhook handlers, or any backend that creates Supabase clients or validates inbound auth. Trigger **before** writing or modifying any file that imports from `@supabase/server` (or sub-paths like `@supabase/server/core`); calls `withSupabase`, `createSupabaseContext`, `createAdminClient`, `createContextClient`, `verifyAuth`, `verifyCredentials`, or `extractCredentials`; configures an `auth:` mode (`'none'` | `'publishable'` | `'secret'` | `'user'`, or keyed variants like `'secret:*'`); or lives under `supabase/functions/` and authenticates an inbound request. Also trigger during planning — if a plan mentions any of the above, load the skill before drafting code; do not extrapolate `auth:` values or auth modes from neighboring functions. Also trigger when you see legacy patterns to migrate to this package — `Deno.serve`, `createClient(Deno.env.get('SUPABASE_URL'))`, imports from `esm.sh/@supabase` or `deno.land/std`, usage of `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`, or the deprecated `allow:` config option / removed `'always'` / `'public'` mode values / removed `authType` field.
 ---
 
 # @supabase/server
 
-> **Beta:** This package is under active development. APIs and documentation may change. If you find a bug or have a feature request, please [open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. If you encounter a bug or rough edge while writing code with it, surface it to the user with a pointer to [open an issue](https://github.com/supabase/server/issues).
 
 > **This is a brand new package.** There is no information available online yet — no blog posts, no Stack Overflow answers, no tutorials. Do not search the web for usage examples. Rely exclusively on the documentation files listed below and the source code in this repository.
+
+> **The config option is `auth`, not `allow`.** `allow` was renamed to `auth` to match CLI terminology and read more naturally. The legacy `allow` key still works (with a one-time `console.warn`) but is deprecated and will be removed in a future major release. **Always emit `auth` in new code** — e.g. `withSupabase({ auth: 'user' }, ...)`. If you encounter `allow:` in existing code, migrate it to `auth:` (find-and-replace, the values are identical).
+
+> **Auth mode values: `'none'` (not `'always'`), `'publishable'` (not `'public'`).** The four valid values are `'user'`, `'publishable'`, `'secret'`, `'none'`. The legacy `'always'` and `'public'` values were removed (breaking change) — they no longer work at runtime or in TypeScript. Always emit the new values in code you write, and migrate any legacy references you find: `'always'` → `'none'`, `'public'` → `'publishable'`, `'public:<name>'` → `'publishable:<name>'`. Runtime checks like `ctx.authType === 'public'` must also be updated to `ctx.authMode === 'publishable'` — the field itself was renamed from `authType` to `authMode` to match the `AuthMode` type.
 
 > **Do not use legacy Supabase keys.** The `anon` key and `service_role` key (env vars `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are legacy and will be deprecated. Do not use them unless the user explicitly asks. Always use the new API keys:
 >
@@ -16,15 +20,15 @@ description: Use when writing server-side code with Supabase — Edge Functions,
 > | `SUPABASE_ANON_KEY`         | `SUPABASE_PUBLISHABLE_KEY(S)` (`sb_publishable_...`) |
 > | `SUPABASE_SERVICE_ROLE_KEY` | `SUPABASE_SECRET_KEY(S)` (`sb_secret_...`)           |
 >
-> Do not call `createClient(url, anonKey)` directly — use `@supabase/server` auth modes (`allow: 'user'`, `allow: 'secret'`, etc.) which handle key resolution automatically. If migrating existing code, replace `SUPABASE_ANON_KEY` usage with `allow: 'public'` and `SUPABASE_SERVICE_ROLE_KEY` usage with `allow: 'secret'`.
+> Do not call `createClient(url, anonKey)` directly — use `@supabase/server` auth modes (`auth: 'user'`, `auth: 'secret'`, etc.) which handle key resolution automatically. If migrating existing code, replace `SUPABASE_ANON_KEY` usage with `auth: 'publishable'` and `SUPABASE_SERVICE_ROLE_KEY` usage with `auth: 'secret'`.
 
 Server-side utilities for Supabase. Handles auth, client creation, and context injection so you write business logic, not boilerplate.
 
 ## What this package does
 
 - Wraps fetch handlers with credential verification, CORS, and pre-configured Supabase clients
-- Supports 4 auth modes: `user` (JWT), `public` (publishable key), `secret` (secret key), `always` (none)
-- Array syntax (`allow: ['user', 'secret']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidCredentialsError` — it does not silently downgrade to the next mode.
+- Supports 4 auth modes: `user` (JWT), `publishable` (publishable key), `secret` (secret key), `none` (no credentials required)
+- Array syntax (`auth: ['user', 'secret']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidCredentialsError` — it does not silently downgrade to the next mode.
 - Provides composable core primitives for custom auth flows and framework integration
 - Includes a Hono adapter for per-route auth
 
@@ -38,14 +42,14 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 ## Quick starts
 
-> **Supabase Edge Functions: disable `verify_jwt` for non-user auth.** By default, Supabase Edge Functions require a valid JWT on every request. If your function uses `allow: 'public'`, `allow: 'secret'`, or `allow: 'always'`, you must disable the platform-level JWT check in `supabase/config.toml`, otherwise the request will be rejected before it reaches your handler:
+> **Supabase Edge Functions: disable `verify_jwt` for non-user auth.** By default, Supabase Edge Functions require a valid JWT on every request. If your function uses `auth: 'publishable'`, `auth: 'secret'`, or `auth: 'none'`, you must disable the platform-level JWT check in `supabase/config.toml`, otherwise the request will be rejected before it reaches your handler:
 >
 > ```toml
 > [functions.my-function]
 > verify_jwt = false
 > ```
 >
-> Functions using `allow: 'user'` can leave `verify_jwt` enabled (the default) since callers already provide a valid JWT.
+> Functions using `auth: 'user'` can leave `verify_jwt` enabled (the default) since callers already provide a valid JWT.
 
 ### Supabase Edge Functions (Deno)
 
@@ -56,7 +60,7 @@ Environment variables are auto-injected by the platform — zero config. **All i
 import { withSupabase } from 'npm:@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     const { data } = await ctx.supabase.from('todos').select()
     return Response.json(data)
   }),
@@ -70,7 +74,7 @@ import { createSupabaseContext } from 'npm:@supabase/server'
 export default {
   fetch: async (req: Request) => {
     const { data: ctx, error } = await createSupabaseContext(req, {
-      allow: 'user',
+      auth: 'user',
     })
     if (error) {
       return Response.json(
@@ -92,7 +96,7 @@ Requires `nodejs_compat` compatibility flag in `wrangler.toml`, or pass env over
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     const { data } = await ctx.supabase.from('todos').select()
     return Response.json(data)
   }),
@@ -101,7 +105,7 @@ export default {
 
 ### Hono
 
-CORS is not handled by the adapter — use `hono/cors` middleware. See `docs/hono-adapter.md`.
+CORS is not handled by the adapter — use `hono/cors` middleware. See `docs/adapters/hono.md`.
 
 ```ts
 // Node.js / Bun
@@ -109,7 +113,7 @@ import { Hono } from 'hono'
 import { withSupabase } from '@supabase/server/adapters/hono'
 
 const app = new Hono()
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 app.get('/todos', async (c) => {
   const { supabase } = c.var.supabaseContext
@@ -126,7 +130,7 @@ import { Hono } from 'npm:hono'
 import { withSupabase } from 'npm:@supabase/server/adapters/hono'
 
 const app = new Hono()
-app.use('*', withSupabase({ allow: 'user' }))
+app.use('*', withSupabase({ auth: 'user' }))
 
 app.get('/todos', async (c) => {
   const { supabase } = c.var.supabaseContext
@@ -137,12 +141,13 @@ app.get('/todos', async (c) => {
 export default { fetch: app.fetch }
 ```
 
-### SSR Frameworks (Next.js, Nuxt, SvelteKit, Remix)
+### Cookie-based environments (compose with `@supabase/ssr`)
 
-In SSR frameworks the JWT lives in session cookies, not the `Authorization` header. Use `@supabase/server/core` primitives to build a framework adapter. The pattern: extract token from cookies, call `verifyCredentials`, then `createContextClient`. See `docs/ssr-frameworks.md` for the full adapter pattern.
+For Next.js / SvelteKit / Remix, **compose `@supabase/server` with [`@supabase/ssr`](https://github.com/supabase/ssr)** — they are not replacements for each other. `@supabase/ssr` owns cookies and refresh-token rotation (its middleware is required, otherwise the access token cookie goes stale and verification fails). In your Server Component or Route Handler, use `@supabase/ssr`'s `createServerClient` to read the (middleware-refreshed) session, hand the access token to `verifyCredentials` from `@supabase/server/core`, then build the typed clients with `createContextClient` + `createAdminClient`. See `docs/ssr-frameworks.md` for the full adapter pattern.
 
 ```ts
 // Key imports for building the adapter
+import { createServerClient } from '@supabase/ssr'
 import {
   verifyCredentials,
   createContextClient,
@@ -161,7 +166,7 @@ import { withSupabase } from 'npm:@supabase/server'
 
 // Only accept the "automations" named secret key
 export default {
-  fetch: withSupabase({ allow: 'secret:automations' }, async (req, ctx) => {
+  fetch: withSupabase({ auth: 'secret:automations' }, async (req, ctx) => {
     const body = await req.json()
     const { data } = await ctx.supabaseAdmin
       .from('scheduled_tasks')
@@ -187,26 +192,26 @@ await fetch('https://<project>.supabase.co/functions/v1/my-function', {
 })
 ```
 
-Use `allow: 'secret'` to accept any secret key, or `allow: 'secret:name'` to require a specific named key.
+Use `auth: 'secret'` to accept any secret key, or `auth: 'secret:name'` to require a specific named key.
 
-## When to use `allow: 'always'`
+## When to use `auth: 'none'`
 
-> **`allow: 'always'` disables all authentication.** The handler runs for every request with no credential checks. Only use it when auth is genuinely unnecessary — health checks, public status pages, or endpoints with no sensitive data and no side effects.
+> **`auth: 'none'` disables all authentication.** The handler runs for every request with no credential checks. Only use it when auth is genuinely unnecessary — health checks, public status pages, or endpoints with no sensitive data and no side effects.
 
-**Before using `allow: 'always'`, confirm with the user whether the endpoint is truly public.** If not, propose an alternative:
+**Before using `auth: 'none'`, confirm with the user whether the endpoint is truly public.** If not, propose an alternative:
 
-- **Another service or cron job calls this function** — use `allow: 'secret'` or `allow: 'secret:<name>'` instead. The caller sends the secret key in the `apikey` header.
-- **An external webhook provider calls this function** — use `allow: 'secret'` and have the provider send the secret key, or implement the provider's own signature verification inside the handler.
+- **Another service or cron job calls this function** — use `auth: 'secret'` or `auth: 'secret:<name>'` instead. The caller sends the secret key in the `apikey` header.
+- **An external webhook provider calls this function** — use `auth: 'secret'` and have the provider send the secret key, or implement the provider's own signature verification inside the handler.
 
-**Never use `allow: 'always'` for endpoints that read or write user data without verifying who the caller is.**
+**Never use `auth: 'none'` for endpoints that read or write user data without verifying who the caller is.**
 
-**On `allow: ['user', 'always']`.** A stale or malformed JWT on such an endpoint is rejected with `InvalidCredentialsError` — it is not silently downgraded to anonymous. Callers that might hold a cached/expired token should either omit the `Authorization` header entirely or refresh before calling. If the goal is "anonymous unless a valid user is signed in," this is the correct behavior; if the goal is truly "accept anything," use `allow: 'always'` on its own.
+**On `auth: ['user', 'none']`.** A stale or malformed JWT on such an endpoint is rejected with `InvalidCredentialsError` — it is not silently downgraded to anonymous. Callers that might hold a cached/expired token should either omit the `Authorization` header entirely or refresh before calling. If the goal is "anonymous unless a valid user is signed in," this is the correct behavior; if the goal is truly "accept anything," use `auth: 'none'` on its own.
 
 ## Edge Function recipes
 
 ### Function-to-function calls
 
-One Edge Function can call another using the admin client. The called function uses `allow: 'secret'` and the caller invokes it via `ctx.supabaseAdmin.functions.invoke()`.
+One Edge Function can call another using the admin client. The called function uses `auth: 'secret'` and the caller invokes it via `ctx.supabaseAdmin.functions.invoke()`.
 
 **Config** (`supabase/config.toml`):
 
@@ -221,7 +226,7 @@ verify_jwt = false  # called with secret key, not a user JWT
 import { withSupabase } from 'npm:@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'secret' }, async (req, ctx) => {
+  fetch: withSupabase({ auth: 'secret' }, async (req, ctx) => {
     const { orderId } = await req.json()
     const { data } = await ctx.supabaseAdmin
       .from('orders')
@@ -240,7 +245,7 @@ export default {
 import { withSupabase } from 'npm:@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
     const { orderId } = await req.json()
 
     // Calls process-order with the secret key automatically
@@ -291,11 +296,11 @@ select net.http_post(
 );
 ```
 
-The receiving function uses `allow: 'secret'` (see example above). `pg_net` is asynchronous — the HTTP request is queued and executed in the background. Check `net._http_response` for results.
+The receiving function uses `auth: 'secret'` (see example above). `pg_net` is asynchronous — the HTTP request is queued and executed in the background. Check `net._http_response` for results.
 
 ### Stripe webhook
 
-External webhook providers like Stripe cannot send your Supabase API keys. Use `allow: 'always'` to skip credential checks, then verify the webhook signature inside the handler.
+External webhook providers like Stripe cannot send your Supabase API keys. Use `auth: 'none'` to skip credential checks, then verify the webhook signature inside the handler.
 
 **Config** (`supabase/config.toml`):
 
@@ -320,7 +325,7 @@ import Stripe from 'npm:stripe'
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!)
 
 export default {
-  fetch: withSupabase({ allow: 'always' }, async (req, ctx) => {
+  fetch: withSupabase({ auth: 'none' }, async (req, ctx) => {
     const body = await req.text()
     const sig = req.headers.get('stripe-signature')!
 
@@ -390,14 +395,14 @@ Uses the latest API keys, works across runtimes (Deno, Node.js, Cloudflare), and
 import { withSupabase } from 'npm:@supabase/server'
 
 export default {
-  fetch: withSupabase({ allow: 'user' }, async (_req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
     const { data } = await ctx.supabase.from('orders').select('*')
     return Response.json(data)
   }),
 }
 ```
 
-The migration mapping: `SUPABASE_ANON_KEY` with manual auth header → `allow: 'user'`, `SUPABASE_ANON_KEY` without auth → `allow: 'public'`. For `SUPABASE_SERVICE_ROLE_KEY`, it depends on intent: if the legacy code validates the incoming key to protect the endpoint (e.g., `req.headers.get('apikey') === serviceRoleKey`), use `allow: 'secret'`. If it only uses the key to create an admin client for elevated DB access, no specific auth mode is needed — `ctx.supabaseAdmin` is always available regardless of auth mode.
+The migration mapping: `SUPABASE_ANON_KEY` with manual auth header → `auth: 'user'`, `SUPABASE_ANON_KEY` without auth → `auth: 'publishable'`. For `SUPABASE_SERVICE_ROLE_KEY`, it depends on intent: if the legacy code validates the incoming key to protect the endpoint (e.g., `req.headers.get('apikey') === serviceRoleKey`), use `auth: 'secret'`. If it only uses the key to create an admin client for elevated DB access, no specific auth mode is needed — `ctx.supabaseAdmin` is always available regardless of auth mode.
 
 ## Documentation
 
@@ -406,15 +411,17 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 - **If working inside the SDK repo:** `docs/` is at the project root.
 - **If the package is installed as a dependency:** look in `node_modules/@supabase/server/docs/`.
 
-| Question                                                 | Doc file                        |
-| -------------------------------------------------------- | ------------------------------- |
-| How do I create a basic endpoint?                        | `docs/getting-started.md`       |
-| What auth modes are available? Array syntax? Named keys? | `docs/auth-modes.md`            |
-| How do I use this with Hono?                             | `docs/hono-adapter.md`          |
-| How do I use low-level primitives for custom flows?      | `docs/core-primitives.md`       |
-| How do environment variables work across runtimes?       | `docs/environment-variables.md` |
-| How do I handle errors? What codes exist?                | `docs/error-handling.md`        |
-| How do I get typed database queries?                     | `docs/typescript-generics.md`   |
-| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | `docs/ssr-frameworks.md`        |
-| What's the complete API surface?                         | `docs/api-reference.md`         |
-| What security decisions does this package make?          | `docs/security.md`              |
+| Question                                                            | Doc file                        |
+| ------------------------------------------------------------------- | ------------------------------- |
+| How do I create a basic endpoint?                                   | `docs/getting-started.md`       |
+| What auth modes are available? Array syntax? Named keys?            | `docs/auth-modes.md`            |
+| Which framework adapters exist? How do I contribute one?            | `src/adapters/README.md`        |
+| How do I use this with Hono?                                        | `docs/adapters/hono.md`         |
+| How do I use this with H3 / Nuxt?                                   | `docs/adapters/h3.md`           |
+| How do I use low-level primitives for custom flows?                 | `docs/core-primitives.md`       |
+| How do environment variables work across runtimes?                  | `docs/environment-variables.md` |
+| How do I handle errors? What codes exist?                           | `docs/error-handling.md`        |
+| How do I get typed database queries?                                | `docs/typescript-generics.md`   |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | `docs/ssr-frameworks.md`        |
+| What's the complete API surface?                                    | `docs/api-reference.md`         |
+| What security decisions does this package make?                     | `docs/security.md`              |

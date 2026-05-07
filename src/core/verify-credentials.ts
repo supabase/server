@@ -2,14 +2,15 @@ import { createLocalJWKSet, jwtVerify } from 'jose'
 
 import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
 import type {
-  Allow,
-  AllowWithKey,
+  AuthMode,
+  AuthModeWithKey,
   AuthResult,
   Credentials,
   JWTClaims,
   SupabaseEnv,
   UserClaims,
 } from '../types.js'
+import { resolveAuthOption } from './utils/deprecation.js'
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
 import { resolveEnv } from './resolve-env.js'
 
@@ -20,40 +21,49 @@ interface VerifyCredentialsOptions {
   /**
    * Auth mode(s) to try. Modes are attempted in order — the first match wins.
    *
-   * @see {@link AllowWithKey} for the full syntax including named keys.
+   * @see {@link AuthModeWithKey} for the full syntax including named keys.
+   *
+   * @defaultValue `"user"`
    */
-  allow: AllowWithKey | AllowWithKey[]
+  auth?: AuthModeWithKey | AuthModeWithKey[]
+
+  /**
+   * @deprecated Use {@link VerifyCredentialsOptions.auth} instead. Kept for
+   * backward compatibility; will be removed in a future major release. When
+   * both are provided, `auth` wins.
+   */
+  allow?: AuthModeWithKey | AuthModeWithKey[]
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>
 }
 
 /**
- * Parses an {@link AllowWithKey} string into its base mode and optional key name.
+ * Parses an {@link AuthModeWithKey} string into its base mode and optional key name.
  *
  * @example
  * ```
- * parseAllowMode('user')         → { base: 'user',   keyName: null }
- * parseAllowMode('public:web')   → { base: 'public', keyName: 'web' }
- * parseAllowMode('secret:*')     → { base: 'secret', keyName: '*' }
+ * parseAuthMode('user')              → { base: 'user',        keyName: null }
+ * parseAuthMode('publishable:web')   → { base: 'publishable', keyName: 'web' }
+ * parseAuthMode('secret:*')          → { base: 'secret',      keyName: '*' }
  * ```
  *
  * @internal
  */
-function parseAllowMode(mode: AllowWithKey): {
-  base: Allow
+function parseAuthMode(mode: AuthModeWithKey): {
+  base: AuthMode
   keyName: string | null
 } {
   if (
-    mode === 'always' ||
-    mode === 'public' ||
+    mode === 'none' ||
+    mode === 'publishable' ||
     mode === 'secret' ||
     mode === 'user'
   ) {
     return { base: mode, keyName: null }
   }
   const colonIndex = mode.indexOf(':')
-  const base = mode.slice(0, colonIndex) as Allow
+  const base = mode.slice(0, colonIndex) as AuthMode
   const keyName = mode.slice(colonIndex + 1)
   if (!keyName) return { base, keyName: null }
   return { base, keyName }
@@ -63,13 +73,13 @@ function parseAllowMode(mode: AllowWithKey): {
  * Converts raw {@link JWTClaims} (snake_case) to a normalized {@link UserClaims} (camelCase).
  * @internal
  */
-function claimsToUserClaims(claims: JWTClaims): UserClaims {
+function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
   return {
-    id: claims.sub,
-    role: claims.role,
-    email: claims.email,
-    appMetadata: claims.app_metadata,
-    userMetadata: claims.user_metadata,
+    id: jwtClaims.sub,
+    role: jwtClaims.role,
+    email: jwtClaims.email,
+    appMetadata: jwtClaims.app_metadata,
+    userMetadata: jwtClaims.user_metadata,
   }
 }
 
@@ -86,23 +96,23 @@ const INVALID = Symbol('invalid')
  * @internal
  */
 async function tryMode(
-  mode: AllowWithKey,
+  mode: AuthModeWithKey,
   credentials: Credentials,
   env: SupabaseEnv,
 ): Promise<AuthResult | typeof INVALID | null> {
-  const { base, keyName } = parseAllowMode(mode)
+  const { base, keyName } = parseAuthMode(mode)
 
   switch (base) {
-    case 'always':
+    case 'none':
       return {
-        authType: 'always',
+        authMode: 'none',
         token: null,
         userClaims: null,
-        claims: null,
+        jwtClaims: null,
         keyName: null,
       }
 
-    case 'public': {
+    case 'publishable': {
       if (!credentials.apikey) return null
       const keys = env.publishableKeys
 
@@ -110,10 +120,10 @@ async function tryMode(
         for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
-              authType: 'public',
+              authMode: 'publishable',
               token: null,
               userClaims: null,
-              claims: null,
+              jwtClaims: null,
               keyName: name,
             }
           }
@@ -123,10 +133,10 @@ async function tryMode(
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
           return {
-            authType: 'public',
+            authMode: 'publishable',
             token: null,
             userClaims: null,
-            claims: null,
+            jwtClaims: null,
             keyName: name,
           }
         }
@@ -142,10 +152,10 @@ async function tryMode(
         for (const [name, value] of Object.entries(keys)) {
           if (await timingSafeEqual(credentials.apikey, value)) {
             return {
-              authType: 'secret',
+              authMode: 'secret',
               token: null,
               userClaims: null,
-              claims: null,
+              jwtClaims: null,
               keyName: name,
             }
           }
@@ -155,10 +165,10 @@ async function tryMode(
         const value = keys[name]
         if (value && (await timingSafeEqual(credentials.apikey, value))) {
           return {
-            authType: 'secret',
+            authMode: 'secret',
             token: null,
             userClaims: null,
-            claims: null,
+            jwtClaims: null,
             keyName: name,
           }
         }
@@ -175,12 +185,12 @@ async function tryMode(
         if (typeof payload.sub !== 'string') {
           return INVALID
         }
-        const claims = payload as unknown as JWTClaims
+        const jwtClaims = payload as unknown as JWTClaims
         return {
-          authType: 'user',
+          authMode: 'user',
           token: credentials.token,
-          userClaims: claimsToUserClaims(claims),
-          claims,
+          userClaims: jwtClaimsToUserClaims(jwtClaims),
+          jwtClaims,
           keyName: null,
         }
       } catch {
@@ -210,7 +220,7 @@ async function tryMode(
  * ```ts
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {
- *   allow: ['user', 'public'],
+ *   auth: ['user', 'publishable'],
  * })
  * if (error) {
  *   return Response.json({ message: error.message }, { status: error.status })
@@ -231,7 +241,8 @@ export async function verifyCredentials(
     }
   }
 
-  const modes = Array.isArray(options.allow) ? options.allow : [options.allow]
+  const resolved = resolveAuthOption(options)
+  const modes = Array.isArray(resolved) ? resolved : [resolved]
 
   for (const mode of modes) {
     const result = await tryMode(mode, credentials, env)

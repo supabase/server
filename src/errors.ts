@@ -95,7 +95,7 @@ const EnvErrorMap = {
  * ```ts
  * import { AuthError, createSupabaseContext } from '@supabase/server'
  *
- * const { data: ctx, error } = await createSupabaseContext(request, { allow: 'user' })
+ * const { data: ctx, error } = await createSupabaseContext(request, { auth: 'user' })
  * if (error) {
  *   // error is an AuthError
  *   return Response.json(
