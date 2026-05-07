@@ -7,7 +7,7 @@
  * Statsig, a header check, a database lookup).
  */
 
-import { defineGate } from '../../core/gates/index.js'
+import { defineGate, type GateFactory } from '../../core/gates/index.js'
 
 export interface WithFlagConfig {
   /** Human-readable name for the flag, recorded in `ctx.flag.name`. */
@@ -85,12 +85,12 @@ export interface FlagState {
  * })
  * ```
  */
-export const withFlag = defineGate<
+export const withFlag: GateFactory<
   'flag',
   WithFlagConfig,
   Record<never, never>,
   FlagState
->({
+> = defineGate<'flag', WithFlagConfig, Record<never, never>, FlagState>({
   key: 'flag',
   run: (config) => async (req) => {
     const result = await config.evaluate(req)

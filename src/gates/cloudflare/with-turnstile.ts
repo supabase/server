@@ -8,7 +8,7 @@
  * @see https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
  */
 
-import { defineGate } from '../../core/gates/index.js'
+import { defineGate, type GateFactory } from '../../core/gates/index.js'
 
 const SITEVERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify'
@@ -88,7 +88,12 @@ interface SiteverifyResponse {
  * }
  * ```
  */
-export const withTurnstile = defineGate<
+export const withTurnstile: GateFactory<
+  'turnstile',
+  WithTurnstileConfig,
+  Record<never, never>,
+  TurnstileState
+> = defineGate<
   'turnstile',
   WithTurnstileConfig,
   Record<never, never>,

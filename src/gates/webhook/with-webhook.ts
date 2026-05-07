@@ -7,7 +7,7 @@
  * `verify` function to plug in others (Svix/Resend, GitHub, Slack, Shopify).
  */
 
-import { defineGate } from '../../core/gates/index.js'
+import { defineGate, type GateFactory } from '../../core/gates/index.js'
 
 const FIVE_MIN_MS = 5 * 60 * 1000
 
@@ -70,7 +70,12 @@ export interface WebhookState {
  * }
  * ```
  */
-export const withWebhook = defineGate<
+export const withWebhook: GateFactory<
+  'webhook',
+  WithWebhookConfig,
+  Record<never, never>,
+  WebhookState
+> = defineGate<
   'webhook',
   WithWebhookConfig,
   Record<never, never>,

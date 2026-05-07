@@ -13,7 +13,7 @@
 
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 
-import { defineGate } from '../../core/gates/index.js'
+import { defineGate, type GateFactory } from '../../core/gates/index.js'
 
 const HEADER_NAME = 'cf-access-jwt-assertion'
 
@@ -73,12 +73,12 @@ export interface AccessState {
  * }
  * ```
  */
-export const withAccess = defineGate<
+export const withAccess: GateFactory<
   'access',
   WithAccessConfig,
   Record<never, never>,
   AccessState
->({
+> = defineGate<'access', WithAccessConfig, Record<never, never>, AccessState>({
   key: 'access',
   run: (config) => {
     const issuer = `https://${config.teamDomain}`

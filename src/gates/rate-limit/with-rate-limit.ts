@@ -12,7 +12,7 @@
  * that provides `supabaseAdmin`).
  */
 
-import { defineGate } from '../../core/gates/index.js'
+import { defineGate, type GateFactory } from '../../core/gates/index.js'
 
 const DEFAULT_RPC = '_supabase_server_rate_limit_hit'
 
@@ -96,7 +96,12 @@ interface RpcResult {
  * }
  * ```
  */
-export const withRateLimit = defineGate<
+export const withRateLimit: GateFactory<
+  'rateLimit',
+  WithRateLimitConfig,
+  { supabaseAdmin: SupabaseRpcClient },
+  RateLimitState
+> = defineGate<
   'rateLimit',
   WithRateLimitConfig,
   { supabaseAdmin: SupabaseRpcClient },

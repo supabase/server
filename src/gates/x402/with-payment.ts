@@ -13,7 +13,7 @@
  * @see https://www.x402.org
  */
 
-import { defineGate } from '../../core/gates/index.js'
+import { defineGate, type GateFactory } from '../../core/gates/index.js'
 
 const DEFAULT_REGISTER_RPC = '_supabase_server_x402_register'
 const DEFAULT_LOOKUP_RPC = '_supabase_server_x402_lookup'
@@ -135,7 +135,12 @@ export interface PaymentState {
  * }
  * ```
  */
-export const withPayment = defineGate<
+export const withPayment: GateFactory<
+  'payment',
+  WithPaymentConfig,
+  { supabaseAdmin: SupabaseRpcClient },
+  PaymentState
+> = defineGate<
   'payment',
   WithPaymentConfig,
   { supabaseAdmin: SupabaseRpcClient },
