@@ -1,5 +1,13 @@
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import type { Credentials, JsonWebKeySet, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
@@ -341,6 +349,109 @@ describe('verifyCredentials', () => {
       const result = await verifyCredentials(creds, {
         auth: 'user',
         env: makeEnv({ jwks: expiredJwks }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+  })
+
+  describe('user mode with remote JWKS URL', () => {
+    let privateKey: CryptoKey
+    let jwks: JsonWebKeySet
+    let validToken: string
+    let fetchMock: ReturnType<typeof vi.fn>
+
+    beforeAll(async () => {
+      const keyPair = await generateKeyPair('RS256')
+      privateKey = keyPair.privateKey
+      const publicJwk = await exportJWK(keyPair.publicKey)
+      publicJwk.alg = 'RS256'
+      publicJwk.use = 'sig'
+      publicJwk.kid = 'remote-key-1'
+      jwks = { keys: [publicJwk] }
+
+      validToken = await new SignJWT({
+        sub: 'user-remote',
+        role: 'authenticated',
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'remote-key-1' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+    })
+
+    beforeEach(() => {
+      fetchMock = vi.fn(
+        async () =>
+          new Response(JSON.stringify(jwks), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('fetches keys from the URL and verifies a valid JWT', async () => {
+      const creds: Credentials = { token: validToken, apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({
+          jwks: new URL(
+            'https://jwks-fetch-success.example/auth/v1/.well-known/jwks.json',
+          ),
+        }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.userClaims!.id).toBe('user-remote')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('reuses the cached resolver for the same URL across requests', async () => {
+      // Distinct URL so jose's per-resolver cooldown is fresh for this test
+      const jwksUrl = new URL('https://jwks-cache.example/jwks.json')
+      const creds: Credentials = { token: validToken, apikey: null }
+
+      const first = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({ jwks: jwksUrl }),
+      })
+      const second = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({ jwks: jwksUrl }),
+      })
+
+      expect(first.error).toBeNull()
+      expect(second.error).toBeNull()
+      // jose's cooldownDuration (default 30s) keeps the second call from re-fetching.
+      // What we're guarding against is *re-creating* the resolver on every request,
+      // which would re-fetch every time.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects an invalid JWT verified against the remote JWKS', async () => {
+      const creds: Credentials = { token: 'garbage.jwt.token', apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({
+          jwks: new URL('https://jwks-bad-token.example/jwks.json'),
+        }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('rejects when the remote JWKS endpoint fails', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+      const creds: Credentials = { token: validToken, apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({
+          jwks: new URL('https://jwks-server-error.example/jwks.json'),
+        }),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidCredentialsError)

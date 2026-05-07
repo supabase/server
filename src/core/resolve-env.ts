@@ -58,15 +58,30 @@ function resolveKeys(
 }
 
 /**
- * Parses a JWKS JSON string into a {@link JsonWebKeySet}.
- * Accepts both `{ keys: [...] }` and bare `[...]` array formats.
- * Returns `null` if the input is missing or malformed.
+ * Parses a `SUPABASE_JWKS` env value.
+ *
+ * Accepted forms:
+ * - An `https://` URL — returned as a {@link URL}; keys are fetched at verify time.
+ *   Plain `http://` is rejected: a MITM on the JWKS fetch could swap in an
+ *   attacker-controlled key and forge JWTs that pass verification.
+ * - JSON `{ keys: [...] }` — returned as a {@link JsonWebKeySet}.
+ * - JSON bare array `[...]` — wrapped as `{ keys: [...] }`.
+ * - Anything else (missing or malformed) — returns `null`.
+ *
  * @internal
  */
-function parseJwks(raw: string | undefined): JsonWebKeySet | null {
+function parseJwks(raw: string | undefined): JsonWebKeySet | URL | null {
   if (!raw) return null
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('https://')) {
+    try {
+      return new URL(trimmed)
+    } catch {
+      return null
+    }
+  }
   try {
-    const parsed = JSON.parse(raw)
+    const parsed = JSON.parse(trimmed)
     // Support both { keys: [...] } and bare array [...] formats
     if (Array.isArray(parsed)) return { keys: parsed }
     if (parsed?.keys && Array.isArray(parsed.keys))

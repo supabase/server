@@ -1,4 +1,9 @@
-import { createLocalJWKSet, jwtVerify } from 'jose'
+import {
+  createLocalJWKSet,
+  createRemoteJWKSet,
+  jwtVerify,
+  type JWTVerifyGetKey,
+} from 'jose'
 
 import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
 import type {
@@ -6,6 +11,7 @@ import type {
   AuthModeWithKey,
   AuthResult,
   Credentials,
+  JsonWebKeySet,
   JWTClaims,
   SupabaseEnv,
   UserClaims,
@@ -84,6 +90,30 @@ function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
 }
 
 const INVALID = Symbol('invalid')
+
+let remoteJwksResolver: { url: string; resolver: JWTVerifyGetKey } | undefined =
+  undefined
+
+/**
+ * Returns a key resolver for the given JWKS source.
+ *
+ * For a {@link URL}, the underlying `createRemoteJWKSet` resolver is cached
+ * across requests so `jose`'s built-in cooldown / max-age caching is
+ * preserved. Local JWKS objects are wrapped on every call — they're trivially
+ * cheap and the object identity may change across requests.
+ *
+ * @internal
+ */
+function getJwksResolver(jwks: JsonWebKeySet | URL): JWTVerifyGetKey {
+  if (jwks instanceof URL) {
+    const url = jwks.toString()
+    if (remoteJwksResolver?.url !== url) {
+      remoteJwksResolver = { url, resolver: createRemoteJWKSet(jwks) }
+    }
+    return remoteJwksResolver.resolver
+  }
+  return createLocalJWKSet(jwks)
+}
 
 /**
  * Attempts to authenticate credentials against a single auth mode.
@@ -180,7 +210,7 @@ async function tryMode(
       if (!credentials.token) return null
       if (!env.jwks) return null
       try {
-        const jwkSet = createLocalJWKSet(env.jwks)
+        const jwkSet = getJwksResolver(env.jwks)
         const { payload } = await jwtVerify(credentials.token, jwkSet)
         if (typeof payload.sub !== 'string') {
           return INVALID

@@ -77,7 +77,7 @@ When both singular and plural forms are set, the plural form takes priority.
 
 ## JWKS format
 
-`SUPABASE_JWKS` accepts two formats:
+`SUPABASE_JWKS` accepts three formats:
 
 ```
 # Standard JWKS format
@@ -85,6 +85,9 @@ SUPABASE_JWKS={"keys":[{"kty":"RSA","n":"...","e":"AQAB"}]}
 
 # Bare array (convenience)
 SUPABASE_JWKS=[{"kty":"RSA","n":"...","e":"AQAB"}]
+
+# Remote JWKS URL — keys are fetched on demand and cached in memory.
+SUPABASE_JWKS=https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
 ```
 
 When `SUPABASE_JWKS` is not set, JWT verification (`auth: 'user'`) is unavailable.
@@ -176,7 +179,8 @@ interface SupabaseEnv {
   url: string
   publishableKeys: Record<string, string>
   secretKeys: Record<string, string>
-  jwks: JsonWebKeySet | null
+  // `URL` when SUPABASE_JWKS is a remote endpoint, `JsonWebKeySet` for inline keys
+  jwks: JsonWebKeySet | URL | null
 }
 ```
 

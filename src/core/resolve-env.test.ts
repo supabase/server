@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveEnv } from './resolve-env.js'
 import { MissingSupabaseURLError } from '../errors.js'
+import type { JsonWebKeySet } from '../types.js'
 
 describe('resolveEnv', () => {
   afterEach(() => {
@@ -65,6 +66,45 @@ describe('resolveEnv', () => {
     vi.stubEnv('SUPABASE_JWKS', 'not-json')
     const result = resolveEnv()
     expect(result.data!.jwks).toBeNull()
+  })
+
+  it('parses https URL JWKS into a URL object', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv(
+      'SUPABASE_JWKS',
+      'https://test.supabase.co/auth/v1/.well-known/jwks.json',
+    )
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeInstanceOf(URL)
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://test.supabase.co/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('rejects http URL JWKS (MITM risk on insecure JWKS fetch)', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS', 'http://localhost:54321/auth/v1/jwks')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
+  it('trims whitespace around URL JWKS values', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS', '   https://example.com/jwks.json\n')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeInstanceOf(URL)
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://example.com/jwks.json',
+    )
+  })
+
+  it('passes URL overrides through unchanged', () => {
+    const url = new URL('https://example.com/jwks.json')
+    const result = resolveEnv({
+      url: 'https://test.supabase.co',
+      jwks: url,
+    })
+    expect(result.data!.jwks).toBe(url)
   })
 
   it.each([
@@ -138,11 +178,12 @@ describe('resolveEnv', () => {
       default: 'sb_secret_fake_default_key_val',
       internal: 'sb_secret_fake_internal_key',
     })
-    expect(result.data!.jwks!.keys).toHaveLength(2)
-    expect((result.data!.jwks!.keys[0] as Record<string, unknown>).kid).toBe(
+    const jwks = result.data!.jwks as JsonWebKeySet
+    expect(jwks.keys).toHaveLength(2)
+    expect((jwks.keys[0] as Record<string, unknown>).kid).toBe(
       'cb770052-bdd3-4f5e-8d6f-8836046b7c93',
     )
-    expect((result.data!.jwks!.keys[1] as Record<string, unknown>).kid).toBe(
+    expect((jwks.keys[1] as Record<string, unknown>).kid).toBe(
       '9a9933f7-e18f-4d6f-a791-9a992845a27b',
     )
   })

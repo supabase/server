@@ -86,10 +86,16 @@ export interface SupabaseEnv {
 
   /**
    * JSON Web Key Set used for JWT verification. Sourced from `SUPABASE_JWKS`.
-   * Accepts both `{ keys: [...] }` and bare `[...]` array formats.
-   * `null` when no JWKS is configured (JWT verification will be unavailable).
+   *
+   * Three forms are accepted:
+   * - A {@link JsonWebKeySet} object — keys are matched in-process.
+   * - A {@link URL} pointing at a remote JWKS endpoint — keys are fetched from
+   *   the URL and cached in memory (cooldown / max-age handled by `jose`).
+   *   String env-var values that start with `https://` resolve to this form;
+   *   plain `http://` is rejected to prevent MITM attacks on the JWKS fetch.
+   * - `null` when no JWKS is configured (JWT verification will be unavailable).
    */
-  jwks: JsonWebKeySet | null
+  jwks: JsonWebKeySet | URL | null
 }
 
 /**
