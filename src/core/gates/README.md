@@ -1,6 +1,8 @@
 # `@supabase/server/core/gates`
 
-Composable preconditions for fetch handlers. A **gate** is a small unit that runs against an inbound `Request` and either short-circuits by returning a `Response` or contributes typed data to a flat key on `ctx` for the handler.
+The portable extensibility layer for `@supabase/server`. A **gate** is a small, typed plugin — a fetch-handler wrapper that runs against an inbound `Request` and either short-circuits with a `Response` or contributes typed data to a flat key on `ctx` for the handler. Anyone can publish a gate as a standalone npm package; the built-ins (`withRateLimit`, `withWebhook`, `withPayment`, …) sit alongside third-party gates with no special status, all built on the same primitive.
+
+Because gates are plain `(req, ctx) => Response` wrappers over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and through every adapter (Hono, H3).
 
 This module exports:
 

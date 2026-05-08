@@ -299,7 +299,7 @@ See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-m
 
 ## Gates
 
-Compose preconditions around a handler. A **gate** runs against the inbound `Request`, either short-circuits with a `Response` or contributes typed data to a flat key on `ctx`. Each gate is a fetch-handler wrapper — nest them directly the same way `withSupabase` nests, no separate composer.
+The portable extensibility layer for `@supabase/server`. A **gate** is a fetch-handler wrapper that bolts a capability — rate limiting, webhook signature verification, paywalls, feature flags, bot checks — onto a handler and contributes typed data to a flat key on `ctx`. Anyone can publish a gate as a standalone npm package; the built-ins use the same primitive third-party authors do. Because gates are plain wrappers over the Web Fetch API, the same gate runs unchanged across Workers, Deno, Bun, Node, and through every adapter (Hono, H3) — nest them directly the way `withSupabase` does, no separate composer.
 
 ```ts
 import { withSupabase } from '@supabase/server'
@@ -490,7 +490,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)       |
 | How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                 |
 | What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                   |
-| How do I compose preconditions (gates) around a handler?            | [`src/core/gates/README.md`](src/core/gates/README.md)             |
+| How do I extend a handler with a gate (rate-limit, webhook, …)?     | [`src/core/gates/README.md`](src/core/gates/README.md)             |
 | How do I gate a route behind a Cloudflare check?                    | [`src/gates/cloudflare/README.md`](src/gates/cloudflare/README.md) |
 | How do I gate a route behind a feature flag?                        | [`src/gates/flag/README.md`](src/gates/flag/README.md)             |
 | How do I rate-limit a route?                                        | [`src/gates/rate-limit/README.md`](src/gates/rate-limit/README.md) |
