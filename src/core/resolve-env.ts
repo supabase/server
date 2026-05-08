@@ -58,31 +58,16 @@ function resolveKeys(
 }
 
 /**
- * Parses a `SUPABASE_JWKS` env value.
- *
- * Accepted forms:
- * - An `https://` URL — returned as a {@link URL}; keys are fetched at verify time.
- *   Plain `http://` is rejected: a MITM on the JWKS fetch could swap in an
- *   attacker-controlled key and forge JWTs that pass verification.
- * - JSON `{ keys: [...] }` — returned as a {@link JsonWebKeySet}.
- * - JSON bare array `[...]` — wrapped as `{ keys: [...] }`.
- * - Anything else (missing or malformed) — returns `null`.
+ * Parses an inline JWKS JSON string. Accepts `{ keys: [...] }` or a bare
+ * array `[...]` (wrapped as `{ keys: [...] }`). Returns `null` for missing
+ * or malformed input.
  *
  * @internal
  */
-function parseJwks(raw: string | undefined): JsonWebKeySet | URL | null {
+function parseJwks(raw: string | undefined): JsonWebKeySet | null {
   if (!raw) return null
-  const trimmed = raw.trim()
-  if (trimmed.startsWith('https://')) {
-    try {
-      return new URL(trimmed)
-    } catch {
-      return null
-    }
-  }
   try {
-    const parsed = JSON.parse(trimmed)
-    // Support both { keys: [...] } and bare array [...] formats
+    const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) return { keys: parsed }
     if (parsed?.keys && Array.isArray(parsed.keys))
       return parsed as JsonWebKeySet
@@ -93,11 +78,51 @@ function parseJwks(raw: string | undefined): JsonWebKeySet | URL | null {
 }
 
 /**
+ * Parses a JWKS endpoint URL. Only `https://` is accepted: a MITM on the
+ * JWKS fetch could swap in an attacker-controlled key and forge JWTs that
+ * pass verification. Returns `null` for missing, non-https, or malformed input.
+ *
+ * @internal
+ */
+function parseJwksUrl(raw: string | undefined): URL | null {
+  if (!raw) return null
+  const trimmed = raw.trim()
+  if (!trimmed.startsWith('https://')) return null
+  try {
+    return new URL(trimmed)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Resolves the JWKS source from `SUPABASE_JWKS` (inline JSON) or
+ * `SUPABASE_JWKS_URL` (https endpoint). `SUPABASE_JWKS` wins when set;
+ * `SUPABASE_JWKS_URL` is only consulted if `SUPABASE_JWKS` is absent. Each
+ * variable is treated as authoritative — if set but malformed, the result is
+ * `null` and the other variable is *not* consulted as a fallback.
+ *
+ * @internal
+ */
+function resolveJwks(): JsonWebKeySet | URL | null {
+  const rawJwks = getEnvVar('SUPABASE_JWKS')
+  if (rawJwks && rawJwks.trim()) {
+    return parseJwks(rawJwks)
+  }
+  const rawJwksUrl = getEnvVar('SUPABASE_JWKS_URL')
+  if (rawJwksUrl && rawJwksUrl.trim()) {
+    return parseJwksUrl(rawJwksUrl)
+  }
+  return null
+}
+
+/**
  * Resolves Supabase environment configuration from runtime environment variables.
  *
  * Reads `SUPABASE_URL`, keys (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`),
- * and `SUPABASE_JWKS`. Works across Deno, Node.js, and Bun. For Cloudflare Workers,
- * use `overrides` or enable node-compat.
+ * and the JWKS source (`SUPABASE_JWKS` for inline keys, or `SUPABASE_JWKS_URL`
+ * for a remote endpoint). Works across Deno, Node.js, and Bun. For Cloudflare
+ * Workers, use `overrides` or enable node-compat.
  *
  * @param overrides - Partial values that take precedence over env vars.
  * @returns `{ data: SupabaseEnv, error: null }` on success, `{ data: null, error: EnvError }` on failure.
@@ -131,7 +156,7 @@ export function resolveEnv(
     secretKeys:
       overrides?.secretKeys ??
       resolveKeys('SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'),
-    jwks: overrides?.jwks ?? parseJwks(getEnvVar('SUPABASE_JWKS')),
+    jwks: overrides?.jwks ?? resolveJwks(),
   }
 
   return { data, error: null }

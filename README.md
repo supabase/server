@@ -400,12 +400,13 @@ export default {
 
 Automatically available in Supabase Edge Functions:
 
-| Variable                    | Format                                                        | Description                                                                  |
-| --------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                                                             |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)                                                 |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)                                                      |
-| `SUPABASE_JWKS`             | `{"keys":[...]}`, `[...]`, or `https://...`                   | JSON Web Key Set for JWT verification (inline JSON or remote `https://` URL) |
+| Variable                    | Format                                                        | Description                                               |
+| --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                                          |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)                              |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)                                   |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`                                   | Inline JSON Web Key Set for JWT verification              |
+| `SUPABASE_JWKS_URL`         | `https://...`                                                 | Remote JWKS endpoint (used when `SUPABASE_JWKS` is unset) |
 
 Also supported (for local dev, self-hosted, or other runtimes):
 

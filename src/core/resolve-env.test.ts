@@ -68,10 +68,10 @@ describe('resolveEnv', () => {
     expect(result.data!.jwks).toBeNull()
   })
 
-  it('parses https URL JWKS into a URL object', () => {
+  it('parses SUPABASE_JWKS_URL into a URL object', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     vi.stubEnv(
-      'SUPABASE_JWKS',
+      'SUPABASE_JWKS_URL',
       'https://test.supabase.co/auth/v1/.well-known/jwks.json',
     )
     const result = resolveEnv()
@@ -81,21 +81,53 @@ describe('resolveEnv', () => {
     )
   })
 
-  it('rejects http URL JWKS (MITM risk on insecure JWKS fetch)', () => {
+  it('rejects http SUPABASE_JWKS_URL (MITM risk on insecure JWKS fetch)', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
-    vi.stubEnv('SUPABASE_JWKS', 'http://localhost:54321/auth/v1/jwks')
+    vi.stubEnv('SUPABASE_JWKS_URL', 'http://localhost:54321/auth/v1/jwks')
     const result = resolveEnv()
     expect(result.data!.jwks).toBeNull()
   })
 
-  it('trims whitespace around URL JWKS values', () => {
+  it('trims whitespace around SUPABASE_JWKS_URL values', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
-    vi.stubEnv('SUPABASE_JWKS', '   https://example.com/jwks.json\n')
+    vi.stubEnv('SUPABASE_JWKS_URL', '   https://example.com/jwks.json\n')
     const result = resolveEnv()
     expect(result.data!.jwks).toBeInstanceOf(URL)
     expect((result.data!.jwks as URL).href).toBe(
       'https://example.com/jwks.json',
     )
+  })
+
+  it('rejects a URL value placed in SUPABASE_JWKS (mixed-type protection)', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS', 'https://example.com/jwks.json')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
+  it('SUPABASE_JWKS wins over SUPABASE_JWKS_URL when both are set', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    const inline = { keys: [{ kty: 'RSA', n: 'inline', e: 'AQAB' }] }
+    vi.stubEnv('SUPABASE_JWKS', JSON.stringify(inline))
+    vi.stubEnv('SUPABASE_JWKS_URL', 'https://example.com/jwks.json')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toEqual(inline)
+  })
+
+  it('does not fall through to SUPABASE_JWKS_URL when SUPABASE_JWKS is malformed', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS', 'not-json')
+    vi.stubEnv('SUPABASE_JWKS_URL', 'https://example.com/jwks.json')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
+  it('falls through to SUPABASE_JWKS_URL when SUPABASE_JWKS is unset or empty', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS', '')
+    vi.stubEnv('SUPABASE_JWKS_URL', 'https://example.com/jwks.json')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeInstanceOf(URL)
   })
 
   it('passes URL overrides through unchanged', () => {
