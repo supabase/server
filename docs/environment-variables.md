@@ -87,16 +87,21 @@ SUPABASE_JWKS={"keys":[{"kty":"RSA","n":"...","e":"AQAB"}]}
 SUPABASE_JWKS=[{"kty":"RSA","n":"...","e":"AQAB"}]
 
 # Remote JWKS endpoint — keys are fetched on demand and cached in memory.
-# HTTPS is required; plain http:// is rejected (a MITM on the JWKS fetch
-# could swap in an attacker-controlled key and forge JWTs that verify).
+# HTTPS is required for any non-loopback host; plain http:// is rejected
+# (a MITM on the JWKS fetch could swap in an attacker-controlled key and
+# forge JWTs that verify). http:// is allowed for loopback hosts only —
+# `localhost`, `127.0.0.0/8`, `::1` — to support the local Supabase CLI.
 SUPABASE_JWKS_URL=https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
+
+# Local development against `supabase start`:
+SUPABASE_JWKS_URL=http://localhost:54321/auth/v1/.well-known/jwks.json
 ```
 
 ### Resolution order
 
 1. `SUPABASE_JWKS` — when set, treated as authoritative inline JSON.
 2. `SUPABASE_JWKS_URL` — only checked when `SUPABASE_JWKS` is unset or empty.
-   Must be `https://`.
+   Must be `https://`, except loopback hosts may use `http://`.
 3. Otherwise — `null`. JWT verification (`auth: 'user'`) is unavailable.
 
 ## Runtime-specific behavior

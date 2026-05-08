@@ -78,18 +78,38 @@ function parseJwks(raw: string | undefined): JsonWebKeySet | null {
 }
 
 /**
- * Parses a JWKS endpoint URL. Only `https://` is accepted: a MITM on the
- * JWKS fetch could swap in an attacker-controlled key and forge JWTs that
- * pass verification. Returns `null` for missing, non-https, or malformed input.
+ * Returns true if the hostname is a loopback address — `localhost`,
+ * `*.localhost`, `127.0.0.0/8`, or `::1`. Browsers treat these as secure
+ * contexts because traffic never leaves the machine.
+ *
+ * @internal
+ */
+function isLoopbackHost(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname.endsWith('.localhost')) return true
+  // URL.hostname keeps the brackets for IPv6 literals (e.g. "[::1]").
+  if (hostname === '[::1]') return true
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true
+  return false
+}
+
+/**
+ * Parses a JWKS endpoint URL. `https://` is always accepted. Plain `http://`
+ * is accepted only for loopback hosts (`localhost`, `127.0.0.0/8`, `::1`) so
+ * the Supabase CLI flow works against `http://localhost:54321`. For any
+ * other host, http is rejected: a MITM on the JWKS fetch could swap in an
+ * attacker-controlled key and forge JWTs that pass verification. Returns
+ * `null` for missing or malformed input.
  *
  * @internal
  */
 function parseJwksUrl(raw: string | undefined): URL | null {
   if (!raw) return null
   const trimmed = raw.trim()
-  if (!trimmed.startsWith('https://')) return null
   try {
-    return new URL(trimmed)
+    const url = new URL(trimmed)
+    if (url.protocol === 'https:') return url
+    if (url.protocol === 'http:' && isLoopbackHost(url.hostname)) return url
+    return null
   } catch {
     return null
   }

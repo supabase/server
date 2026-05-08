@@ -89,10 +89,12 @@ export interface SupabaseEnv {
    *
    * Sourced from one of (in priority order):
    * - `SUPABASE_JWKS` — inline JSON. Resolves to a {@link JsonWebKeySet}.
-   * - `SUPABASE_JWKS_URL` — https endpoint. Resolves to a {@link URL}; keys
+   * - `SUPABASE_JWKS_URL` — remote endpoint. Resolves to a {@link URL}; keys
    *   are fetched lazily and cached in memory (cooldown / max-age handled by
-   *   `jose`). Only `https://` is accepted — plain `http://` is rejected to
-   *   prevent MITM swap-in of a forged signing key.
+   *   `jose`). `https://` is always accepted; plain `http://` is accepted
+   *   only for loopback hosts (`localhost`, `127.0.0.0/8`, `::1`) to support
+   *   the Supabase CLI. Any other `http://` URL is rejected to prevent MITM
+   *   swap-in of a forged signing key.
    *
    * `null` when no JWKS is configured (JWT verification will be unavailable).
    * Each env var is authoritative when set: a malformed value resolves to

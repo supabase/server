@@ -81,12 +81,36 @@ describe('resolveEnv', () => {
     )
   })
 
-  it('rejects http SUPABASE_JWKS_URL (MITM risk on insecure JWKS fetch)', () => {
-    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
-    vi.stubEnv('SUPABASE_JWKS_URL', 'http://localhost:54321/auth/v1/jwks')
-    const result = resolveEnv()
-    expect(result.data!.jwks).toBeNull()
-  })
+  it.each([
+    ['plain hostname', 'http://example.com/jwks.json'],
+    ['public IP', 'http://1.2.3.4/jwks.json'],
+    ['private IP (non-loopback)', 'http://10.0.0.1/jwks.json'],
+    ['localhost prefix attack', 'http://localhost.evil.com/jwks.json'],
+  ])(
+    'rejects http SUPABASE_JWKS_URL on non-loopback host (%s)',
+    (_label, value) => {
+      vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+      vi.stubEnv('SUPABASE_JWKS_URL', value)
+      const result = resolveEnv()
+      expect(result.data!.jwks).toBeNull()
+    },
+  )
+
+  it.each([
+    ['localhost', 'http://localhost:54321/auth/v1/.well-known/jwks.json'],
+    ['127.0.0.1', 'http://127.0.0.1:54321/auth/v1/jwks'],
+    ['127.x range', 'http://127.0.0.5/jwks.json'],
+    ['::1', 'http://[::1]:54321/jwks.json'],
+    ['*.localhost subdomain', 'http://api.localhost/jwks.json'],
+  ])(
+    'allows http SUPABASE_JWKS_URL for loopback host (%s)',
+    (_label, value) => {
+      vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+      vi.stubEnv('SUPABASE_JWKS_URL', value)
+      const result = resolveEnv()
+      expect(result.data!.jwks).toBeInstanceOf(URL)
+    },
+  )
 
   it.each([
     ['unclosed IPv6 bracket', 'https://[invalid'],
