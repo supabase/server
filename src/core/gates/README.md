@@ -54,7 +54,7 @@ Inside a gated handler, ctx is a flat intersection — each gate contributes a t
 Two type-level guarantees:
 
 - **Collision detection.** If a gate tries to compose where the upstream already has its key, the gate's call returns a `Conflict<Key>` sentinel string. Using the result where a fetch handler is expected fails to typecheck — error surfaces at the offending gate's call site.
-- **Prerequisite enforcement.** Gates declare the upstream shape they require via `In`. The wrapper constrains `Base extends In`. Composing the gate where the upstream doesn't provide those keys is a type error. Gates with `In` keys also require `baseCtx`, so they can't be the outermost handler unless wrapped.
+- **Prerequisite enforcement.** Gates declare the upstream shape they require via `In`. The wrapper constrains `Base extends In`. Composing the gate where the upstream doesn't provide those keys is a type error. A gate that declares prerequisites can't be the top-level handler — it has to be nested inside a wrapper (e.g. `withSupabase`, or another gate) that supplies those keys.
 
 ## Composition rules
 
@@ -117,7 +117,7 @@ run: (config: Config) => (req: Request, ctx: In) =>
 
 The outer `(config) =>` is invoked once when the consumer constructs the gate. Initialize per-instance state (stores, clients, computed config) here. The inner `(req, ctx) =>` is invoked per-request.
 
-Return a `Response` to short-circuit. Otherwise, return a single-key object `{ [key]: contribution }` — the gate author types the slot key directly in the return position, so the relationship between the gate's `key` and where its data lands on `ctx` is visible at the call site. The runtime picks `result[key]` and ignores any other fields, so accidentally returning a wider object (e.g. `{ ...ctx, [key]: ... }`) is a runtime no-op for upstream values, and TypeScript flags excess keys on fresh-literal returns.
+Return a `Response` to short-circuit, or a single-key object `{ [key]: contribution }` to fall through. The runtime picks `result[key]` and ignores any other fields.
 
 ### Declaring upstream prerequisites
 
@@ -146,7 +146,7 @@ export const withSubscription = defineGate<
 })
 ```
 
-A consumer using this gate must supply `userClaims` upstream — typically by wrapping with `withSupabase`. Standalone use without `userClaims` won't compile, and `baseCtx` becomes required (no optional `?`).
+A consumer using this gate must supply `userClaims` upstream — typically by wrapping with `withSupabase`. Standalone use won't compile.
 
 ### Conflict detection
 
@@ -161,8 +161,6 @@ Pick a different key for each gate. Gates that may be applied multiple times can
 ### Threading state through nested gates
 
 When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript infers that `Base` through the nested fetch-handler signatures, so the handler sees the full accumulated `ctx` without explicit annotations.
-
-> **How this works.** The inference is enabled by a callable-intersection in `Wrapped<Base, In>` (see the JSDoc on that type in `define-gate.ts`). The two-signature form is load-bearing — collapsing it to a single optional `(req, baseCtx?: Base)` looks equivalent at runtime but breaks contextual `Base` propagation through nested generic calls. Don't simplify it without reading the comment.
 
 ```ts
 withSupabase({ allow: 'user' },
@@ -192,8 +190,6 @@ withSupabase({ allow: 'user' },
   ),
 )
 ```
-
-If you manually call a prerequisite-free gate with a `baseCtx` and no contextual outer wrapper, you can still pass `<Base>` explicitly to describe that base context.
 
 ## API
 
