@@ -96,7 +96,7 @@ jobs:
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
         if: ${{ steps.version.outputs.skip != 'true' }}
         with:
-          version: latest
+          version: 10.28.0
 
       - name: Install dependencies
         if: ${{ steps.version.outputs.skip != 'true' }}
