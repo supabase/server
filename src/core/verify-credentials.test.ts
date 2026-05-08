@@ -456,6 +456,53 @@ describe('verifyCredentials', () => {
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidCredentialsError)
     })
+
+    it('replaces the cached resolver when the URL changes', async () => {
+      // Second tenant with its own keypair. The resolver cache is single-slot
+      // keyed by URL string; if a refactor breaks that comparison, the second
+      // verify would (incorrectly) reuse the first URL's resolver and fail.
+      const keyPairB = await generateKeyPair('RS256')
+      const publicJwkB = await exportJWK(keyPairB.publicKey)
+      publicJwkB.alg = 'RS256'
+      publicJwkB.use = 'sig'
+      publicJwkB.kid = 'remote-key-b'
+      const jwksB: JsonWebKeySet = { keys: [publicJwkB] }
+      const tokenB = await new SignJWT({
+        sub: 'user-remote-b',
+        role: 'authenticated',
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'remote-key-b' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(keyPairB.privateKey)
+
+      const urlA = new URL('https://jwks-switch-a.example/jwks.json')
+      const urlB = new URL('https://jwks-switch-b.example/jwks.json')
+
+      fetchMock.mockImplementation(async (input: URL | string) => {
+        const href = input instanceof URL ? input.href : String(input)
+        const body = href === urlB.href ? jwksB : jwks
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      })
+
+      const a = await verifyCredentials(
+        { token: validToken, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: urlA }) },
+      )
+      const b = await verifyCredentials(
+        { token: tokenB, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: urlB }) },
+      )
+
+      expect(a.error).toBeNull()
+      expect(a.data!.userClaims!.id).toBe('user-remote')
+      expect(b.error).toBeNull()
+      expect(b.data!.userClaims!.id).toBe('user-remote-b')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('parseAuthMode edge cases', () => {

@@ -88,6 +88,16 @@ describe('resolveEnv', () => {
     expect(result.data!.jwks).toBeNull()
   })
 
+  it.each([
+    ['unclosed IPv6 bracket', 'https://[invalid'],
+    ['scheme only, no host', 'https://'],
+  ])('returns null for malformed SUPABASE_JWKS_URL (%s)', (_label, value) => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS_URL', value)
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
   it('trims whitespace around SUPABASE_JWKS_URL values', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     vi.stubEnv('SUPABASE_JWKS_URL', '   https://example.com/jwks.json\n')
