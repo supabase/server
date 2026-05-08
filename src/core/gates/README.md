@@ -1,14 +1,12 @@
 # `@supabase/server/core/gates`
 
-The portable extensibility layer for `@supabase/server`. A **gate** is a small, typed plugin — a fetch-handler wrapper that runs against an inbound `Request` and either short-circuits with a `Response` or contributes typed data to a flat key on `ctx` for the handler. Anyone can publish a gate as a standalone npm package; the built-ins (`withRateLimit`, `withWebhook`, `withPayment`, …) sit alongside third-party gates with no special status, all built on the same primitive.
+Similar to how `withSupabase(config, handler)` takes a config and a handler and hands the handler a `ctx` (with `ctx.supabase`, `ctx.userClaims`, …), a **gate** is a wrapper of the same shape — `withFoo(config, handler)` — that runs against the inbound `Request` and contributes its own typed key to `ctx`. Stack gates by direct nesting; the innermost handler sees a flat `ctx` aggregated from every wrapper around it. No separate composer.
 
-Because gates are plain `(req, ctx) => Response` wrappers over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and through every adapter (Hono, H3).
+Gates are how `@supabase/server` is extended past auth. Anyone can publish one as a standalone npm package; the built-ins (`withRateLimit`, `withWebhook`, `withPayment`, …) sit alongside third-party gates with no special status, all built on the same `defineGate` primitive. And because every gate is a plain `(req, ctx) => Response` wrapper over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and through every adapter (Hono, H3).
 
 This module exports:
 
 - **`defineGate`** — for _gate authors_ writing a new integration.
-
-Gates compose by direct nesting — each `withFoo(config, handler)` is a fetch-handler wrapper, the same shape as `withSupabase`. No separate composer.
 
 ## Quick start (consumer)
 
