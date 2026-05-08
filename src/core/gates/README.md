@@ -58,6 +58,14 @@ Two type-level guarantees:
 - **Collision detection.** If a gate tries to compose where the upstream already has its key, the gate's call returns a `Conflict<Key>` sentinel string. Using the result where a fetch handler is expected fails to typecheck — error surfaces at the offending gate's call site.
 - **Prerequisite enforcement.** Gates declare the upstream shape they require via `In`. The wrapper constrains `Base extends In`. Composing the gate where the upstream doesn't provide those keys is a type error. Gates with `In` keys also require `baseCtx`, so they can't be the outermost handler unless wrapped.
 
+## Composition rules
+
+Two things to know when stacking gates:
+
+1. **Outer runs first.** Each gate is a fetch-handler wrapper, so the outermost wrapper sees the request first and its contribution appears on `ctx` for everything it wraps. Reverse the order and any inner gate that declared an outer's key as a prerequisite won't compile.
+
+2. **Short-circuit or contribute — not both.** A gate's `run` returns either a `Response` (short-circuit, inner never runs) or a contribution `{ [key]: … }` (fall through). Gates don't observe or wrap the inner handler's response. Anything response-shaped — rate-limit headers, CORS, response envelopes — is the handler's job: it reads what it needs from `ctx` and `req` and builds the response itself. This keeps each gate's surface small and the response shape under one owner.
+
 ## Authoring a gate (`defineGate`)
 
 A gate has a _key_ (its slot on `ctx`), an optional `In` (upstream prerequisites), a _contribution_ shape, and a _run_ function.
