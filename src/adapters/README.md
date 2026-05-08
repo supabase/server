@@ -4,10 +4,11 @@ You're in the adapter source folder. Framework adapters wrap `withSupabase` and 
 
 ## Available adapters
 
-| Framework | Import                           | Framework version | Docs                                                 |
-| --------- | -------------------------------- | ----------------- | ---------------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](../../docs/adapters/hono.md) |
-| H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](../../docs/adapters/h3.md)     |
+| Framework | Import                             | Framework version      | Docs                                                     |
+| --------- | ---------------------------------- | ---------------------- | -------------------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`               | [docs/adapters/hono.md](../../docs/adapters/hono.md)     |
+| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`               | [docs/adapters/h3.md](../../docs/adapters/h3.md)         |
+| NestJS    | `@supabase/server/adapters/nestjs` | `^10.0.0 \|\| ^11.0.0` | [docs/adapters/nestjs.md](../../docs/adapters/nestjs.md) |
 
 The framework version reflects what the adapter is tested against. It must match the corresponding entry in [`package.json#peerDependencies`](../../package.json) — if you bump the peer-dep range, update this table too.
 

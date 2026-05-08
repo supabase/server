@@ -264,10 +264,11 @@ withSupabase(
 
 Adapters wrap `withSupabase` for a specific framework's middleware contract. **All adapters are community-maintained** — both Hono and H3 originated as community contributions. They live in this repo and ship with the core package, so a single `npm install @supabase/server` covers the framework you're using. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance model and the requirements for contributing a new adapter.
 
-| Framework | Import                           | Framework version | Docs                                           |
-| --------- | -------------------------------- | ----------------- | ---------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md) |
-| H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)     |
+| Framework | Import                             | Framework version      | Docs                                               |
+| --------- | ---------------------------------- | ---------------------- | -------------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`               | [docs/adapters/hono.md](docs/adapters/hono.md)     |
+| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`               | [docs/adapters/h3.md](docs/adapters/h3.md)         |
+| NestJS    | `@supabase/server/adapters/nestjs` | `^10.0.0 \|\| ^11.0.0` | [docs/adapters/nestjs.md](docs/adapters/nestjs.md) |
 
 ### Hono
 
@@ -296,6 +297,25 @@ export default { fetch: app.fetch }
 ```
 
 See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
+
+### NestJS
+
+```ts
+import { Controller, Get, UseGuards } from '@nestjs/common'
+import { withSupabase, SupabaseCtx } from '@supabase/server/adapters/nestjs'
+import type { SupabaseContext } from '@supabase/server'
+
+@Controller('games')
+@UseGuards(withSupabase({ auth: 'user' }))
+export class GamesController {
+  @Get()
+  list(@SupabaseCtx() ctx: SupabaseContext) {
+    return ctx.supabase.from('favorite_games').select()
+  }
+}
+```
+
+See [docs/adapters/nestjs.md](docs/adapters/nestjs.md) for per-route auth, exception filters, CORS, and more.
 
 ## Primitives
 
@@ -433,12 +453,13 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                           | What's in it                                                                                                      |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| Export                             | What's in it                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                 | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/nestjs` | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
 
 ## Documentation
 
@@ -449,6 +470,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
 | How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
 | How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
+| How do I use this with NestJS?                                      | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)             |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
