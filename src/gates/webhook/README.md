@@ -9,13 +9,14 @@ export default {
   fetch: withWebhook(
     {
       provider: {
-        kind: 'stripe',
-        secret: process.env.STRIPE_WEBHOOK_SECRET!,
+        kind: 'github',
+        secret: process.env.GITHUB_WEBHOOK_SECRET!,
       },
     },
     async (req, ctx) => {
-      const event = ctx.webhook.event as { type: string }
-      if (event.type === 'payment_intent.succeeded') {
+      const event = req.headers.get('x-github-event')
+      if (event === 'pull_request') {
+        const pr = ctx.webhook.event as { action: string }
         // …
       }
       return new Response(null, { status: 204 })
@@ -47,27 +48,71 @@ withWebhook({
 })
 ```
 
+### GitHub
+
+Verifies the `X-Hub-Signature-256` header (`sha256=<hex>`), rejects on:
+
+- missing header (`signature_missing`)
+- missing `sha256=` prefix (`signature_malformed`)
+- HMAC mismatch (`signature_invalid`)
+
+GitHub's signing scheme has no timestamp, so there's no replay window — pin events to the `X-GitHub-Delivery` UUID for idempotency (see [Idempotency](#idempotency)). The event type is delivered out-of-band in the `X-GitHub-Event` header; the gate exposes it via `req.headers`.
+
+Key rotation works the same as Stripe: pass `secret: ['new', 'old']` to accept either.
+
+```ts
+withWebhook(
+  {
+    provider: {
+      kind: 'github',
+      secret: process.env.GITHUB_WEBHOOK_SECRET!,
+    },
+  },
+  async (req, ctx) => {
+    switch (req.headers.get('x-github-event')) {
+      case 'pull_request': {
+        const pr = ctx.webhook.event as { action: string }
+        // …
+        break
+      }
+      case 'push': {
+        // …
+        break
+      }
+    }
+    return new Response(null, { status: 204 })
+  },
+)
+```
+
 ### Custom
 
-For any other provider (Svix/Resend, GitHub, Slack, Shopify, in-house) supply a `verify` function. The gate calls it with the raw body already consumed:
+For any other provider (Svix/Resend, Slack, Shopify, in-house) supply a `verify` function. The gate calls it with the raw body already consumed. Slack, for instance, signs `v0:<timestamp>:<body>` and exposes both pieces in headers:
 
 ```ts
 withWebhook({
   provider: {
     kind: 'custom',
     async verify(req, rawBody) {
-      const signature = req.headers.get('x-hub-signature-256') ?? ''
+      const ts = req.headers.get('x-slack-request-timestamp') ?? ''
+      const sig = req.headers.get('x-slack-signature') ?? ''
+      if (Math.abs(Date.now() / 1000 - Number(ts)) > 5 * 60) {
+        return { ok: false, error: 'signature_expired' }
+      }
       const expected =
-        'sha256=' + (await hmacHex(process.env.GH_WEBHOOK_SECRET!, rawBody))
-      if (!timingSafeEqual(signature, expected)) {
+        'v0=' +
+        (await hmacHex(
+          process.env.SLACK_SIGNING_SECRET!,
+          `v0:${ts}:${rawBody}`,
+        ))
+      if (!timingSafeEqual(sig, expected)) {
         return { ok: false, error: 'signature_invalid' }
       }
-      const event = JSON.parse(rawBody)
       return {
         ok: true,
-        event,
-        deliveryId: req.headers.get('x-github-delivery') ?? '',
-        timestamp: Date.now(),
+        event: JSON.parse(rawBody),
+        deliveryId: req.headers.get('x-slack-request-id') ?? '',
+        timestamp: Number(ts) * 1000,
       }
     },
   },

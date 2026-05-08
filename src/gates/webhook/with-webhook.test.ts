@@ -147,6 +147,119 @@ describe('withWebhook (stripe)', () => {
   })
 })
 
+describe('withWebhook (github)', () => {
+  const GH_SECRET = 'ghsec_test'
+
+  it('admits a valid GitHub signature and contributes parsed event', async () => {
+    const body = JSON.stringify({ action: 'opened', number: 7 })
+    const sig = 'sha256=' + (await hmacHex(GH_SECRET, body))
+
+    const inner = vi.fn(async (_req: Request, ctx) => {
+      expect(ctx.webhook.deliveryId).toBe(
+        '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+      )
+      expect((ctx.webhook.event as { action: string }).action).toBe('opened')
+      expect(ctx.webhook.rawBody).toBe(body)
+      expect(ctx.webhook.timestamp).toBe(1_700_000_000_000)
+      return Response.json({ ok: true })
+    })
+
+    const handler = withWebhook(
+      { provider: { kind: 'github', secret: GH_SECRET } },
+      inner,
+    )
+
+    const res = await handler(
+      new Request('http://localhost/', {
+        method: 'POST',
+        headers: {
+          'x-hub-signature-256': sig,
+          'x-github-delivery': '72d3162e-cc78-11e3-81ab-4c9367dc0958',
+          'x-github-event': 'pull_request',
+        },
+        body,
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(inner).toHaveBeenCalledOnce()
+  })
+
+  it('rejects when the signature header is missing', async () => {
+    const handler = withWebhook(
+      { provider: { kind: 'github', secret: GH_SECRET } },
+      innerOk,
+    )
+
+    const res = await handler(
+      new Request('http://localhost/', { method: 'POST', body: '{}' }),
+    )
+
+    expect(res.status).toBe(401)
+    expect((await res.json()).error).toBe('signature_missing')
+  })
+
+  it('rejects when the signature header is missing the sha256= prefix', async () => {
+    const body = '{}'
+    const v = await hmacHex(GH_SECRET, body)
+
+    const handler = withWebhook(
+      { provider: { kind: 'github', secret: GH_SECRET } },
+      innerOk,
+    )
+
+    const res = await handler(
+      new Request('http://localhost/', {
+        method: 'POST',
+        headers: { 'x-hub-signature-256': v }, // no sha256= prefix
+        body,
+      }),
+    )
+
+    expect(res.status).toBe(401)
+    expect((await res.json()).error).toBe('signature_malformed')
+  })
+
+  it('rejects on a bad signature', async () => {
+    const handler = withWebhook(
+      { provider: { kind: 'github', secret: GH_SECRET } },
+      innerOk,
+    )
+
+    const res = await handler(
+      new Request('http://localhost/', {
+        method: 'POST',
+        headers: { 'x-hub-signature-256': 'sha256=' + 'de'.repeat(32) },
+        body: '{"action":"opened"}',
+      }),
+    )
+
+    expect(res.status).toBe(401)
+    expect((await res.json()).error).toBe('signature_invalid')
+  })
+
+  it('accepts any of multiple secrets (rotation)', async () => {
+    const body = '{"action":"opened"}'
+    const oldSecret = 'ghsec_old'
+    const sig = 'sha256=' + (await hmacHex(oldSecret, body))
+
+    const handler = withWebhook(
+      { provider: { kind: 'github', secret: ['ghsec_new', oldSecret] } },
+      innerOk,
+    )
+
+    const res = await handler(
+      new Request('http://localhost/', {
+        method: 'POST',
+        headers: { 'x-hub-signature-256': sig },
+        body,
+      }),
+    )
+
+    expect(res.status).toBe(200)
+  })
+})
+
 describe('withWebhook (custom)', () => {
   it('passes when the custom verifier returns ok', async () => {
     const verify = vi.fn(async (_req: Request, body: string) => ({

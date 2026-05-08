@@ -472,7 +472,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | `@supabase/server/gates/cloudflare` | `withTurnstile`, `withAccess` (Cloudflare bot-check + Zero Trust JWT)                                             |
 | `@supabase/server/gates/flag`       | `withFlag` (provider-agnostic feature-flag gate)                                                                  |
 | `@supabase/server/gates/rate-limit` | `withRateLimit` (fixed-window rate limit; pluggable store)                                                        |
-| `@supabase/server/gates/webhook`    | `withWebhook` (HMAC signature verification, Stripe + custom)                                                      |
+| `@supabase/server/gates/webhook`    | `withWebhook` (HMAC signature verification, Stripe + GitHub + custom)                                             |
 | `@supabase/server/gates/x402`       | `withPayment` (Stripe-facilitated x402 paywall gate)                                                              |
 
 ## Documentation

@@ -2,9 +2,10 @@
  * Webhook signature verification gate.
  *
  * Verifies the HMAC signature on an inbound webhook against a shared secret,
- * checks the replay window, and contributes the parsed event + raw body to
- * `ctx.webhook`. Stripe is the canonical provider; supply a custom
- * `verify` function to plug in others (Svix/Resend, GitHub, Slack, Shopify).
+ * checks the replay window where the provider supplies one, and contributes
+ * the parsed event + raw body to `ctx.webhook`. Stripe and GitHub are
+ * built-in; supply a custom `verify` function to plug in others
+ * (Svix/Resend, Slack, Shopify, in-house).
  */
 
 import { defineGate, type Gate } from '../../core/gates/index.js'
@@ -13,6 +14,7 @@ const FIVE_MIN_MS = 5 * 60 * 1000
 
 export type WebhookProvider =
   | { kind: 'stripe'; secret: string | string[]; toleranceMs?: number }
+  | { kind: 'github'; secret: string | string[] }
   | {
       kind: 'custom'
       /**
@@ -57,13 +59,14 @@ export interface WebhookState {
  *   fetch: withWebhook(
  *     {
  *       provider: {
- *         kind: 'stripe',
- *         secret: process.env.STRIPE_WEBHOOK_SECRET!,
+ *         kind: 'github',
+ *         secret: process.env.GITHUB_WEBHOOK_SECRET!,
  *       },
  *     },
  *     async (req, ctx) => {
- *       // ctx.webhook.event is the parsed Stripe event
- *       // ctx.webhook.rawBody is the raw bytes (preserved here)
+ *       // ctx.webhook.event is the parsed GitHub event payload
+ *       // ctx.webhook.deliveryId is the X-GitHub-Delivery uuid
+ *       // req.headers.get('x-github-event') tells you which event fired
  *       return new Response(null, { status: 204 })
  *     },
  *   ),
@@ -84,10 +87,19 @@ export const withWebhook: Gate<
   key: 'webhook',
   run: (config) => async (req) => {
     const rawBody = await req.text()
-    const result =
-      config.provider.kind === 'custom'
-        ? await config.provider.verify(req, rawBody)
-        : await verifyStripe(req, rawBody, config.provider)
+    const { provider } = config
+    let result: WebhookVerifyResult
+    switch (provider.kind) {
+      case 'stripe':
+        result = await verifyStripe(req, rawBody, provider)
+        break
+      case 'github':
+        result = await verifyGithub(req, rawBody, provider)
+        break
+      case 'custom':
+        result = await provider.verify(req, rawBody)
+        break
+    }
 
     if (!result.ok) {
       return Response.json(
@@ -157,6 +169,49 @@ async function verifyStripe(
       typeof event.created === 'number'
         ? event.created * 1000
         : parsed.t * 1000,
+  }
+}
+
+async function verifyGithub(
+  req: Request,
+  rawBody: string,
+  provider: { kind: 'github'; secret: string | string[] },
+): Promise<WebhookVerifyResult> {
+  const header = req.headers.get('x-hub-signature-256')
+  if (!header) return { ok: false, error: 'signature_missing' }
+
+  const eq = header.indexOf('=')
+  if (eq < 0 || header.slice(0, eq) !== 'sha256') {
+    return { ok: false, error: 'signature_malformed' }
+  }
+  const provided = header.slice(eq + 1)
+
+  const secrets = Array.isArray(provider.secret)
+    ? provider.secret
+    : [provider.secret]
+
+  let matched = false
+  for (const secret of secrets) {
+    const expected = await hmacSha256Hex(secret, rawBody)
+    if (timingSafeEqualHex(expected, provided)) {
+      matched = true
+      break
+    }
+  }
+  if (!matched) return { ok: false, error: 'signature_invalid' }
+
+  let event: unknown
+  try {
+    event = JSON.parse(rawBody)
+  } catch {
+    return { ok: false, error: 'body_not_json' }
+  }
+
+  return {
+    ok: true,
+    event,
+    deliveryId: req.headers.get('x-github-delivery') ?? '',
+    timestamp: Date.now(),
   }
 }
 
