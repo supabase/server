@@ -2,15 +2,14 @@
 
 On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed
 
-| Variable                    | Format                             | Description                                                  | Available in                      |
-| --------------------------- | ---------------------------------- | ------------------------------------------------------------ | --------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                                    | All                               |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object                        | All                               |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object                             | All                               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | Inline JSON Web Key Set for JWT verification                 | All                               |
-| `SUPABASE_JWKS_URL`         | `https://...`                      | Remote JWKS endpoint (alternative to inline `SUPABASE_JWKS`) | All                               |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)                            | Self-hosted, if manually exported |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                                 | Self-hosted, if manually exported |
+| Variable                    | Format                             | Description                                  | Available in                      |
+| --------------------------- | ---------------------------------- | -------------------------------------------- | --------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                    | All                               |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object        | All                               |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object             | All                               |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | Inline JSON Web Key Set for JWT verification | All                               |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)            | Self-hosted, if manually exported |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                 | Self-hosted, if manually exported |
 
 ## Non-Supabase environments (Node.js, Bun, Cloudflare, self-hosted)
 
