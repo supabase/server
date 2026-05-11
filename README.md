@@ -429,19 +429,20 @@ export default {
 
 Automatically available in Supabase Edge Functions:
 
-| Variable                    | Format                                                        | Description                           |
-| --------------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                      |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)          |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`                                   | JSON Web Key Set for JWT verification |
+| Variable                    | Format                                                        | Description                                  |
+| --------------------------- | ------------------------------------------------------------- | -------------------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                             |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)                 |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)                      |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`                                   | Inline JSON Web Key Set for JWT verification |
 
 Also supported (for local dev, self-hosted, or other runtimes):
 
-| Variable                   | Format               | Description            |
-| -------------------------- | -------------------- | ---------------------- |
-| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Single publishable key |
-| `SUPABASE_SECRET_KEY`      | `sb_secret_...`      | Single secret key      |
+| Variable                   | Format               | Description                                               |
+| -------------------------- | -------------------- | --------------------------------------------------------- |
+| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Single publishable key                                    |
+| `SUPABASE_SECRET_KEY`      | `sb_secret_...`      | Single secret key                                         |
+| `SUPABASE_JWKS_URL`        | `https://...`        | Remote JWKS endpoint (used when `SUPABASE_JWKS` is unset) |
 
 When both singular and plural forms are set, plural takes priority.
 
