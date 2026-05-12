@@ -35,6 +35,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Determine version
         id: version
@@ -93,10 +94,8 @@ jobs:
           npm --version
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
         if: ${{ steps.version.outputs.skip != 'true' }}
-        with:
-          version: 10.28.0
 
       - name: Install dependencies
         if: ${{ steps.version.outputs.skip != 'true' }}
@@ -126,13 +125,12 @@ jobs:
             exit 1
           fi
           rm -f "$NPM_VIEW_STDERR"
-          # TODO(@mandarini): add back --provenance once repo is OSS
-          npm publish --access public --tag "${{ steps.version.outputs.tag }}"
+          npm publish --access public --provenance --tag "${{ steps.version.outputs.tag }}"
 
       - name: Publish to JSR
         if: ${{ steps.version.outputs.skip != 'true' }}
         continue-on-error: true
-        run: npx jsr publish --allow-dirty
+        run: npx jsr@0.14.3 publish --allow-dirty
 
       - name: Create GitHub pre-release
         if: ${{ steps.version.outputs.tag == 'rc' }}
