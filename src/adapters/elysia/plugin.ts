@@ -3,7 +3,7 @@ import { Elysia } from 'elysia'
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
-class SupabaseAuthError extends Error {
+class SupabaseError extends Error {
   status: number
   constructor(message: string, status: number, cause: unknown) {
     super(message, { cause })
@@ -56,7 +56,7 @@ class SupabaseAuthError extends Error {
  */
 export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
   return new Elysia()
-    .error({ SupabaseAuthError })
+    .error({ SupabaseError })
     .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
       const existing = (ctx as { supabaseContext?: SupabaseContext })
         .supabaseContext
@@ -64,7 +64,7 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
 
       const { data, error } = await createSupabaseContext(ctx.request, config)
       if (error) {
-        throw new SupabaseAuthError(error.message, error.status, error)
+        throw new SupabaseError(error.message, error.status, error)
       }
 
       return { supabaseContext: data }

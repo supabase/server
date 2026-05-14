@@ -102,7 +102,7 @@ import { withSupabase } from '@supabase/server/adapters/elysia'
 const app = new Elysia()
   .use(withSupabase({ auth: 'user' }))
   .onError(({ code, error, status }) => {
-    if (code !== 'SupabaseAuthError') return
+    if (code !== 'SupabaseError') return
     const cause = error.cause as { code?: string; status?: number } | undefined
     return status((cause?.status as 401) ?? 500, {
       error: error.message,

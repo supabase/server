@@ -43,7 +43,7 @@ describe('elysia supabase plugin', () => {
     const app = new Elysia()
       .use(withSupabase({ auth: 'user', env }))
       .onError(({ code, error, status }) => {
-        if (code !== 'SupabaseAuthError') return
+        if (code !== 'SupabaseError') return
         const cause = error.cause as
           | { code?: string; status?: number }
           | undefined

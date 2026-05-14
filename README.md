@@ -469,16 +469,11 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 - **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), [Elysia adapter](#elysia), or [core primitives](#primitives) with your framework of choice.
 - **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
 - **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
-<<<<<<< HEAD
 - **Next.js / SvelteKit / Remix** — compose with [`@supabase/ssr`](https://github.com/supabase/ssr): `@supabase/ssr` owns cookies + refresh-token rotation, `@supabase/server` adds verified claims and typed RLS / admin clients on top. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
 
 ### Does this replace `@supabase/ssr`?
 
 No. `@supabase/ssr` handles cookie-based session management for frameworks like Next.js and SvelteKit. `@supabase/server` handles stateless, header-based auth for Edge Functions, Workers, and other backend runtimes. The composable primitives already work in SSR environments but require more setup — see [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for the Next.js example. The two packages coexist and are not replacements for each other. Deeper integration with `@supabase/ssr` is on the roadmap.
-=======
-- **Elysia** — use the [Elysia adapter](#elysia) as a plugin.
-- **Next.js / SvelteKit / Remix** — use core primitives to build a cookie-based auth adapter. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
->>>>>>> 3c2310d (feat: add Elysia adapter)
 
 ## Exports
 
@@ -492,7 +487,6 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Documentation
 
-<<<<<<< HEAD
 | Question                                                            | Doc file                                                         |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)             |
@@ -500,27 +494,13 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
 | How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
 | How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
-| How do I use this with Elysia ?                                     | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)             |
+| How do I use this with Elysia?                                      | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)             |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
 | How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
 | How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
 | What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                 |
-=======
-| Question                                                 | Doc file                                                         |
-| -------------------------------------------------------- | ---------------------------------------------------------------- |
-| How do I create a basic endpoint?                        | [`docs/getting-started.md`](docs/getting-started.md)             |
-| What auth modes are available? Array syntax? Named keys? | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
-| How do I use this with Hono?                             | [`docs/hono-adapter.md`](docs/hono-adapter.md)                   |
-| How do I use this with Elysia?                           | [`docs/elysia-adapter.md`](docs/elysia-adapter.md)               |
-| How do I use low-level primitives for custom flows?      | [`docs/core-primitives.md`](docs/core-primitives.md)             |
-| How do environment variables work across runtimes?       | [`docs/environment-variables.md`](docs/environment-variables.md) |
-| How do I handle errors? What codes exist?                | [`docs/error-handling.md`](docs/error-handling.md)               |
-| How do I get typed database queries?                     | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
-| How do I use this in Next.js, Nuxt, SvelteKit, or Remix? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
-| What's the complete API surface?                         | [`docs/api-reference.md`](docs/api-reference.md)                 |
->>>>>>> 3c2310d (feat: add Elysia adapter)
 
 ## Development
 
