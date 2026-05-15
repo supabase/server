@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { withSupabase } from '../../with-supabase.js'
-import { withTurnstile } from '../../gates/cloudflare/with-turnstile.js'
-import { withFlag } from '../../gates/flag/with-flag.js'
-import { withRateLimit } from '../../gates/rate-limit/with-rate-limit.js'
+import { withFeatureFlag } from '../../gates/feature-flag/with-feature-flag.js'
 import { defineGate } from './define-gate.js'
 
 const innerOk = async () => Response.json({ ok: true })
@@ -242,42 +240,39 @@ describe('defineGate', () => {
   })
 
   it('infers upstream context through a Supabase gate stack without annotations', () => {
+    // Second gate built inline so the test exercises a 3-deep stack
+    // (withSupabase → withFeatureFlag → inline gate → handler) without
+    // depending on additional published gates.
+    const withStamp = defineGate<
+      'stamp',
+      undefined,
+      Record<never, never>,
+      { at: number }
+    >({
+      key: 'stamp',
+      run: () => async () => ({ stamp: { at: Date.now() } }),
+    })
+
     const fetchHandler = withSupabase(
-      { allow: 'user', cors: false },
-      withRateLimit(
+      { auth: 'user', cors: false },
+      withFeatureFlag(
         {
-          limit: 30,
-          windowMs: 60_000,
-          key: () => 'anon',
+          name: 'beta-feedback',
+          evaluate: () => true,
         },
-        withFlag(
-          {
-            name: 'beta-feedback',
-            evaluate: () => true,
-          },
-          withTurnstile(
-            {
-              secretKey: 'secret',
-              expectedAction: 'submit-feedback',
-              siteverifyUrl: 'http://localhost/siteverify',
-            },
-            async (_req, ctx) => {
-              const userId: string | undefined = ctx.userClaims?.id
-              const remaining: number = ctx.rateLimit.remaining
-              const flagName: string = ctx.flag.name
-              const action: string = ctx.turnstile.action
-              const authMode: string = ctx.authMode
+        withStamp(undefined, async (_req, ctx) => {
+          const userId: string | undefined = ctx.userClaims?.id
+          const flagName: string = ctx.featureFlag.name
+          const stampedAt: number = ctx.stamp.at
+          const authMode: string = ctx.authMode
 
-              void userId
-              void remaining
-              void flagName
-              void action
-              void authMode
+          void userId
+          void flagName
+          void stampedAt
+          void authMode
 
-              return Response.json({ ok: true })
-            },
-          ),
-        ),
+          return Response.json({ ok: true })
+        }),
       ),
     )
 

@@ -2,7 +2,7 @@
 
 Similar to how `withSupabase(config, handler)` takes a config and a handler and hands the handler a `ctx` (with `ctx.supabase`, `ctx.userClaims`, …), a **gate** is a wrapper of the same shape — `withFoo(config, handler)` — that runs against the inbound `Request` and contributes its own typed key to `ctx`. Stack gates by direct nesting; the innermost handler sees a flat `ctx` aggregated from every wrapper around it. No separate composer.
 
-Gates are how `@supabase/server` is extended past auth. Anyone can publish one as a standalone npm package; the built-ins (`withRateLimit`, `withWebhook`, `withPayment`, …) sit alongside third-party gates with no special status, all built on the same `defineGate` primitive. And because every gate is a plain `(req, ctx) => Response` wrapper over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and through every adapter (Hono, H3).
+Gates are how `@supabase/server` is extended past auth. Anyone can publish one as a standalone npm package; the built-in `withFeatureFlag` sits alongside third-party gates with no special status, all built on the same `defineGate` primitive. And because every gate is a plain `(req, ctx) => Response` wrapper over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and through every adapter (Hono, H3).
 
 This module exports:
 
@@ -12,19 +12,20 @@ This module exports:
 
 ```ts
 import { withSupabase } from '@supabase/server'
-import { withFlag } from './gates/with-flag.ts'
+import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
 
 export default {
   fetch: withSupabase(
-    { allow: 'user' },
-    withFlag(
+    { auth: 'user' },
+    withFeatureFlag(
       { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
       async (req, ctx) => {
         // ctx.supabase, ctx.userClaims  — from withSupabase
-        // ctx.flag                       — from withFlag
-        if (!ctx.flag.enabled)
-          return new Response('not enabled', { status: 404 })
-        return Response.json({ user: ctx.userClaims!.id })
+        // ctx.featureFlag                — from withFeatureFlag
+        return Response.json({
+          user: ctx.userClaims!.id,
+          variant: ctx.featureFlag.variant,
+        })
       },
     ),
   ),
@@ -35,9 +36,9 @@ Standalone (no `withSupabase`):
 
 ```ts
 export default {
-  fetch: withFlag(
+  fetch: withFeatureFlag(
     { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
-    async (req, ctx) => Response.json({ enabled: ctx.flag.enabled }),
+    async (req, ctx) => Response.json({ flag: ctx.featureFlag.name }),
   ),
 }
 ```
@@ -46,10 +47,10 @@ export default {
 
 Inside a gated handler, ctx is a flat intersection — each gate contributes a typed key:
 
-| Key                                               | Set by                         | Mutability              |
-| ------------------------------------------------- | ------------------------------ | ----------------------- |
-| `ctx.supabase`, `ctx.userClaims`, etc.            | `withSupabase` (when wrapping) | read-only by convention |
-| `ctx.<gate-key>` (e.g. `ctx.flag`, `ctx.payment`) | the corresponding gate         | read-only by convention |
+| Key                                                      | Set by                         | Mutability              |
+| -------------------------------------------------------- | ------------------------------ | ----------------------- |
+| `ctx.supabase`, `ctx.userClaims`, etc.                   | `withSupabase` (when wrapping) | read-only by convention |
+| `ctx.<gate-key>` (e.g. `ctx.featureFlag`, `ctx.payment`) | the corresponding gate         | read-only by convention |
 
 Two type-level guarantees:
 
@@ -82,19 +83,19 @@ export interface FlagState {
   enabled: boolean
 }
 
-export const withFlag = defineGate<
-  'flag', // Key
+export const withFeatureFlag = defineGate<
+  'featureFlag', // Key
   FlagConfig, // Config
   {}, // In: no upstream prerequisites
-  FlagState // Contribution: shape under ctx.flag
+  FlagState // Contribution: shape under ctx.featureFlag
 >({
-  key: 'flag',
+  key: 'featureFlag',
   run: (config) => async (req) => {
     const enabled = config.evaluate(req)
     if (!enabled) {
       return Response.json({ error: 'feature_disabled' }, { status: 404 })
     }
-    return { flag: { enabled } } // ← keyed slot, visible at ctx.flag
+    return { featureFlag: { enabled } } // ← keyed slot, visible at ctx.featureFlag
   },
 })
 ```
@@ -102,9 +103,8 @@ export const withFlag = defineGate<
 Used as:
 
 ```ts
-withFlag({ name: 'beta', evaluate: ... }, async (req, ctx) => {
-  if (!ctx.flag.enabled) return new Response('not enabled', { status: 404 })
-  return Response.json({ ok: true })
+withFeatureFlag({ name: 'beta', evaluate: ... }, async (req, ctx) => {
+  return Response.json({ enabled: ctx.featureFlag.enabled })
 })
 ```
 
@@ -160,14 +160,16 @@ Pick a different key for each gate. Gates that may be applied multiple times can
 
 ### Threading state through nested gates
 
-When a gate is wrapped by another (e.g. `withSupabase(... withRateLimit(... handler))`), the outer's keys land on `Base` for the inner. TypeScript infers that `Base` through the nested fetch-handler signatures, so the handler sees the full accumulated `ctx` without explicit annotations.
+When a gate is wrapped by another (e.g. `withSupabase(... withFeatureFlag(... handler))`), the outer's keys land on `Base` for the inner. TypeScript infers that `Base` through the nested fetch-handler signatures, so the handler sees the full accumulated `ctx` without explicit annotations.
 
 ```ts
-withSupabase({ allow: 'user' },
-  withRateLimit({ limit: 30, windowMs: 60_000, key: ... },
+withSupabase(
+  { auth: 'user' },
+  withFeatureFlag(
+    { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
     async (_req, ctx) => {
       // ctx.userClaims    — from withSupabase
-      // ctx.rateLimit     — from withRateLimit
+      // ctx.featureFlag   — from withFeatureFlag
       return Response.json({ user: ctx.userClaims!.id })
     },
   ),
@@ -177,16 +179,13 @@ withSupabase({ allow: 'user' },
 For multi-gate stacks, keep nesting directly:
 
 ```ts
-withSupabase({ allow: 'user' },
-  withRateLimit(...,
-    withFlag(...,
-      withTurnstile(..., async (_req, ctx) => {
-        // ctx.userClaims   — from withSupabase
-        // ctx.rateLimit    — from withRateLimit
-        // ctx.flag         — from withFlag
-        // ctx.turnstile    — from withTurnstile
-      }),
-    ),
+withSupabase({ auth: 'user' },
+  withFeatureFlag(...,
+    withMyGate(..., async (_req, ctx) => {
+      // ctx.userClaims   — from withSupabase
+      // ctx.featureFlag  — from withFeatureFlag
+      // ctx.myGate       — from withMyGate
+    }),
   ),
 )
 ```

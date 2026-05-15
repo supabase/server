@@ -303,16 +303,19 @@ The portable extensibility layer for `@supabase/server`. A **gate** is a fetch-h
 
 ```ts
 import { withSupabase } from '@supabase/server'
-import { withPayment } from '@supabase/server/gates/x402'
+import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
 
 export default {
   fetch: withSupabase(
-    { allow: 'user' },
-    withPayment({ stripe, amountCents: 5 }, async (req, ctx) => {
-      // ctx.supabase, ctx.userClaims    — from withSupabase
-      // ctx.payment.intentId            — from withPayment
-      return Response.json({ paid: ctx.payment.intentId })
-    }),
+    { auth: 'user' },
+    withFeatureFlag(
+      { name: 'beta-checkout', evaluate: (req) => req.headers.has('x-beta') },
+      async (_req, ctx) => {
+        // ctx.supabase, ctx.userClaims  — from withSupabase
+        // ctx.featureFlag               — from withFeatureFlag
+        return Response.json({ feature: ctx.featureFlag.name })
+      },
+    ),
   ),
 }
 ```
@@ -320,11 +323,8 @@ export default {
 `withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates nest inside it (or stand alone), and TypeScript infers the accumulated `ctx` shape through the nested wrappers.
 
 - [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, ctx rules, prerequisite enforcement, conflict detection).
-- [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — `withTurnstile`, `withAccess`.
-- [`@supabase/server/gates/flag`](src/gates/flag/README.md) — `withFlag`, provider-agnostic feature flag.
-- [`@supabase/server/gates/rate-limit`](src/gates/rate-limit/README.md) — `withRateLimit`, fixed-window with pluggable store.
-- [`@supabase/server/gates/webhook`](src/gates/webhook/README.md) — `withWebhook`, HMAC signature verification.
-- [`@supabase/server/gates/x402`](src/gates/x402/README.md) — `withPayment`, Stripe-facilitated x402 paywall.
+- [`src/gates/README.md`](src/gates/README.md) — guide for writing your own gate.
+- [`@supabase/server/gates/feature-flag`](src/gates/feature-flag/README.md) — `withFeatureFlag`, the worked example gate.
 
 ## Primitives
 
@@ -463,40 +463,33 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                              | What's in it                                                                                                      |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                  | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`             | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`    | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`      | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/core/gates`       | `defineGate` (gate composition primitives)                                                                        |
-| `@supabase/server/gates/cloudflare` | `withTurnstile`, `withAccess` (Cloudflare bot-check + Zero Trust JWT)                                             |
-| `@supabase/server/gates/flag`       | `withFlag` (provider-agnostic feature-flag gate)                                                                  |
-| `@supabase/server/gates/rate-limit` | `withRateLimit` (fixed-window rate limit; pluggable store)                                                        |
-| `@supabase/server/gates/webhook`    | `withWebhook` (HMAC signature verification, Stripe + GitHub + custom)                                             |
-| `@supabase/server/gates/x402`       | `withPayment` (Stripe-facilitated x402 paywall gate)                                                              |
+| Export                                | What's in it                                                                                                      |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                    | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`               | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`      | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`        | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/core/gates`         | `defineGate` (gate composition primitives)                                                                        |
+| `@supabase/server/gates/feature-flag` | `withFeatureFlag` (provider-agnostic feature-flag gate; worked example for gate authors)                          |
 
 ## Documentation
 
-| Question                                                            | Doc file                                                           |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)               |
-| What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                         |
-| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)                 |
-| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                   |
-| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                       |
-| How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)               |
-| How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md)   |
-| How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)                 |
-| How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)       |
-| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                 |
-| What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                   |
-| How do I extend a handler with a gate (rate-limit, webhook, …)?     | [`src/core/gates/README.md`](src/core/gates/README.md)             |
-| How do I gate a route behind a Cloudflare check?                    | [`src/gates/cloudflare/README.md`](src/gates/cloudflare/README.md) |
-| How do I gate a route behind a feature flag?                        | [`src/gates/flag/README.md`](src/gates/flag/README.md)             |
-| How do I rate-limit a route?                                        | [`src/gates/rate-limit/README.md`](src/gates/rate-limit/README.md) |
-| How do I verify webhook signatures?                                 | [`src/gates/webhook/README.md`](src/gates/webhook/README.md)       |
-| How do I charge per call with x402 + Stripe?                        | [`src/gates/x402/README.md`](src/gates/x402/README.md)             |
+| Question                                                            | Doc file                                                               |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)                   |
+| What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                             |
+| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)                     |
+| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                       |
+| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                           |
+| How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)                   |
+| How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md)       |
+| How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)                     |
+| How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)           |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                     |
+| What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                       |
+| How do I extend a handler with a gate?                              | [`src/core/gates/README.md`](src/core/gates/README.md)                 |
+| How do I write my own gate?                                         | [`src/gates/README.md`](src/gates/README.md)                           |
+| How do I gate a route behind a feature flag?                        | [`src/gates/feature-flag/README.md`](src/gates/feature-flag/README.md) |
 
 ## Development
 

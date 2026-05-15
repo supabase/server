@@ -41,24 +41,24 @@ import type { Conflict } from './types.js'
  * ```ts
  * import { defineGate } from '@supabase/server/core/gates'
  *
- * export const withFlag = defineGate<
- *   'flag',
+ * export const withFeatureFlag = defineGate<
+ *   'featureFlag',
  *   { name: string; evaluate: (req: Request) => boolean },
  *   {},
  *   { name: string; enabled: true }
  * >({
- *   key: 'flag',
+ *   key: 'featureFlag',
  *   run: (config) => async (req) => {
  *     if (!config.evaluate(req)) {
  *       return Response.json({ error: 'feature_disabled' }, { status: 404 })
  *     }
- *     return { flag: { name: config.name, enabled: true } }
+ *     return { featureFlag: { name: config.name, enabled: true } }
  *   },
  * })
  *
  * // Standalone:
- * withFlag({ name: 'beta', evaluate: ... }, async (req, ctx) => {
- *   return Response.json({ flag: ctx.flag.name })
+ * withFeatureFlag({ name: 'beta', evaluate: ... }, async (req, ctx) => {
+ *   return Response.json({ flag: ctx.featureFlag.name })
  * })
  * ```
  *
@@ -82,7 +82,7 @@ import type { Conflict } from './types.js'
  * })
  *
  * // Composes only inside `withSupabase` (or a wrapper that provides those keys):
- * withSupabase({ allow: 'user' },
+ * withSupabase({ auth: 'user' },
  *   withReportAccess({ reportId: 'r1' }, async (req, ctx) => {
  *     ctx.supabase    // from withSupabase
  *     ctx.userClaims  // from withSupabase
