@@ -324,7 +324,11 @@ export default {
 
 - [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, ctx rules, prerequisite enforcement, conflict detection).
 - [`src/gates/README.md`](src/gates/README.md) — guide for writing your own gate.
-- [`@supabase/server/gates/feature-flag`](src/gates/feature-flag/README.md) — `withFeatureFlag`, the worked example gate.
+- [`@supabase/server/gates/cloudflare`](src/gates/cloudflare/README.md) — `withTurnstile`, `withAccess`.
+- [`@supabase/server/gates/feature-flag`](src/gates/feature-flag/README.md) — `withFeatureFlag`, provider-agnostic feature flag (the worked example).
+- [`@supabase/server/gates/rate-limit`](src/gates/rate-limit/README.md) — `withRateLimit`, fixed-window with pluggable store.
+- [`@supabase/server/gates/webhook`](src/gates/webhook/README.md) — `withWebhook`, HMAC signature verification.
+- [`@supabase/server/gates/x402`](src/gates/x402/README.md) — `withPayment`, Stripe-facilitated x402 paywall.
 
 ## Primitives
 
@@ -470,7 +474,11 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | `@supabase/server/adapters/hono`      | `withSupabase` (Hono middleware)                                                                                  |
 | `@supabase/server/adapters/h3`        | `withSupabase` (H3 / Nuxt middleware)                                                                             |
 | `@supabase/server/core/gates`         | `defineGate` (gate composition primitives)                                                                        |
+| `@supabase/server/gates/cloudflare`   | `withTurnstile`, `withAccess` (Cloudflare bot-check + Zero Trust JWT)                                             |
 | `@supabase/server/gates/feature-flag` | `withFeatureFlag` (provider-agnostic feature-flag gate; worked example for gate authors)                          |
+| `@supabase/server/gates/rate-limit`   | `withRateLimit` (fixed-window rate limit; pluggable store)                                                        |
+| `@supabase/server/gates/webhook`      | `withWebhook` (HMAC signature verification, Stripe + GitHub + custom)                                             |
+| `@supabase/server/gates/x402`         | `withPayment` (Stripe-facilitated x402 paywall gate)                                                              |
 
 ## Documentation
 
@@ -489,7 +497,11 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                       |
 | How do I extend a handler with a gate?                              | [`src/core/gates/README.md`](src/core/gates/README.md)                 |
 | How do I write my own gate?                                         | [`src/gates/README.md`](src/gates/README.md)                           |
+| How do I gate a route behind a Cloudflare check?                    | [`src/gates/cloudflare/README.md`](src/gates/cloudflare/README.md)     |
 | How do I gate a route behind a feature flag?                        | [`src/gates/feature-flag/README.md`](src/gates/feature-flag/README.md) |
+| How do I rate-limit a route?                                        | [`src/gates/rate-limit/README.md`](src/gates/rate-limit/README.md)     |
+| How do I verify webhook signatures?                                 | [`src/gates/webhook/README.md`](src/gates/webhook/README.md)           |
+| How do I charge per call with x402 + Stripe?                        | [`src/gates/x402/README.md`](src/gates/x402/README.md)                 |
 
 ## Development
 
