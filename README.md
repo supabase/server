@@ -5,7 +5,7 @@
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 [![Docs](https://img.shields.io/badge/docs-supabase.github.io-3ECF8E?logo=readthedocs&logoColor=white)](https://supabase.github.io/server/)
 
-> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.X — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
 
 > **Coming from a `0.x` release?** See [MIGRATION.md](MIGRATION.md) for the v0 → v1 rename map (`allow` → `auth`, `'public'` → `'publishable'`, `authType` → `authMode`, `claims` → `jwtClaims`, …).
 
@@ -262,40 +262,16 @@ withSupabase(
 
 ## Framework Adapters
 
-Adapters wrap `withSupabase` for a specific framework's middleware contract. **All adapters are community-maintained** — both Hono and H3 originated as community contributions. They live in this repo and ship with the core package, so a single `npm install @supabase/server` covers the framework you're using. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance model and the requirements for contributing a new adapter.
+Adapters wrap `withSupabase` for a specific framework's middleware contract. They ship inside `@supabase/server`, so a single `npm install @supabase/server` covers the framework you're using — no separate package per adapter.
+
+> **Adapters are a community initiative.** Every adapter in this repo originated as a community contribution — Hono and H3 included. The Supabase team reviews PRs, runs security and regression triage, and ships releases; the original contributor is the de-facto domain expert for their adapter and the first responder on framework-version bumps. Want to add a new one? See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring).
 
 | Framework | Import                           | Framework version | Docs                                           |
 | --------- | -------------------------------- | ----------------- | ---------------------------------------------- |
 | Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md) |
 | H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)     |
 
-### Hono
-
-```ts
-import { Hono } from 'hono'
-import { withSupabase } from '@supabase/server/adapters/hono'
-
-const app = new Hono()
-app.use('*', withSupabase({ auth: 'user' }))
-
-export default { fetch: app.fetch }
-```
-
-See [docs/adapters/hono.md](docs/adapters/hono.md) for per-route auth, CORS, error handling, and other patterns.
-
-### H3 / Nuxt
-
-```ts
-import { H3 } from 'h3'
-import { withSupabase } from '@supabase/server/adapters/h3'
-
-const app = new H3()
-app.use(withSupabase({ auth: 'user' }))
-
-export default { fetch: app.fetch }
-```
-
-See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
+See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
 
 ## Primitives
 
@@ -421,12 +397,17 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 ## Runtimes
 
-- **Supabase Edge Functions** — environment variables are auto-injected. Zero config.
-- **Deno / Bun** — works out of the box with the `export default { fetch }` pattern.
-- **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), or [core primitives](#primitives) with your framework of choice.
-- **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
-- **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
-- **Next.js / SvelteKit / Remix** — compose with [`@supabase/ssr`](https://github.com/supabase/ssr): `@supabase/ssr` owns cookies + refresh-token rotation, `@supabase/server` adds verified claims and typed RLS / admin clients on top. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
+`@supabase/server` runs anywhere standard Web `fetch` does — pick the row that matches your deployment target.
+
+| Target                      | Notes                                                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase Edge Functions** | Zero config — environment variables are auto-injected.                                                                                    |
+| **Vercel Functions**        | Edge runtime: `export default { fetch }`. Node runtime: use a [framework adapter](#framework-adapters) or [core primitives](#primitives). |
+| **Cloudflare Workers**      | Enable `nodejs_compat` in `wrangler.toml`, or pass overrides via the `env` config option.                                                 |
+| **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                                      |
+| **Node.js**                 | Use a [framework adapter](#framework-adapters) or [core primitives](#primitives) with your framework of choice.                           |
+
+Using a framework? See [Framework Adapters](#framework-adapters) for Hono and H3 / Nuxt, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
 
 ### Does this replace `@supabase/ssr`?
 
