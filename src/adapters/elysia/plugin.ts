@@ -56,6 +56,10 @@ export class SupabaseError extends Error {
  * app.listen(3000)
  * ```
  */
+// The explicit return type below mirrors Elysia's own generic defaults, which use
+// `{}` literals — switching to `object` or `Record<string, never>` would not satisfy
+// the corresponding generic constraints.
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
   '',
   { decorator: {}; store: {}; derive: {}; resolve: {} },
@@ -84,6 +88,7 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
     response: {}
   }
 > {
+  /* eslint-enable @typescript-eslint/no-empty-object-type */
   return new Elysia()
     .error({ SupabaseError })
     .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
