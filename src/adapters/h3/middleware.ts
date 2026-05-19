@@ -47,18 +47,13 @@ export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): Middleware {
   return defineMiddleware(async (event, next) => {
-    if (event.context.supabaseContext) return next()
+    const context = event.context as { supabaseContext?: SupabaseContext }
+    if (context.supabaseContext) return next()
     const { data: ctx, error } = await createSupabaseContext(event.req, config)
     if (error) {
       throw new HTTPError(error.message, { status: error.status, cause: error })
     }
-    event.context.supabaseContext = ctx
+    context.supabaseContext = ctx
     return next()
   })
-}
-
-declare module 'h3' {
-  interface H3EventContext {
-    supabaseContext: SupabaseContext
-  }
 }
