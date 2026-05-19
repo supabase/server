@@ -4,4 +4,4 @@
  * @packageDocumentation
  */
 
-export { withSupabase } from './plugin.js'
+export { SupabaseError, withSupabase } from './plugin.js'

@@ -1,10 +1,10 @@
-import { Elysia } from 'elysia'
+import { Elysia, type ExtractErrorFromHandle } from 'elysia'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
-class SupabaseError extends Error {
+export class SupabaseError extends Error {
   status: number
   declare cause: AuthError
   constructor(inner: AuthError) {
@@ -56,7 +56,34 @@ class SupabaseError extends Error {
  * app.listen(3000)
  * ```
  */
-export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>) {
+export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
+  '',
+  { decorator: {}; store: {}; derive: {}; resolve: {} },
+  { typebox: {}; error: { readonly SupabaseError: SupabaseError } },
+  {
+    schema: {}
+    standaloneSchema: {}
+    macro: {}
+    macroFn: {}
+    parser: {}
+    response: {}
+  },
+  {},
+  {
+    derive: {}
+    resolve: { supabaseContext: SupabaseContext }
+    schema: {}
+    standaloneSchema: {}
+    response: ExtractErrorFromHandle<{ supabaseContext: SupabaseContext }>
+  },
+  {
+    derive: {}
+    resolve: {}
+    schema: {}
+    standaloneSchema: {}
+    response: {}
+  }
+> {
   return new Elysia()
     .error({ SupabaseError })
     .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
