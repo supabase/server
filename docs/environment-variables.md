@@ -2,25 +2,29 @@
 
 On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed
 
-| Variable                    | Format                             | Description                                  | Available in                      |
-| --------------------------- | ---------------------------------- | -------------------------------------------- | --------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                    | All                               |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object        | All                               |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object             | All                               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | Inline JSON Web Key Set for JWT verification | All                               |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)            | Self-hosted, if manually exported |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                 | Self-hosted, if manually exported |
+| Variable                    | Format                              | Description                                  | Available in                      |
+| --------------------------- | ----------------------------------- | -------------------------------------------- | --------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`         | Your Supabase project URL                    | All                               |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}`  | Named publishable keys as JSON object        | All                               |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`       | Named secret keys as JSON object             | All                               |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`         | Inline JSON Web Key Set for JWT verification | All                               |
+| `SUPABASE_JWT_AUDIENCE`     | `https://<ref>.supabase.co`         | Expected JWT `aud` claim (optional)          | All                               |
+| `SUPABASE_JWT_ISSUER`       | `https://<ref>.supabase.co/auth/v1` | Expected JWT `iss` claim (optional)          | All                               |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`                | Single publishable key (fallback)            | Self-hosted, if manually exported |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                     | Single secret key (fallback)                 | Self-hosted, if manually exported |
 
 ## Non-Supabase environments (Node.js, Bun, Cloudflare, self-hosted)
 
 Set these based on which auth modes your app uses:
 
-| Variable                               | Required when                             |
-| -------------------------------------- | ----------------------------------------- |
-| `SUPABASE_URL`                         | Always                                    |
-| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'` or using `supabaseAdmin` |
-| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                     |
-| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)         |
+| Variable                               | Required when                              |
+| -------------------------------------- | ------------------------------------------ |
+| `SUPABASE_URL`                         | Always                                     |
+| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'` or using `supabaseAdmin`  |
+| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                      |
+| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)          |
+| `SUPABASE_JWT_AUDIENCE`                | Optional - restricts accepted JWT audience |
+| `SUPABASE_JWT_ISSUER`                  | Optional - restricts accepted JWT issuer   |
 
 ### Minimal `.env` example
 
@@ -193,6 +197,8 @@ interface SupabaseEnv {
   secretKeys: Record<string, string>
   // `URL` when SUPABASE_JWKS is a remote endpoint, `JsonWebKeySet` for inline keys
   jwks: JsonWebKeySet | URL | null
+  audience?: string
+  issuer?: string
 }
 ```
 
