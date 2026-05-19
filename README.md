@@ -264,14 +264,57 @@ withSupabase(
 
 Adapters wrap `withSupabase` for a specific framework's middleware contract. They ship inside `@supabase/server`, so a single `npm install @supabase/server` covers the framework you're using — no separate package per adapter.
 
-> **Adapters are a community initiative.** Every adapter in this repo originated as a community contribution — Hono and H3 included. The Supabase team reviews PRs, runs security and regression triage, and ships releases; the original contributor is the de-facto domain expert for their adapter and the first responder on framework-version bumps. Want to add a new one? See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring).
+> **Adapters are a community-driven initiative.** They're developed, maintained, and evolved by contributors — including responding to upstream framework changes. See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring) if you'd like to add or help maintain one.
 
-| Framework | Import                           | Framework version | Docs                                           |
-| --------- | -------------------------------- | ----------------- | ---------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md) |
-| H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)     |
+| Framework | Import                             | Framework version | Docs                                               |
+| --------- | ---------------------------------- | ----------------- | -------------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md)     |
+| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)         |
+| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`          | [docs/adapters/elysia.md](docs/adapters/elysia.md) |
 
 See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
+
+### Elysia
+
+```ts
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
+
+const app = new Elysia()
+  // Protected — plugin resolves supabaseContext before handlers run
+  .use(withSupabase({ auth: 'user' }))
+  .get('/games', async ({ supabaseContext }) => {
+    const { data: myGames } = await supabaseContext.supabase
+      .from('favorite_games')
+      .select()
+    return myGames
+  })
+  // Public — no plugin means no auth
+  .get('/health', () => ({ status: 'ok' }))
+
+app.listen(3000)
+```
+
+For per-route auth, use scoped groups:
+
+```ts
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
+
+const app = new Elysia()
+  .get('/health', () => ({ status: 'ok' }))
+  .group('/api', (app) =>
+    app
+      .use(withSupabase({ auth: 'user' }))
+      .get('/profile', async ({ supabaseContext }) => {
+        return supabaseContext.userClaims
+      }),
+  )
+
+app.listen(3000)
+```
+
+The adapter does not handle CORS — use `@elysiajs/cors` for that.
 
 ## Primitives
 
@@ -407,7 +450,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                                      |
 | **Node.js**                 | Use a [framework adapter](#framework-adapters) or [core primitives](#primitives) with your framework of choice.                           |
 
-Using a framework? See [Framework Adapters](#framework-adapters) for Hono and H3 / Nuxt, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
+Using a framework? See [Framework Adapters](#framework-adapters) for Hono, H3 / Nuxt, and Elysia, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
 
 ### Does this replace `@supabase/ssr`?
 
@@ -415,12 +458,13 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                           | What's in it                                                                                                      |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| Export                             | What's in it                                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                 | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/elysia` | `withSupabase` (Elysia plugin)                                                                                    |
 
 ## Documentation
 
@@ -431,6 +475,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
 | How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
 | How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
+| How do I use this with Elysia?                                      | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)             |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
