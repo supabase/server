@@ -67,7 +67,7 @@
     "prepare": "simple-git-hooks",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm pretty-quick --staged",

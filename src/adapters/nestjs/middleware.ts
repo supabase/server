@@ -40,9 +40,16 @@ function toWebRequest(req: NestRequestLike): Request {
  * NestJS guard that creates a {@link SupabaseContext} and stores it on the
  * underlying request as `request.supabaseContext`.
  *
- * Skips if a previous guard or middleware already set the context, enabling
- * route-level overrides. Throws `HttpException` on auth failure — the original
- * `AuthError` is available via `cause`.
+ * **HTTP-only.** The guard reads HTTP headers via `switchToHttp()` and throws
+ * if applied to an RPC or WebSocket handler — those transports must
+ * authenticate via context-specific mechanisms.
+ *
+ * Always runs, even if a previous guard already set the context. This matches
+ * Nest's guard order (global → controller → handler), so handler-level guards
+ * can tighten what a global guard set rather than being skipped.
+ *
+ * Throws `HttpException` on auth failure — the original `AuthError` is
+ * available via `cause`.
  *
  * @param config - Auth modes and optional environment overrides. CORS is excluded —
  *   use NestJS's built-in CORS (`app.enableCors()`).
@@ -78,24 +85,24 @@ function toWebRequest(req: NestRequestLike): Request {
 export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): Type<CanActivate> {
-  // Applied as a function call rather than `@Injectable()` syntax so the
-  // bundled output contains no decorator tokens. Several JS runtimes (incl.
-  // Node's CJS loader) refuse to parse decorator syntax at runtime, even
-  // though the metadata semantics are identical.
+  @Injectable()
   class SupabaseAuthGuard implements CanActivate {
     async canActivate(executionContext: ExecutionContext): Promise<boolean> {
-      // HTTP-only: this guard reads HTTP headers via `switchToHttp()`. In RPC
-      // or WebSocket contexts the request shape differs (no `headers`), so
-      // skip rather than crash. Users on those transports should authenticate
-      // via the appropriate context-specific mechanism.
-      if (executionContext.getType() !== 'http') return true
+      // Fail loudly on non-HTTP transports rather than silently allowing them
+      // through — the guard cannot read WS/RPC payloads, so a misapplied guard
+      // would otherwise be a no-op on every message.
+      const contextType = executionContext.getType()
+      if (contextType !== 'http') {
+        throw new HttpException(
+          {
+            message: `withSupabase guard only supports HTTP contexts (got '${contextType}'). Authenticate non-HTTP transports separately.`,
+            code: 'unsupported_context',
+          },
+          500,
+        )
+      }
 
       const req = executionContext.switchToHttp().getRequest<NestRequestLike>()
-
-      // Skip if a previous guard already set the context. Enables stacking
-      // `@UseGuards(withSupabase({ auth: 'user' }))` at the controller level
-      // with a different auth mode at the handler level — the first one wins.
-      if (req.supabaseContext) return true
 
       const { data: ctx, error } = await createSupabaseContext(
         toWebRequest(req),
@@ -114,6 +121,5 @@ export function withSupabase(
     }
   }
 
-  Injectable()(SupabaseAuthGuard)
   return SupabaseAuthGuard
 }

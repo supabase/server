@@ -91,8 +91,11 @@ describe('nestjs supabase guard', () => {
     expect(cause!.status).toBe(401)
   })
 
-  it('skips if context is already set by prior guard', async () => {
-    // Simulate a prior guard or middleware having already populated the context.
+  it('runs even when a prior guard already set the context', async () => {
+    // Handler-level guards must be able to tighten what a global/controller
+    // guard set — Nest runs guards in global → controller → handler order, so
+    // skipping when context exists would let an outer permissive guard mask
+    // an inner stricter one.
     const preset: SupabaseContext = {
       supabase: {} as SupabaseContext['supabase'],
       supabaseAdmin: {} as SupabaseContext['supabaseAdmin'],
@@ -100,7 +103,6 @@ describe('nestjs supabase guard', () => {
       jwtClaims: null,
       authMode: 'none',
     }
-    // This guard would otherwise reject with 401 (no apikey for 'secret').
     const Guard = withSupabase({ auth: 'secret', env })
     const guard = new Guard()
     const req: MockReq = {
@@ -109,11 +111,34 @@ describe('nestjs supabase guard', () => {
       supabaseContext: preset,
     }
 
+    // No apikey, so the stricter 'secret' guard must reject — proving it
+    // re-evaluated instead of skipping because preset was present.
+    await expect(guard.canActivate(makeCtx(req))).rejects.toBeInstanceOf(
+      HttpException,
+    )
+  })
+
+  it('overwrites a prior context on successful auth (innermost wins)', async () => {
+    const preset: SupabaseContext = {
+      supabase: {} as SupabaseContext['supabase'],
+      supabaseAdmin: {} as SupabaseContext['supabaseAdmin'],
+      userClaims: null,
+      jwtClaims: null,
+      authMode: 'none',
+    }
+    const Guard = withSupabase({ auth: 'secret', env })
+    const guard = new Guard()
+    const req: MockReq = {
+      headers: { apikey: 'sb_secret_xyz' },
+      url: '/',
+      supabaseContext: preset,
+    }
+
     const result = await guard.canActivate(makeCtx(req))
 
     expect(result).toBe(true)
-    // Preserved — the guard did not overwrite it.
-    expect(req.supabaseContext).toBe(preset)
+    expect(req.supabaseContext).not.toBe(preset)
+    expect(req.supabaseContext!.authMode).toBe('secret')
   })
 
   it('verifies a valid secret key from the apikey header', async () => {
@@ -176,21 +201,28 @@ describe('nestjs supabase guard', () => {
     expect(req.supabaseContext!.authMode).toBe('none')
   })
 
-  it('skips non-HTTP execution contexts (rpc, ws)', async () => {
-    // The guard reads HTTP headers via `switchToHttp()`. In RPC/WS contexts
-    // the request shape differs, so it should pass through without auth
-    // rather than crash on missing `headers`.
+  it('throws on non-HTTP execution contexts (rpc, ws)', async () => {
+    // The guard reads HTTP headers via `switchToHttp()`. Misapplying it to an
+    // RPC or WS handler must fail loudly — silently passing through would
+    // make the guard a no-op on every message of those transports.
     const Guard = withSupabase({ auth: 'user', env })
     const guard = new Guard()
     const req: MockReq = { headers: {}, url: '/' }
 
-    const rpcResult = await guard.canActivate(makeCtx(req, 'rpc'))
-    expect(rpcResult).toBe(true)
-    expect(req.supabaseContext).toBeUndefined()
-
-    const wsResult = await guard.canActivate(makeCtx(req, 'ws'))
-    expect(wsResult).toBe(true)
-    expect(req.supabaseContext).toBeUndefined()
+    for (const type of ['rpc', 'ws'] as const) {
+      let caught: HttpException | null = null
+      try {
+        await guard.canActivate(makeCtx(req, type))
+      } catch (e) {
+        caught = e as HttpException
+      }
+      expect(caught).toBeInstanceOf(HttpException)
+      expect(caught!.getStatus()).toBe(500)
+      const body = caught!.getResponse() as { message: string; code: string }
+      expect(body.code).toBe('unsupported_context')
+      expect(body.message).toContain(type)
+      expect(req.supabaseContext).toBeUndefined()
+    }
   })
 
   it('forwards header arrays as a single comma-joined value', async () => {

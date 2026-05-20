@@ -6,7 +6,6 @@ import {
   Injectable,
   Module,
   UseGuards,
-  type CanActivate,
   type INestApplication,
   type PipeTransform,
 } from '@nestjs/common'
