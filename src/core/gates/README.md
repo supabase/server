@@ -2,7 +2,7 @@
 
 Similar to how `withSupabase(config, handler)` takes a config and a handler and hands the handler a `ctx` (with `ctx.supabase`, `ctx.userClaims`, …), a **gate** is a wrapper of the same shape — `withFoo(config, handler)` — that runs against the inbound `Request` and contributes its own typed key to `ctx`. Stack gates by direct nesting; the innermost handler sees a flat `ctx` aggregated from every wrapper around it. No separate composer.
 
-Gates are how `@supabase/server` is extended past auth. Anyone can publish one as a standalone npm package; the built-in `withFeatureFlag` sits alongside third-party gates with no special status, all built on the same `defineGate` primitive. And because every gate is a plain `(req, ctx) => Response` wrapper over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and through every adapter (Hono, H3).
+Gates are how `@supabase/server` is extended past auth. Anyone can publish one as a standalone npm package; the built-in `withFeatureFlag` sits alongside third-party gates with no special status, all built on the same `defineGate` primitive. And because every gate is a plain `(req, ctx) => Response` wrapper over the Web Fetch API, the same gate runs unchanged across every runtime `@supabase/server` supports — Workers, Deno, Bun, Node — and inside every framework adapter (Hono, H3, Elysia) via the adapter's two-arg `withSupabase(config, handler)` form. See [Using gates with framework adapters](#using-gates-with-framework-adapters) below.
 
 This module exports:
 
@@ -63,7 +63,38 @@ Two things to know when stacking gates:
 
 1. **Outer runs first.** Each gate is a fetch-handler wrapper, so the outermost wrapper sees the request first and its contribution appears on `ctx` for everything it wraps. Reverse the order and any inner gate that declared an outer's key as a prerequisite won't compile.
 
-2. **Short-circuit or contribute — not both.** A gate's `run` returns either a `Response` (short-circuit, inner never runs) or a contribution `{ [key]: … }` (fall through). Gates don't observe or wrap the inner handler's response. Anything response-shaped — rate-limit headers, CORS, response envelopes — is the handler's job: it reads what it needs from `ctx` and `req` and builds the response itself. This keeps each gate's surface small and the response shape under one owner.
+2. **Either a `Response` or a contribution — not both.** A gate's `run` returns either a `Response` (handed back to the caller in place of the inner handler) or a contribution `{ [key]: … }` (fall through). A returned `Response` isn't a "rejection" or an error — it can be any status (200, 302, 404, 503, …). Gates don't observe or wrap the inner handler's response either. Anything response-shaped — rate-limit headers, CORS, response envelopes — is the handler's job: it reads what it needs from `ctx` and `req` and builds the response itself. This keeps each gate's surface small and the response shape under one owner.
+
+## Using gates with framework adapters
+
+Each framework adapter (`@supabase/server/adapters/hono`, `/h3`, `/elysia`) exports `withSupabase` with two call shapes:
+
+- **One arg** — `withSupabase(config)` — the framework-native middleware/plugin. See the per-adapter docs (`docs/adapters/*.md`).
+- **Two args** — `withSupabase(config, handler)` — the base `withSupabase` from `@supabase/server`, re-exported here for ergonomics. Returns a Web Fetch handler. This is the form to use for gate composition.
+
+Pick by what you want the route to be. The two forms can coexist in one app — routes that just need auth use the one-arg middleware, routes that compose with gates use the two-arg fetch handler.
+
+```ts
+import { Hono } from 'hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
+import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
+
+const beta = withSupabase(
+  { auth: 'user' },
+  withFeatureFlag(
+    { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+    async (_req, ctx) =>
+      Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+  ),
+)
+
+const app = new Hono()
+app.all('/beta', (c) => beta(c.req.raw))
+```
+
+H3 is `app.all('/beta', (event) => beta(event.req))`. Elysia is `.all('/beta', ({ request }) => beta(request))`. The gate stack itself is identical across frameworks — only the route mount changes.
+
+`Base` (the upstream ctx shape) is inferred through the gate's `Wrapped` signature, so the inner handler sees the full intersection `SupabaseContext & { gateA: … } & { gateB: … }`.
 
 ## Authoring a gate (`defineGate`)
 

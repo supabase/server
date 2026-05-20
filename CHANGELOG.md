@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/supabase/server/compare/server-v1.0.0...server-v1.1.0) (2026-05-19)
+
+### Features
+
+- add Elysia adapter ([#46](https://github.com/supabase/server/issues/46)) ([148169e](https://github.com/supabase/server/commit/148169e5f7737ea50049f3649056f5a44a266a1f))
+- **env:** add support for JWKS discovery endpoints ([#53](https://github.com/supabase/server/issues/53)) ([45d677a](https://github.com/supabase/server/commit/45d677ae6539cfa58e0c339960f53e9a7ca90e7d))
+
+### Bug Fixes
+
+- **auth:** skip user mode when token has sb\_ prefix ([#67](https://github.com/supabase/server/issues/67)) ([b193216](https://github.com/supabase/server/commit/b1932169e28163040b9b22db73b0f84739d9bb8b))
+- **ci:** update node packages ([#57](https://github.com/supabase/server/issues/57)) ([f275907](https://github.com/supabase/server/commit/f2759071fd84932e15ebd48f21c04ab311bd5237))
+- **jsr:** resolve slow-type errors in elysia and h3 adapters ([#69](https://github.com/supabase/server/issues/69)) ([7c56b13](https://github.com/supabase/server/commit/7c56b132985bd04673108dab7251b1939326d18e))
+
 ## [1.0.0](https://github.com/supabase/server/compare/server-v0.2.0...server-v1.0.0) (2026-05-06)
 
 ### Miscellaneous Chores

@@ -1,7 +1,15 @@
 import { H3, HTTPError, onError } from 'h3'
 import { describe, expect, it } from 'vitest'
 
+import type { SupabaseContext } from '../../types.js'
+
 import { withSupabase } from './middleware.js'
+
+declare module 'h3' {
+  interface H3EventContext {
+    supabaseContext: SupabaseContext
+  }
+}
 
 describe('h3 supabase middleware', () => {
   const env = {
@@ -93,5 +101,84 @@ describe('h3 supabase middleware', () => {
 
     const res = await app.request('/')
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
+  })
+})
+
+describe('h3 withSupabase fetch-handler form (two-arg)', () => {
+  const env = {
+    url: 'https://test.supabase.co',
+    publishableKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_secret_xyz' },
+    jwks: null,
+  }
+
+  it('composes with a gate and exposes the full ctx to the inner handler', async () => {
+    const { withFeatureFlag } =
+      await import('../../gates/feature-flag/index.js')
+
+    const beta = withSupabase(
+      { auth: 'none', env },
+      withFeatureFlag(
+        { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+        async (_req, ctx) =>
+          Response.json({
+            authMode: ctx.authMode,
+            flag: ctx.featureFlag.name,
+            enabled: ctx.featureFlag.enabled,
+          }),
+      ),
+    )
+
+    const app = new H3()
+    app.all('/beta', (event) => beta(event.req))
+
+    const res = await app.request('/beta', { headers: { 'x-beta': '1' } })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      authMode: 'none',
+      flag: 'beta',
+      enabled: true,
+    })
+  })
+
+  it("returns the gate's response in place of the inner handler", async () => {
+    const { withFeatureFlag } =
+      await import('../../gates/feature-flag/index.js')
+
+    const beta = withSupabase(
+      { auth: 'none', env },
+      withFeatureFlag({ name: 'beta', evaluate: () => false }, async () =>
+        Response.json({ reached: true }),
+      ),
+    )
+
+    const app = new H3()
+    app.all('/beta', (event) => beta(event.req))
+
+    const res = await app.request('/beta')
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({
+      error: 'feature_disabled',
+      flag: 'beta',
+    })
+  })
+
+  it('returns auth errors as JSON (no HTTPError) — base library behavior', async () => {
+    const handler = withSupabase({ auth: 'user', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const app = new H3()
+    let onErrorFired = false
+    app.use(
+      onError(() => {
+        onErrorFired = true
+      }),
+    )
+    app.all('/', (event) => handler(event.req))
+
+    const res = await app.request('/')
+    expect(res.status).toBe(401)
+    expect(onErrorFired).toBe(false)
   })
 })

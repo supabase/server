@@ -96,3 +96,81 @@ describe('hono supabase middleware', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 })
+
+describe('hono withSupabase fetch-handler form (two-arg)', () => {
+  const env = {
+    url: 'https://test.supabase.co',
+    publishableKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_publishable_xyz' },
+    jwks: null,
+  }
+
+  it('composes with a gate and exposes the full ctx to the inner handler', async () => {
+    const { withFeatureFlag } =
+      await import('../../gates/feature-flag/index.js')
+
+    const beta = withSupabase(
+      { auth: 'none', env },
+      withFeatureFlag(
+        { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+        async (_req, ctx) =>
+          Response.json({
+            authMode: ctx.authMode,
+            flag: ctx.featureFlag.name,
+            enabled: ctx.featureFlag.enabled,
+          }),
+      ),
+    )
+
+    const app = new Hono()
+    app.all('/beta', (c) => beta(c.req.raw))
+
+    const res = await app.request('/beta', { headers: { 'x-beta': '1' } })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      authMode: 'none',
+      flag: 'beta',
+      enabled: true,
+    })
+  })
+
+  it("returns the gate's response in place of the inner handler", async () => {
+    const { withFeatureFlag } =
+      await import('../../gates/feature-flag/index.js')
+
+    const beta = withSupabase(
+      { auth: 'none', env },
+      withFeatureFlag({ name: 'beta', evaluate: () => false }, async () =>
+        Response.json({ reached: true }),
+      ),
+    )
+
+    const app = new Hono()
+    app.all('/beta', (c) => beta(c.req.raw))
+
+    const res = await app.request('/beta')
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({
+      error: 'feature_disabled',
+      flag: 'beta',
+    })
+  })
+
+  it('returns auth errors as JSON (no HTTPException) — base library behavior', async () => {
+    const handler = withSupabase({ auth: 'user', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const app = new Hono()
+    let onErrorFired = false
+    app.onError((err, c) => {
+      onErrorFired = true
+      return c.json({ caught: err.message })
+    })
+    app.all('/', (c) => handler(c.req.raw))
+
+    const res = await app.request('/')
+    expect(res.status).toBe(401)
+    expect(onErrorFired).toBe(false)
+  })
+})
