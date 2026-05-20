@@ -301,20 +301,13 @@ For per-route auth, use scoped groups:
 import { Elysia } from 'elysia'
 import { withSupabase } from '@supabase/server/adapters/elysia'
 
-const app = new Elysia()
-  .get('/health', () => ({ status: 'ok' }))
-  .group('/api', (app) =>
-    app
-      .use(withSupabase({ auth: 'user' }))
-      .get('/profile', async ({ supabaseContext }) => {
-        return supabaseContext.userClaims
-      }),
-  )
+const app = new H3()
+app.use(withSupabase({ auth: 'user' }))
 
-app.listen(3000)
+export default { fetch: app.fetch }
 ```
 
-The adapter does not handle CORS — use `@elysiajs/cors` for that.
+See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
 
 ## Primitives
 
@@ -458,13 +451,12 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                             | What's in it                                                                                                      |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                 | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/adapters/elysia` | `withSupabase` (Elysia plugin)                                                                                    |
+| Export                           | What's in it                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
 
 ## Documentation
 
@@ -475,7 +467,6 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
 | How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
 | How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
-| How do I use this with Elysia?                                      | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)             |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |

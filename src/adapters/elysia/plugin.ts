@@ -3,6 +3,7 @@ import { Elysia, type ExtractErrorFromHandle } from 'elysia'
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
+import { withSupabase as withSupabaseHandler } from '../../with-supabase.js'
 
 export class SupabaseError extends Error {
   status: number
@@ -87,8 +88,47 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
     standaloneSchema: {}
     response: {}
   }
-> {
-  /* eslint-enable @typescript-eslint/no-empty-object-type */
+>
+/* eslint-enable @typescript-eslint/no-empty-object-type */
+/**
+ * Two-arg form — the base `withSupabase` from `@supabase/server`,
+ * re-exported here for ergonomics. Returns a Web Fetch handler (not an
+ * Elysia plugin); mount on a route via
+ * `.all(path, ({ request }) => handler(request))`. Use this form to
+ * compose with gates from `@supabase/server/gates/*`. See
+ * [gates README](../../core/gates/README.md) for the pattern.
+ *
+ * @example
+ * ```ts
+ * import { Elysia } from 'elysia'
+ * import { withSupabase } from '@supabase/server/adapters/elysia'
+ * import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
+ *
+ * const beta = withSupabase(
+ *   { auth: 'user' },
+ *   withFeatureFlag(
+ *     { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+ *     async (_req, ctx) =>
+ *       Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+ *   ),
+ * )
+ *
+ * new Elysia().all('/beta', ({ request }) => beta(request)).listen(3000)
+ * ```
+ */
+export function withSupabase(
+  config: WithSupabaseConfig,
+  handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
+): (req: Request) => Promise<Response>
+export function withSupabase<Database>(
+  config: WithSupabaseConfig,
+  handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
+): (req: Request) => Promise<Response>
+export function withSupabase(
+  config?: WithSupabaseConfig,
+  handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
+): unknown {
+  if (handler) return withSupabaseHandler(config!, handler)
   return new Elysia()
     .error({ SupabaseError })
     .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
