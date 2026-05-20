@@ -4,17 +4,18 @@ You're in the adapter source folder. Framework adapters wrap `withSupabase` and 
 
 ## Available adapters
 
-| Framework | Import                             | Framework version | Docs                                                     |
-| --------- | ---------------------------------- | ----------------- | -------------------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`          | [docs/adapters/hono.md](../../docs/adapters/hono.md)     |
-| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`          | [docs/adapters/h3.md](../../docs/adapters/h3.md)         |
-| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`          | [docs/adapters/elysia.md](../../docs/adapters/elysia.md) |
+| Framework | Import                              | Framework version | Docs                                                       |
+| --------- | ----------------------------------- | ----------------- | ---------------------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono`    | `^4.0.0`          | [docs/adapters/hono.md](../../docs/adapters/hono.md)       |
+| H3 / Nuxt | `@supabase/server/adapters/h3`      | `^2.0.0`          | [docs/adapters/h3.md](../../docs/adapters/h3.md)           |
+| Elysia    | `@supabase/server/adapters/elysia`  | `^1.4.0`          | [docs/adapters/elysia.md](../../docs/adapters/elysia.md)   |
+| Express   | `@supabase/server/adapters/express` | `^5.0.0`          | [docs/adapters/express.md](../../docs/adapters/express.md) |
 
 The framework version reflects what the adapter is tested against. It must match the corresponding entry in [`package.json#peerDependencies`](../../package.json) — if you bump the peer-dep range, update this table too.
 
 ## Community-maintained
 
-**Every adapter listed above is community-maintained.** Hono, H3, and Elysia all originated as community contributions. Adapters live in this repo and ship with the core package, so users get them with a single `npm install @supabase/server` — no separate package per framework.
+**Every adapter listed above is community-maintained.** Hono, H3, Elysia, and Express all originated as community contributions. Adapters live in this repo and ship with the core package, so users get them with a single `npm install @supabase/server` — no separate package per framework.
 
 The Supabase team reviews PRs, runs security and regression triage, and ships releases. The original contributor of an adapter is the de-facto domain expert and is expected to be the first responder on framework-version bumps and bug reports for that adapter.
 
