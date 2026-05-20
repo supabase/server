@@ -1,7 +1,15 @@
 import { H3, HTTPError, onError } from 'h3'
 import { describe, expect, it } from 'vitest'
 
+import type { SupabaseContext } from '../../types.js'
+
 import { withSupabase } from './middleware.js'
+
+declare module 'h3' {
+  interface H3EventContext {
+    supabaseContext: SupabaseContext
+  }
+}
 
 describe('h3 supabase middleware', () => {
   const env = {

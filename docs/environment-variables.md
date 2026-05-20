@@ -2,25 +2,25 @@
 
 On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed
 
-| Variable                    | Format                             | Description                           | Available in                      |
-| --------------------------- | ---------------------------------- | ------------------------------------- | --------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL             | All                               |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object | All                               |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object      | All                               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | JSON Web Key Set for JWT verification | All                               |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)     | Self-hosted, if manually exported |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)          | Self-hosted, if manually exported |
+| Variable                    | Format                             | Description                                  | Available in                      |
+| --------------------------- | ---------------------------------- | -------------------------------------------- | --------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                    | All                               |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object        | All                               |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object             | All                               |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | Inline JSON Web Key Set for JWT verification | All                               |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)            | Self-hosted, if manually exported |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                 | Self-hosted, if manually exported |
 
 ## Non-Supabase environments (Node.js, Bun, Cloudflare, self-hosted)
 
 Set these based on which auth modes your app uses:
 
-| Variable                   | Required when                             |
-| -------------------------- | ----------------------------------------- |
-| `SUPABASE_URL`             | Always                                    |
-| `SUPABASE_SECRET_KEY`      | `auth: 'secret'` or using `supabaseAdmin` |
-| `SUPABASE_PUBLISHABLE_KEY` | `auth: 'publishable'`                     |
-| `SUPABASE_JWKS`            | `auth: 'user'` (JWT verification)         |
+| Variable                               | Required when                             |
+| -------------------------------------- | ----------------------------------------- |
+| `SUPABASE_URL`                         | Always                                    |
+| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'` or using `supabaseAdmin` |
+| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                     |
+| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)         |
 
 ### Minimal `.env` example
 
@@ -75,19 +75,34 @@ The singular form is a convenience for the common case where you only have one k
 
 When both singular and plural forms are set, the plural form takes priority.
 
-## JWKS format
+## JWKS source
 
-`SUPABASE_JWKS` accepts two formats:
+JWT verification (`auth: 'user'`) needs a JWKS. There are two ways to provide one:
 
 ```
-# Standard JWKS format
+# Inline JSON — standard JWKS format
 SUPABASE_JWKS={"keys":[{"kty":"RSA","n":"...","e":"AQAB"}]}
 
-# Bare array (convenience)
+# Inline JSON — bare array (convenience, wrapped as { keys: [...] })
 SUPABASE_JWKS=[{"kty":"RSA","n":"...","e":"AQAB"}]
+
+# Remote JWKS endpoint — keys are fetched on demand and cached in memory.
+# HTTPS is required for any non-loopback host; plain http:// is rejected
+# (a MITM on the JWKS fetch could swap in an attacker-controlled key and
+# forge JWTs that verify). http:// is allowed for loopback hosts only —
+# `localhost`, `127.0.0.0/8`, `::1` — to support the local Supabase CLI.
+SUPABASE_JWKS_URL=https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
+
+# Local development against `supabase start`:
+SUPABASE_JWKS_URL=http://localhost:54321/auth/v1/.well-known/jwks.json
 ```
 
-When `SUPABASE_JWKS` is not set, JWT verification (`auth: 'user'`) is unavailable.
+### Resolution order
+
+1. `SUPABASE_JWKS` — when set, treated as authoritative inline JSON.
+2. `SUPABASE_JWKS_URL` — only checked when `SUPABASE_JWKS` is unset or empty.
+   Must be `https://`, except loopback hosts may use `http://`.
+3. Otherwise — `null`. JWT verification (`auth: 'user'`) is unavailable.
 
 ## Runtime-specific behavior
 
@@ -176,7 +191,8 @@ interface SupabaseEnv {
   url: string
   publishableKeys: Record<string, string>
   secretKeys: Record<string, string>
-  jwks: JsonWebKeySet | null
+  // `URL` when SUPABASE_JWKS is a remote endpoint, `JsonWebKeySet` for inline keys
+  jwks: JsonWebKeySet | URL | null
 }
 ```
 

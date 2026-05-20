@@ -5,7 +5,7 @@
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 [![Docs](https://img.shields.io/badge/docs-supabase.github.io-3ECF8E?logo=readthedocs&logoColor=white)](https://supabase.github.io/server/)
 
-> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.X — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
 
 > **Coming from a `0.x` release?** See [MIGRATION.md](MIGRATION.md) for the v0 → v1 rename map (`allow` → `auth`, `'public'` → `'publishable'`, `authType` → `authMode`, `claims` → `jwtClaims`, …).
 
@@ -262,41 +262,60 @@ withSupabase(
 
 ## Framework Adapters
 
-Adapters wrap `withSupabase` for a specific framework's middleware contract. **All adapters are community-maintained** — both Hono and H3 originated as community contributions. They live in this repo and ship with the core package, so a single `npm install @supabase/server` covers the framework you're using. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance model and the requirements for contributing a new adapter.
+Adapters wrap `withSupabase` for a specific framework's middleware contract. They ship inside `@supabase/server`, so a single `npm install @supabase/server` covers the framework you're using — no separate package per adapter.
+
+> **Adapters are a community-driven initiative.** They're developed, maintained, and evolved by contributors — including responding to upstream framework changes. See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring) if you'd like to add or help maintain one.
 
 | Framework | Import                             | Framework version      | Docs                                               |
 | --------- | ---------------------------------- | ---------------------- | -------------------------------------------------- |
 | Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`               | [docs/adapters/hono.md](docs/adapters/hono.md)     |
 | H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`               | [docs/adapters/h3.md](docs/adapters/h3.md)         |
+| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`               | [docs/adapters/elysia.md](docs/adapters/elysia.md) |
 | NestJS    | `@supabase/server/adapters/nestjs` | `^10.0.0 \|\| ^11.0.0` | [docs/adapters/nestjs.md](docs/adapters/nestjs.md) |
 
-### Hono
+See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
+
+### Elysia
 
 ```ts
-import { Hono } from 'hono'
-import { withSupabase } from '@supabase/server/adapters/hono'
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
 
-const app = new Hono()
-app.use('*', withSupabase({ auth: 'user' }))
+const app = new Elysia()
+  // Protected — plugin resolves supabaseContext before handlers run
+  .use(withSupabase({ auth: 'user' }))
+  .get('/games', async ({ supabaseContext }) => {
+    const { data: myGames } = await supabaseContext.supabase
+      .from('favorite_games')
+      .select()
+    return myGames
+  })
+  // Public — no plugin means no auth
+  .get('/health', () => ({ status: 'ok' }))
 
-export default { fetch: app.fetch }
+app.listen(3000)
 ```
 
-See [docs/adapters/hono.md](docs/adapters/hono.md) for per-route auth, CORS, error handling, and other patterns.
-
-### H3 / Nuxt
+For per-route auth, use scoped groups:
 
 ```ts
-import { H3 } from 'h3'
-import { withSupabase } from '@supabase/server/adapters/h3'
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
 
-const app = new H3()
-app.use(withSupabase({ auth: 'user' }))
+const app = new Elysia()
+  .get('/health', () => ({ status: 'ok' }))
+  .group('/api', (app) =>
+    app
+      .use(withSupabase({ auth: 'user' }))
+      .get('/profile', async ({ supabaseContext }) => {
+        return supabaseContext.userClaims
+      }),
+  )
 
-export default { fetch: app.fetch }
+app.listen(3000)
 ```
 
-See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
+The adapter does not handle CORS — use `@elysiajs/cors` for that.
 
 ### NestJS
 
@@ -420,19 +439,20 @@ export default {
 
 Automatically available in Supabase Edge Functions:
 
-| Variable                    | Format                                                        | Description                           |
-| --------------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                      |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)          |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`                                   | JSON Web Key Set for JWT verification |
+| Variable                    | Format                                                        | Description                                  |
+| --------------------------- | ------------------------------------------------------------- | -------------------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`                                   | Your project URL                             |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_...","web":"sb_publishable_..."}` | Publishable API keys (named)                 |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_...","web":"sb_secret_..."}`           | Secret API keys (named)                      |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`                                   | Inline JSON Web Key Set for JWT verification |
 
 Also supported (for local dev, self-hosted, or other runtimes):
 
-| Variable                   | Format               | Description            |
-| -------------------------- | -------------------- | ---------------------- |
-| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Single publishable key |
-| `SUPABASE_SECRET_KEY`      | `sb_secret_...`      | Single secret key      |
+| Variable                   | Format               | Description                                               |
+| -------------------------- | -------------------- | --------------------------------------------------------- |
+| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Single publishable key                                    |
+| `SUPABASE_SECRET_KEY`      | `sb_secret_...`      | Single secret key                                         |
+| `SUPABASE_JWKS_URL`        | `https://...`        | Remote JWKS endpoint (used when `SUPABASE_JWKS` is unset) |
 
 When both singular and plural forms are set, plural takes priority.
 
@@ -440,12 +460,17 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 ## Runtimes
 
-- **Supabase Edge Functions** — environment variables are auto-injected. Zero config.
-- **Deno / Bun** — works out of the box with the `export default { fetch }` pattern.
-- **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), or [core primitives](#primitives) with your framework of choice.
-- **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
-- **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
-- **Next.js / SvelteKit / Remix** — compose with [`@supabase/ssr`](https://github.com/supabase/ssr): `@supabase/ssr` owns cookies + refresh-token rotation, `@supabase/server` adds verified claims and typed RLS / admin clients on top. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
+`@supabase/server` runs anywhere standard Web `fetch` does — pick the row that matches your deployment target.
+
+| Target                      | Notes                                                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase Edge Functions** | Zero config — environment variables are auto-injected.                                                                                    |
+| **Vercel Functions**        | Edge runtime: `export default { fetch }`. Node runtime: use a [framework adapter](#framework-adapters) or [core primitives](#primitives). |
+| **Cloudflare Workers**      | Enable `nodejs_compat` in `wrangler.toml`, or pass overrides via the `env` config option.                                                 |
+| **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                                      |
+| **Node.js**                 | Use a [framework adapter](#framework-adapters) or [core primitives](#primitives) with your framework of choice.                           |
+
+Using a framework? See [Framework Adapters](#framework-adapters) for Hono, H3 / Nuxt, and Elysia, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
 
 ### Does this replace `@supabase/ssr`?
 
@@ -459,6 +484,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
 | `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
 | `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/elysia` | `withSupabase` (Elysia plugin)                                                                                    |
 | `@supabase/server/adapters/nestjs` | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
 
 ## Documentation
@@ -470,6 +496,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
 | How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
 | How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
+| How do I use this with Elysia?                                      | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)             |
 | How do I use this with NestJS?                                      | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)             |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |

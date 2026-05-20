@@ -8,13 +8,14 @@ You're in the adapter source folder. Framework adapters wrap `withSupabase` and 
 | --------- | ---------------------------------- | ---------------------- | -------------------------------------------------------- |
 | Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`               | [docs/adapters/hono.md](../../docs/adapters/hono.md)     |
 | H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`               | [docs/adapters/h3.md](../../docs/adapters/h3.md)         |
+| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`               | [docs/adapters/elysia.md](../../docs/adapters/elysia.md) |
 | NestJS    | `@supabase/server/adapters/nestjs` | `^10.0.0 \|\| ^11.0.0` | [docs/adapters/nestjs.md](../../docs/adapters/nestjs.md) |
 
 The framework version reflects what the adapter is tested against. It must match the corresponding entry in [`package.json#peerDependencies`](../../package.json) — if you bump the peer-dep range, update this table too.
 
 ## Community-maintained
 
-**Every adapter listed above is community-maintained.** Both Hono and H3 originated as community contributions. Adapters live in this repo and ship with the core package, so users get them with a single `npm install @supabase/server` — no separate package per framework.
+**Every adapter listed above is community-maintained.** Hono, H3, and Elysia all originated as community contributions. Adapters live in this repo and ship with the core package, so users get them with a single `npm install @supabase/server` — no separate package per framework.
 
 The Supabase team reviews PRs, runs security and regression triage, and ships releases. The original contributor of an adapter is the de-facto domain expert and is expected to be the first responder on framework-version bumps and bug reports for that adapter.
 
@@ -36,4 +37,4 @@ The Supabase team will review the PR against these requirements. Once merged, th
 
 ## Designing an adapter
 
-The existing adapters at [`hono/middleware.ts`](hono/middleware.ts) and [`h3/middleware.ts`](h3/middleware.ts) (siblings of this README) are the canonical templates. The shape every adapter exposes is `withSupabase(config, handler)` returning a framework-native middleware. Keep all auth logic in `@supabase/server/core` — adapters should only translate request/response shapes between the framework and the core primitives.
+The existing adapters at [`hono/middleware.ts`](hono/middleware.ts), [`h3/middleware.ts`](h3/middleware.ts), and [`elysia/plugin.ts`](elysia/plugin.ts) (siblings of this README) are the canonical templates. The shape every adapter exposes is `withSupabase(config, handler)` returning a framework-native middleware. Keep all auth logic in `@supabase/server/core` — adapters should only translate request/response shapes between the framework and the core primitives.

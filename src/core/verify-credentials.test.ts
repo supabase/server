@@ -1,5 +1,13 @@
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import type { Credentials, JsonWebKeySet, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
@@ -347,6 +355,156 @@ describe('verifyCredentials', () => {
     })
   })
 
+  describe('user mode with remote JWKS URL', () => {
+    let privateKey: CryptoKey
+    let jwks: JsonWebKeySet
+    let validToken: string
+    let fetchMock: ReturnType<typeof vi.fn>
+
+    beforeAll(async () => {
+      const keyPair = await generateKeyPair('RS256')
+      privateKey = keyPair.privateKey
+      const publicJwk = await exportJWK(keyPair.publicKey)
+      publicJwk.alg = 'RS256'
+      publicJwk.use = 'sig'
+      publicJwk.kid = 'remote-key-1'
+      jwks = { keys: [publicJwk] }
+
+      validToken = await new SignJWT({
+        sub: 'user-remote',
+        role: 'authenticated',
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'remote-key-1' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+    })
+
+    beforeEach(() => {
+      fetchMock = vi.fn(
+        async () =>
+          new Response(JSON.stringify(jwks), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+      )
+      vi.stubGlobal('fetch', fetchMock)
+    })
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('fetches keys from the URL and verifies a valid JWT', async () => {
+      const creds: Credentials = { token: validToken, apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({
+          jwks: new URL(
+            'https://jwks-fetch-success.example/auth/v1/.well-known/jwks.json',
+          ),
+        }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.userClaims!.id).toBe('user-remote')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('reuses the cached resolver for the same URL across requests', async () => {
+      // Distinct URL so jose's per-resolver cooldown is fresh for this test
+      const jwksUrl = new URL('https://jwks-cache.example/jwks.json')
+      const creds: Credentials = { token: validToken, apikey: null }
+
+      const first = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({ jwks: jwksUrl }),
+      })
+      const second = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({ jwks: jwksUrl }),
+      })
+
+      expect(first.error).toBeNull()
+      expect(second.error).toBeNull()
+      // jose's cooldownDuration (default 30s) keeps the second call from re-fetching.
+      // What we're guarding against is *re-creating* the resolver on every request,
+      // which would re-fetch every time.
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects an invalid JWT verified against the remote JWKS', async () => {
+      const creds: Credentials = { token: 'garbage.jwt.token', apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({
+          jwks: new URL('https://jwks-bad-token.example/jwks.json'),
+        }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('rejects when the remote JWKS endpoint fails', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+      const creds: Credentials = { token: validToken, apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv({
+          jwks: new URL('https://jwks-server-error.example/jwks.json'),
+        }),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('replaces the cached resolver when the URL changes', async () => {
+      // Second tenant with its own keypair. The resolver cache is single-slot
+      // keyed by URL string; if a refactor breaks that comparison, the second
+      // verify would (incorrectly) reuse the first URL's resolver and fail.
+      const keyPairB = await generateKeyPair('RS256')
+      const publicJwkB = await exportJWK(keyPairB.publicKey)
+      publicJwkB.alg = 'RS256'
+      publicJwkB.use = 'sig'
+      publicJwkB.kid = 'remote-key-b'
+      const jwksB: JsonWebKeySet = { keys: [publicJwkB] }
+      const tokenB = await new SignJWT({
+        sub: 'user-remote-b',
+        role: 'authenticated',
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'remote-key-b' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(keyPairB.privateKey)
+
+      const urlA = new URL('https://jwks-switch-a.example/jwks.json')
+      const urlB = new URL('https://jwks-switch-b.example/jwks.json')
+
+      fetchMock.mockImplementation(async (input: URL | string) => {
+        const href = input instanceof URL ? input.href : String(input)
+        const body = href === urlB.href ? jwksB : jwks
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        })
+      })
+
+      const a = await verifyCredentials(
+        { token: validToken, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: urlA }) },
+      )
+      const b = await verifyCredentials(
+        { token: tokenB, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: urlB }) },
+      )
+
+      expect(a.error).toBeNull()
+      expect(a.data!.userClaims!.id).toBe('user-remote')
+      expect(b.error).toBeNull()
+      expect(b.data!.userClaims!.id).toBe('user-remote-b')
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+  })
+
   describe('parseAuthMode edge cases', () => {
     it('treats trailing colon as bare mode (default key)', async () => {
       const creds: Credentials = {
@@ -495,6 +653,36 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+
+    it('falls through to secret when Authorization carries an sb_ secret', async () => {
+      // supabase-js forwards `sb_*` keys in BOTH headers; the JWT check must
+      // skip rather than reject so the `secret` mode can match the apikey.
+      const creds: Credentials = {
+        token: 'sb_secret_xyz',
+        apikey: 'sb_secret_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'secret'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authMode).toBe('secret')
+      expect(result.data!.keyName).toBe('default')
+    })
+
+    it('falls through to publishable when Authorization carries an sb_ publishable key', async () => {
+      const creds: Credentials = {
+        token: 'sb_publishable_xyz',
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'publishable'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authMode).toBe('publishable')
+      expect(result.data!.keyName).toBe('default')
     })
 
     it('rejects JWT with missing sub claim', async () => {
