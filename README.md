@@ -266,11 +266,12 @@ Adapters wrap `withSupabase` for a specific framework's middleware contract. The
 
 > **Adapters are a community-driven initiative.** They're developed, maintained, and evolved by contributors — including responding to upstream framework changes. See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring) if you'd like to add or help maintain one.
 
-| Framework | Import                             | Framework version | Docs                                               |
-| --------- | ---------------------------------- | ----------------- | -------------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md)     |
-| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)         |
-| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`          | [docs/adapters/elysia.md](docs/adapters/elysia.md) |
+| Framework | Import                              | Framework version | Docs                                                 |
+| --------- | ----------------------------------- | ----------------- | ---------------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono`    | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md)       |
+| H3 / Nuxt | `@supabase/server/adapters/h3`      | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)           |
+| Elysia    | `@supabase/server/adapters/elysia`  | `^1.4.0`          | [docs/adapters/elysia.md](docs/adapters/elysia.md)   |
+| Express   | `@supabase/server/adapters/express` | `^5.0.0`          | [docs/adapters/express.md](docs/adapters/express.md) |
 
 See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
 
@@ -315,6 +316,20 @@ app.listen(3000)
 ```
 
 The adapter does not handle CORS — use `@elysiajs/cors` for that.
+
+### Express
+
+```ts
+import express from 'express'
+import { withSupabase } from '@supabase/server/adapters/express'
+
+const app = express()
+app.use(withSupabase({ auth: 'user' }))
+
+app.listen(3000)
+```
+
+See [docs/adapters/express.md](docs/adapters/express.md) for per-route auth (`requireAuth`, `withSupabaseRoute`), custom error handling, CORS, and more.
 
 ## Primitives
 
@@ -450,7 +465,7 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 | **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                                      |
 | **Node.js**                 | Use a [framework adapter](#framework-adapters) or [core primitives](#primitives) with your framework of choice.                           |
 
-Using a framework? See [Framework Adapters](#framework-adapters) for Hono, H3 / Nuxt, and Elysia, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
+Using a framework? See [Framework Adapters](#framework-adapters) for Hono, H3 / Nuxt, Elysia, and Express, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
 
 ### Does this replace `@supabase/ssr`?
 
@@ -458,13 +473,14 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                             | What's in it                                                                                                      |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                 | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/adapters/elysia` | `withSupabase` (Elysia plugin)                                                                                    |
+| Export                              | What's in it                                                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                  | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`             | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`    | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`      | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/elysia`  | `withSupabase` (Elysia plugin)                                                                                    |
+| `@supabase/server/adapters/express` | `withSupabase`, `requireAuth`, `withSupabaseRoute` (Express 5 middleware/route helpers)                           |
 
 ## Documentation
 
@@ -476,6 +492,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
 | How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
 | How do I use this with Elysia?                                      | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)             |
+| How do I use this with Express?                                     | [`docs/adapters/express.md`](docs/adapters/express.md)           |
 | How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
