@@ -7,8 +7,9 @@ export default defineConfig({
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
     'src/adapters/elysia/index.ts',
+    'src/adapters/nestjs/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
-  external: ['@supabase/supabase-js', 'hono', 'h3', 'elysia'],
+  external: ['@supabase/supabase-js', 'hono', 'h3', 'elysia', '@nestjs/common'],
 })

@@ -6,17 +6,11 @@
     "./core": "./src/core/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
-    "./adapters/elysia": "./src/adapters/elysia/index.ts"
+    "./adapters/elysia": "./src/adapters/elysia/index.ts",
+    "./adapters/nestjs": "./src/adapters/nestjs/index.ts"
   },
   "publish": {
-    "include": [
-      "src/**/*.ts",
-      "README.md",
-      "LICENSE"
-    ],
-    "exclude": [
-      "src/**/*.test.ts",
-      "src/**/*.spec.ts"
-    ]
+    "include": ["src/**/*.ts", "README.md", "LICENSE"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
   }
 }
