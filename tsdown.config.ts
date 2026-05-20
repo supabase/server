@@ -8,8 +8,9 @@ export default defineConfig({
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
     'src/gates/feature-flag/index.ts',
+    'src/adapters/elysia/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
-  external: ['@supabase/supabase-js', 'hono', 'h3'],
+  external: ['@supabase/supabase-js', 'hono', 'h3', 'elysia'],
 })

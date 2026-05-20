@@ -208,6 +208,11 @@ async function tryMode(
 
     case 'user': {
       if (!credentials.token) return null
+      // The Supabase SDK forwards `sb_*` secrets in the Authorization header
+      // alongside the apikey header. Treat them as not-applicable here so the
+      // chain falls through to `secret` / `publishable` instead of failing
+      // JWT verification.
+      if (credentials.token.startsWith('sb_')) return null
       if (!env.jwks) return null
       try {
         const jwkSet = getJwksResolver(env.jwks)

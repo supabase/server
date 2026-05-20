@@ -5,7 +5,7 @@
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 [![Docs](https://img.shields.io/badge/docs-supabase.github.io-3ECF8E?logo=readthedocs&logoColor=white)](https://supabase.github.io/server/)
 
-> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.X — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
 
 > **Coming from a `0.x` release?** See [MIGRATION.md](MIGRATION.md) for the v0 → v1 rename map (`allow` → `auth`, `'public'` → `'publishable'`, `authType` → `authMode`, `claims` → `jwtClaims`, …).
 
@@ -262,32 +262,44 @@ withSupabase(
 
 ## Framework Adapters
 
-Adapters wrap `withSupabase` for a specific framework's middleware contract. **All adapters are community-maintained** — both Hono and H3 originated as community contributions. They live in this repo and ship with the core package, so a single `npm install @supabase/server` covers the framework you're using. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance model and the requirements for contributing a new adapter.
+Adapters wrap `withSupabase` for a specific framework's middleware contract. They ship inside `@supabase/server`, so a single `npm install @supabase/server` covers the framework you're using — no separate package per adapter.
 
-| Framework | Import                           | Framework version | Docs                                           |
-| --------- | -------------------------------- | ----------------- | ---------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono` | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md) |
-| H3 / Nuxt | `@supabase/server/adapters/h3`   | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)     |
+> **Adapters are a community-driven initiative.** They're developed, maintained, and evolved by contributors — including responding to upstream framework changes. See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring) if you'd like to add or help maintain one.
 
-### Hono
+| Framework | Import                             | Framework version | Docs                                               |
+| --------- | ---------------------------------- | ----------------- | -------------------------------------------------- |
+| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`          | [docs/adapters/hono.md](docs/adapters/hono.md)     |
+| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`          | [docs/adapters/h3.md](docs/adapters/h3.md)         |
+| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`          | [docs/adapters/elysia.md](docs/adapters/elysia.md) |
+
+See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
+
+### Elysia
 
 ```ts
-import { Hono } from 'hono'
-import { withSupabase } from '@supabase/server/adapters/hono'
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
 
-const app = new Hono()
-app.use('*', withSupabase({ auth: 'user' }))
+const app = new Elysia()
+  // Protected — plugin resolves supabaseContext before handlers run
+  .use(withSupabase({ auth: 'user' }))
+  .get('/games', async ({ supabaseContext }) => {
+    const { data: myGames } = await supabaseContext.supabase
+      .from('favorite_games')
+      .select()
+    return myGames
+  })
+  // Public — no plugin means no auth
+  .get('/health', () => ({ status: 'ok' }))
 
-export default { fetch: app.fetch }
+app.listen(3000)
 ```
 
-See [docs/adapters/hono.md](docs/adapters/hono.md) for per-route auth, CORS, error handling, and other patterns.
-
-### H3 / Nuxt
+For per-route auth, use scoped groups:
 
 ```ts
-import { H3 } from 'h3'
-import { withSupabase } from '@supabase/server/adapters/h3'
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
 
 const app = new H3()
 app.use(withSupabase({ auth: 'user' }))
@@ -296,35 +308,6 @@ export default { fetch: app.fetch }
 ```
 
 See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
-
-## Gates
-
-The portable extensibility layer for `@supabase/server`. A **gate** is a fetch-handler wrapper that bolts a capability — rate limiting, webhook signature verification, paywalls, feature flags, bot checks — onto a handler and contributes typed data to a flat key on `ctx`. Anyone can publish a gate as a standalone npm package; the built-ins use the same primitive third-party authors do. Because gates are plain wrappers over the Web Fetch API, the same gate runs unchanged across Workers, Deno, Bun, Node, and through every adapter (Hono, H3) — nest them directly the way `withSupabase` does, no separate composer.
-
-```ts
-import { withSupabase } from '@supabase/server'
-import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
-
-export default {
-  fetch: withSupabase(
-    { auth: 'user' },
-    withFeatureFlag(
-      { name: 'beta-checkout', evaluate: (req) => req.headers.has('x-beta') },
-      async (_req, ctx) => {
-        // ctx.supabase, ctx.userClaims  — from withSupabase
-        // ctx.featureFlag               — from withFeatureFlag
-        return Response.json({ feature: ctx.featureFlag.name })
-      },
-    ),
-  ),
-}
-```
-
-`withSupabase` is the host wrapper, not a gate — it establishes `SupabaseContext` and hands it to whatever it wraps. Gates nest inside it (or stand alone), and TypeScript infers the accumulated `ctx` shape through the nested wrappers.
-
-- [`@supabase/server/core/gates`](src/core/gates/README.md) — authoring primitives (`defineGate`, ctx rules, prerequisite enforcement, conflict detection).
-- [`src/gates/README.md`](src/gates/README.md) — guide for writing your own gate.
-- [`@supabase/server/gates/feature-flag`](src/gates/feature-flag/README.md) — `withFeatureFlag`, the worked example gate.
 
 ## Primitives
 
@@ -450,12 +433,17 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 ## Runtimes
 
-- **Supabase Edge Functions** — environment variables are auto-injected. Zero config.
-- **Deno / Bun** — works out of the box with the `export default { fetch }` pattern.
-- **Node.js** — use the [Hono adapter](#hono), [H3 adapter](#h3--nuxt), or [core primitives](#primitives) with your framework of choice.
-- **Cloudflare Workers** — enable `nodejs_compat` in `wrangler.toml` or pass env overrides via the `env` config option.
-- **Nuxt** — use the [H3 adapter](#h3--nuxt) directly as a server middleware.
-- **Next.js / SvelteKit / Remix** — compose with [`@supabase/ssr`](https://github.com/supabase/ssr): `@supabase/ssr` owns cookies + refresh-token rotation, `@supabase/server` adds verified claims and typed RLS / admin clients on top. See [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md).
+`@supabase/server` runs anywhere standard Web `fetch` does — pick the row that matches your deployment target.
+
+| Target                      | Notes                                                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase Edge Functions** | Zero config — environment variables are auto-injected.                                                                                    |
+| **Vercel Functions**        | Edge runtime: `export default { fetch }`. Node runtime: use a [framework adapter](#framework-adapters) or [core primitives](#primitives). |
+| **Cloudflare Workers**      | Enable `nodejs_compat` in `wrangler.toml`, or pass overrides via the `env` config option.                                                 |
+| **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                                      |
+| **Node.js**                 | Use a [framework adapter](#framework-adapters) or [core primitives](#primitives) with your framework of choice.                           |
+
+Using a framework? See [Framework Adapters](#framework-adapters) for Hono, H3 / Nuxt, and Elysia, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
 
 ### Does this replace `@supabase/ssr`?
 
@@ -463,33 +451,28 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                                | What's in it                                                                                                      |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                    | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`               | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`      | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`        | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/core/gates`         | `defineGate` (gate composition primitives)                                                                        |
-| `@supabase/server/gates/feature-flag` | `withFeatureFlag` (provider-agnostic feature-flag gate; worked example for gate authors)                          |
+| Export                           | What's in it                                                                                                      |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`               | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono` | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`   | `withSupabase` (H3 / Nuxt middleware)                                                                             |
 
 ## Documentation
 
-| Question                                                            | Doc file                                                               |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)                   |
-| What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                             |
-| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)                     |
-| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                       |
-| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                           |
-| How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)                   |
-| How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md)       |
-| How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)                     |
-| How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)           |
-| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                     |
-| What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                       |
-| How do I extend a handler with a gate?                              | [`src/core/gates/README.md`](src/core/gates/README.md)                 |
-| How do I write my own gate?                                         | [`src/gates/README.md`](src/gates/README.md)                           |
-| How do I gate a route behind a feature flag?                        | [`src/gates/feature-flag/README.md`](src/gates/feature-flag/README.md) |
+| Question                                                            | Doc file                                                         |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)             |
+| What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                       |
+| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)               |
+| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                 |
+| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                     |
+| How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)             |
+| How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
+| How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
+| How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
+| What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                 |
 
 ## Development
 

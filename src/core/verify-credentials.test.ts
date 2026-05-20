@@ -655,6 +655,36 @@ describe('verifyCredentials', () => {
       expect(result.error!.code).toBe(InvalidCredentialsError)
     })
 
+    it('falls through to secret when Authorization carries an sb_ secret', async () => {
+      // supabase-js forwards `sb_*` keys in BOTH headers; the JWT check must
+      // skip rather than reject so the `secret` mode can match the apikey.
+      const creds: Credentials = {
+        token: 'sb_secret_xyz',
+        apikey: 'sb_secret_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'secret'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authMode).toBe('secret')
+      expect(result.data!.keyName).toBe('default')
+    })
+
+    it('falls through to publishable when Authorization carries an sb_ publishable key', async () => {
+      const creds: Credentials = {
+        token: 'sb_publishable_xyz',
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'publishable'],
+        env: makeEnv({ jwks }),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authMode).toBe('publishable')
+      expect(result.data!.keyName).toBe('default')
+    })
+
     it('rejects JWT with missing sub claim', async () => {
       const { privateKey, publicKey } = await generateKeyPair('RS256')
       const publicJwk = await exportJWK(publicKey)
