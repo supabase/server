@@ -2,8 +2,13 @@ import { defineMiddleware, HTTPError } from 'h3'
 import type { H3Event, Middleware } from 'h3'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
+import { defineAdapter } from '../../core/define-adapter.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
-import { withSupabase as withSupabaseHandler } from '../../with-supabase.js'
+
+const adapterWithSupabase = defineAdapter<H3Event>({
+  name: 'h3',
+  extractRequest: (event) => event.req,
+})
 
 /**
  * H3 middleware that creates a {@link SupabaseContext} and stores it in `event.context.supabaseContext`.
@@ -89,14 +94,7 @@ export function withSupabase(
   config?: WithSupabaseConfig,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): Middleware | ((input: Request | H3Event) => Promise<Response>) {
-  if (handler) {
-    const inner = withSupabaseHandler(config!, handler)
-    return (input: Request | H3Event) => {
-      if (input instanceof Request) return inner(input)
-      if (input?.req instanceof Request) return inner(input.req)
-      throw new TypeError(buildH3ArgErrorMessage(input))
-    }
-  }
+  if (handler) return adapterWithSupabase(config!, handler)
   return defineMiddleware(async (event, next) => {
     const context = event.context as { supabaseContext?: SupabaseContext }
     if (context.supabaseContext) return next()
@@ -107,16 +105,4 @@ export function withSupabase(
     context.supabaseContext = ctx
     return next()
   })
-}
-
-function buildH3ArgErrorMessage(received: unknown): string {
-  const what =
-    received === null || typeof received !== 'object'
-      ? typeof received
-      : ((received as { constructor?: { name?: string } }).constructor?.name ??
-        'object')
-  return (
-    `withSupabase from @supabase/server/adapters/h3 expected a Request or an H3Event, but received ${what}. ` +
-    'Mount with `app.all(path, withSupabase(config, handler))`.'
-  )
 }

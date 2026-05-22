@@ -1,9 +1,14 @@
 import { Elysia, type ExtractErrorFromHandle } from 'elysia'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
+import { defineAdapter } from '../../core/define-adapter.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
-import { withSupabase as withSupabaseHandler } from '../../with-supabase.js'
+
+const adapterWithSupabase = defineAdapter<{ request: Request }>({
+  name: 'elysia',
+  extractRequest: (ctx) => ctx.request,
+})
 
 export class SupabaseError extends Error {
   status: number
@@ -132,14 +137,7 @@ export function withSupabase(
   config?: WithSupabaseConfig,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): unknown {
-  if (handler) {
-    const inner = withSupabaseHandler(config!, handler)
-    return (input: Request | { request: Request }) => {
-      if (input instanceof Request) return inner(input)
-      if (input?.request instanceof Request) return inner(input.request)
-      throw new TypeError(buildElysiaArgErrorMessage(input))
-    }
-  }
+  if (handler) return adapterWithSupabase(config!, handler)
   return new Elysia()
     .error({ SupabaseError })
     .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
@@ -153,16 +151,4 @@ export function withSupabase(
       return { supabaseContext: data }
     })
     .as('scoped')
-}
-
-function buildElysiaArgErrorMessage(received: unknown): string {
-  const what =
-    received === null || typeof received !== 'object'
-      ? typeof received
-      : ((received as { constructor?: { name?: string } }).constructor?.name ??
-        'object')
-  return (
-    `withSupabase from @supabase/server/adapters/elysia expected a Request or an Elysia context, but received ${what}. ` +
-    'Mount with `.all(path, withSupabase(config, handler))`.'
-  )
 }

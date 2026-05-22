@@ -3,8 +3,13 @@ import { HTTPException } from 'hono/http-exception'
 import { createMiddleware } from 'hono/factory'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
+import { defineAdapter } from '../../core/define-adapter.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
-import { withSupabase as withSupabaseHandler } from '../../with-supabase.js'
+
+const adapterWithSupabase = defineAdapter<Context>({
+  name: 'hono',
+  extractRequest: (c) => c.req.raw,
+})
 
 /**
  * Hono middleware that creates a {@link SupabaseContext} and stores it in `c.var.supabaseContext`.
@@ -79,14 +84,7 @@ export function withSupabase(
 ):
   | MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>
   | ((input: Request | Context, next?: Next) => Promise<Response>) {
-  if (handler) {
-    const inner = withSupabaseHandler(config!, handler)
-    return (input: Request | Context) => {
-      if (input instanceof Request) return inner(input)
-      if (input?.req?.raw instanceof Request) return inner(input.req.raw)
-      throw new TypeError(buildHonoArgErrorMessage(input))
-    }
-  }
+  if (handler) return adapterWithSupabase(config!, handler)
   return createMiddleware<{
     Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
@@ -110,16 +108,4 @@ export function withSupabase(
     c.set('supabaseContext', ctx)
     await next()
   })
-}
-
-function buildHonoArgErrorMessage(received: unknown): string {
-  const what =
-    received === null || typeof received !== 'object'
-      ? typeof received
-      : ((received as { constructor?: { name?: string } }).constructor?.name ??
-        'object')
-  return (
-    `withSupabase from @supabase/server/adapters/hono expected a Request or a Hono Context, but received ${what}. ` +
-    'Mount with `app.all(path, withSupabase(config, handler))`.'
-  )
 }
