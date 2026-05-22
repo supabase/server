@@ -94,24 +94,25 @@ describe('elysia withSupabase fetch-handler form (two-arg)', () => {
     jwks: null,
   }
 
-  it('composes with a gate and exposes the full ctx to the inner handler', async () => {
+  it('mounts directly on .all and exposes the full ctx to the inner handler', async () => {
     const { withFeatureFlag } =
       await import('../../gates/feature-flag/index.js')
 
-    const beta = withSupabase(
-      { auth: 'none', env },
-      withFeatureFlag(
-        { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
-        async (_req, ctx) =>
-          Response.json({
-            authMode: ctx.authMode,
-            flag: ctx.featureFlag.name,
-            enabled: ctx.featureFlag.enabled,
-          }),
+    const app = new Elysia().all(
+      '/beta',
+      withSupabase(
+        { auth: 'none', env },
+        withFeatureFlag(
+          { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+          async (_req, ctx) =>
+            Response.json({
+              authMode: ctx.authMode,
+              flag: ctx.featureFlag.name,
+              enabled: ctx.featureFlag.enabled,
+            }),
+        ),
       ),
     )
-
-    const app = new Elysia().all('/beta', ({ request }) => beta(request))
 
     const res = await app.handle(
       new Request('http://localhost/beta', { headers: { 'x-beta': '1' } }),
@@ -128,14 +129,15 @@ describe('elysia withSupabase fetch-handler form (two-arg)', () => {
     const { withFeatureFlag } =
       await import('../../gates/feature-flag/index.js')
 
-    const beta = withSupabase(
-      { auth: 'none', env },
-      withFeatureFlag({ name: 'beta', evaluate: () => false }, async () =>
-        Response.json({ reached: true }),
+    const app = new Elysia().all(
+      '/beta',
+      withSupabase(
+        { auth: 'none', env },
+        withFeatureFlag({ name: 'beta', evaluate: () => false }, async () =>
+          Response.json({ reached: true }),
+        ),
       ),
     )
-
-    const app = new Elysia().all('/beta', ({ request }) => beta(request))
 
     const res = await app.handle(new Request('http://localhost/beta'))
     expect(res.status).toBe(404)
@@ -146,38 +148,30 @@ describe('elysia withSupabase fetch-handler form (two-arg)', () => {
   })
 
   it('returns auth errors as JSON (no SupabaseError) — base library behavior', async () => {
-    const handler = withSupabase({ auth: 'user', env }, async () =>
-      Response.json({ ok: true }),
-    )
-
     let onErrorFired = false
     const app = new Elysia()
       .onError(() => {
         onErrorFired = true
       })
-      .all('/', ({ request }) => handler(request))
+      .all(
+        '/',
+        withSupabase({ auth: 'user', env }, async () =>
+          Response.json({ ok: true }),
+        ),
+      )
 
     const res = await app.handle(new Request('http://localhost/'))
     expect(res.status).toBe(401)
     expect(onErrorFired).toBe(false)
   })
 
-  it('throws a helpful TypeError when passed an Elysia context instead of ctx.request', () => {
+  it('also accepts a plain Request directly (Web Fetch use)', async () => {
     const handler = withSupabase({ auth: 'none', env }, async () =>
       Response.json({ ok: true }),
     )
 
-    const fakeElysiaCtx = {
-      request: new Request('http://localhost/'),
-      set: { status: 200, headers: {} },
-    }
-    try {
-      handler(fakeElysiaCtx as unknown as Request)
-      expect.fail('should have thrown')
-    } catch (e) {
-      expect(e).toBeInstanceOf(TypeError)
-      expect((e as Error).message).toContain('Elysia context')
-      expect((e as Error).message).toContain('request')
-    }
+    const res = await handler(new Request('http://localhost/'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
   })
 })

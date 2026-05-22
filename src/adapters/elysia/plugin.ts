@@ -91,11 +91,12 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
 >
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 /**
- * Two-arg form — the base `withSupabase` from `@supabase/server`,
- * re-exported here for ergonomics. Returns a Web Fetch handler (not an
- * Elysia plugin); mount on a route via
- * `.all(path, ({ request }) => handler(request))`. Use this form to
- * compose with gates from `@supabase/server/gates/*`. See
+ * Two-arg form — wraps the base `withSupabase` from `@supabase/server`
+ * with a dual-mode handler that accepts either a plain `Request` (Web
+ * Fetch) or an Elysia route context. Mount directly with
+ * `.all(path, withSupabase(config, handler))` — no manual `{ request }`
+ * destructuring needed. Use this form to compose with gates from
+ * `@supabase/server/gates/*`. See
  * [gates README](../../core/gates/README.md) for the pattern.
  *
  * @example
@@ -104,35 +105,39 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
  * import { withSupabase } from '@supabase/server/adapters/elysia'
  * import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
  *
- * const beta = withSupabase(
- *   { auth: 'user' },
- *   withFeatureFlag(
- *     { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
- *     async (_req, ctx) =>
- *       Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
- *   ),
- * )
- *
- * new Elysia().all('/beta', ({ request }) => beta(request)).listen(3000)
+ * new Elysia()
+ *   .all(
+ *     '/beta',
+ *     withSupabase(
+ *       { auth: 'user' },
+ *       withFeatureFlag(
+ *         { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+ *         async (_req, ctx) =>
+ *           Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+ *       ),
+ *     ),
+ *   )
+ *   .listen(3000)
  * ```
  */
 export function withSupabase(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
-): (req: Request) => Promise<Response>
+): (input: Request | { request: Request }) => Promise<Response>
 export function withSupabase<Database>(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
-): (req: Request) => Promise<Response>
+): (input: Request | { request: Request }) => Promise<Response>
 export function withSupabase(
   config?: WithSupabaseConfig,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): unknown {
   if (handler) {
     const inner = withSupabaseHandler(config!, handler)
-    return (req: Request) => {
-      if (req instanceof Request) return inner(req)
-      throw new TypeError(buildElysiaArgErrorMessage(req))
+    return (input: Request | { request: Request }) => {
+      if (input instanceof Request) return inner(input)
+      if (input?.request instanceof Request) return inner(input.request)
+      throw new TypeError(buildElysiaArgErrorMessage(input))
     }
   }
   return new Elysia()
@@ -151,20 +156,13 @@ export function withSupabase(
 }
 
 function buildElysiaArgErrorMessage(received: unknown): string {
+  const what =
+    received === null || typeof received !== 'object'
+      ? typeof received
+      : ((received as { constructor?: { name?: string } }).constructor?.name ??
+        'object')
   return (
-    `withSupabase from @supabase/server/adapters/elysia returns a Web Fetch handler that expects a Request, but received ${describeElysiaArg(received)}. ` +
-    'Mount on an Elysia route with `.all(path, ({ request }) => handler(request))`.'
-  )
-}
-
-function describeElysiaArg(received: unknown): string {
-  if (received === null || typeof received !== 'object') return typeof received
-  const r = received as { request?: unknown; set?: unknown }
-  if (r.request instanceof Request && r.set !== undefined) {
-    return 'an Elysia context (did you mean to destructure `{ request }`?)'
-  }
-  return (
-    (received as { constructor?: { name?: string } }).constructor?.name ??
-    'object'
+    `withSupabase from @supabase/server/adapters/elysia expected a Request or an Elysia context, but received ${what}. ` +
+    'Mount with `.all(path, withSupabase(config, handler))`.'
   )
 }

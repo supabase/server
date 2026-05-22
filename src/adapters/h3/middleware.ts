@@ -1,5 +1,5 @@
 import { defineMiddleware, HTTPError } from 'h3'
-import type { Middleware } from 'h3'
+import type { H3Event, Middleware } from 'h3'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
@@ -48,11 +48,12 @@ export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): Middleware
 /**
- * Two-arg form — the base `withSupabase` from `@supabase/server`,
- * re-exported here for ergonomics. Returns a Web Fetch handler (not H3
- * middleware); mount on a route via
- * `app.all(path, (event) => handler(event.req))`. Use this form to compose
- * with gates from `@supabase/server/gates/*`. See
+ * Two-arg form — wraps the base `withSupabase` from `@supabase/server`
+ * with a dual-mode handler that accepts either a plain `Request` (Web
+ * Fetch) or an H3 `H3Event` (H3 route handler). Mount directly with
+ * `app.all(path, withSupabase(config, handler))` — no manual `event.req`
+ * extraction needed. Use this form to compose with gates from
+ * `@supabase/server/gates/*`. See
  * [gates README](../../core/gates/README.md) for the pattern.
  *
  * @example
@@ -61,36 +62,39 @@ export function withSupabase(
  * import { withSupabase } from '@supabase/server/adapters/h3'
  * import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
  *
- * const beta = withSupabase(
- *   { auth: 'user' },
- *   withFeatureFlag(
- *     { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
- *     async (_req, ctx) =>
- *       Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+ * const app = new H3()
+ *
+ * app.all(
+ *   '/beta',
+ *   withSupabase(
+ *     { auth: 'user' },
+ *     withFeatureFlag(
+ *       { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+ *       async (_req, ctx) =>
+ *         Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+ *     ),
  *   ),
  * )
- *
- * const app = new H3()
- * app.all('/beta', (event) => beta(event.req))
  * ```
  */
 export function withSupabase(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
-): (req: Request) => Promise<Response>
+): (input: Request | H3Event) => Promise<Response>
 export function withSupabase<Database>(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
-): (req: Request) => Promise<Response>
+): (input: Request | H3Event) => Promise<Response>
 export function withSupabase(
   config?: WithSupabaseConfig,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
-): Middleware | ((req: Request) => Promise<Response>) {
+): Middleware | ((input: Request | H3Event) => Promise<Response>) {
   if (handler) {
     const inner = withSupabaseHandler(config!, handler)
-    return (req: Request) => {
-      if (req instanceof Request) return inner(req)
-      throw new TypeError(buildH3ArgErrorMessage(req))
+    return (input: Request | H3Event) => {
+      if (input instanceof Request) return inner(input)
+      if (input?.req instanceof Request) return inner(input.req)
+      throw new TypeError(buildH3ArgErrorMessage(input))
     }
   }
   return defineMiddleware(async (event, next) => {
@@ -106,18 +110,13 @@ export function withSupabase(
 }
 
 function buildH3ArgErrorMessage(received: unknown): string {
+  const what =
+    received === null || typeof received !== 'object'
+      ? typeof received
+      : ((received as { constructor?: { name?: string } }).constructor?.name ??
+        'object')
   return (
-    `withSupabase from @supabase/server/adapters/h3 returns a Web Fetch handler that expects a Request, but received ${describeH3Arg(received)}. ` +
-    'Mount on an H3 route with `app.all(path, (event) => handler(event.req))`.'
-  )
-}
-
-function describeH3Arg(received: unknown): string {
-  if (received === null || typeof received !== 'object') return typeof received
-  const r = received as { req?: unknown; context?: unknown }
-  if (r.req instanceof Request && r.context !== undefined) return 'an H3Event'
-  return (
-    (received as { constructor?: { name?: string } }).constructor?.name ??
-    'object'
+    `withSupabase from @supabase/server/adapters/h3 expected a Request or an H3Event, but received ${what}. ` +
+    'Mount with `app.all(path, withSupabase(config, handler))`.'
   )
 }

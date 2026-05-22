@@ -1,11 +1,6 @@
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { SupabaseContext, WithSupabaseConfig } from '../types.js'
-
-import { withSupabase as base } from '../with-supabase.js'
-import { withSupabase as elysia } from './elysia/plugin.js'
-import { withSupabase as h3 } from './h3/middleware.js'
-import { withSupabase as hono } from './hono/middleware.js'
 
 // Vite/vitest provides `import.meta.glob` for build-time module discovery.
 // We declare the slot here rather than reach for `/// <reference types="vite/client" />`
@@ -19,30 +14,31 @@ declare global {
 /**
  * Contract test: every adapter's two-arg `withSupabase` form must
  * delegate to the base `withSupabase` from `@supabase/server` —
- * forwarding the consumer's `config` and `handler` to base, forwarding
- * a valid `Request` to base's returned handler, and returning base's
- * `Response` unchanged.
+ * forwarding the consumer's `config` and `handler` to base, and
+ * forwarding a `Request` (either passed directly or extracted from
+ * the framework's native context) to base's returned handler and
+ * returning its `Response` unchanged.
  *
- * Adapters are allowed to interpose input validation before forwarding
- * (e.g. detecting that the caller passed a framework context instead
- * of a Request and throwing a framework-specific TypeError). The
- * "happy path" behavior — a valid Request goes through unchanged —
- * stays pinned.
+ * Adapters wrap base's returned handler in a framework-shaped function
+ * that runtime-extracts the underlying Request from the framework's
+ * native input. This test exercises the Request-passed-directly path —
+ * the simplest invariant that pins delegation without setting up each
+ * framework's call shape.
  *
- * Two checks:
+ * `vi.mock` replaces the base. Every adapter discovered under
+ * `src/adapters/*` must (a) call the mock with the consumer's
+ * `config`/`handler`, then (b) when its returned function is invoked
+ * with a real `Request`, forward that `Request` to base's returned
+ * handler and return that handler's `Response`.
  *
- * 1. **Runtime delegation** — `vi.mock` replaces the base; every
- *    adapter discovered under `src/adapters/*` must call the mock with
- *    the consumer's args, then forward a real Request to the mock's
- *    returned handler, then return that handler's Response.
- * 2. **Type-level identity** — `expectTypeOf` asserts each adapter's
- *    two-arg form has the same handler-parameter type and return type
- *    as base. Catches signature drift at typecheck.
+ * New adapters added to `src/adapters/` are picked up automatically
+ * via `import.meta.glob`.
  *
- * The type-level check enumerates known adapters statically (TS can't
- * `import.meta.glob` types). New adapters added to `src/adapters/` are
- * picked up by the runtime check automatically; the type-level enum
- * needs a one-line addition.
+ * Return-type checks are intentionally not asserted here: each
+ * adapter's two-arg form returns a framework-shaped function
+ * (Hono `Handler`-compatible, H3 `EventHandler`-compatible, etc.), so
+ * a single cross-adapter return type would be incorrect. Each adapter
+ * test file exercises framework-mounted behavior end-to-end.
  */
 
 const baseMock = vi.hoisted(() => ({ withSupabase: vi.fn() }))
@@ -104,24 +100,5 @@ describe('every adapter delegates its two-arg form to base withSupabase', () => 
 
     expect(fromJsr).toEqual(fromGlob)
     expect(fromPkg).toEqual(fromGlob)
-  })
-})
-
-describe('every adapter has the same two-arg signature as base (type-level)', () => {
-  // Compile-time only — these expectations don't run anything; they fail
-  // at `tsc` if the adapter's two-arg overload's handler/return type drifts
-  // from base.
-  it('handler parameter and return type match base', () => {
-    type BaseHandlerArg = Parameters<typeof base>[1]
-    type BaseReturn = ReturnType<typeof base>
-
-    expectTypeOf<Parameters<typeof hono>[1]>().toEqualTypeOf<BaseHandlerArg>()
-    expectTypeOf<ReturnType<typeof hono>>().toEqualTypeOf<BaseReturn>()
-
-    expectTypeOf<Parameters<typeof h3>[1]>().toEqualTypeOf<BaseHandlerArg>()
-    expectTypeOf<ReturnType<typeof h3>>().toEqualTypeOf<BaseReturn>()
-
-    expectTypeOf<Parameters<typeof elysia>[1]>().toEqualTypeOf<BaseHandlerArg>()
-    expectTypeOf<ReturnType<typeof elysia>>().toEqualTypeOf<BaseReturn>()
   })
 })
