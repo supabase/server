@@ -98,6 +98,78 @@ describe('withSupabase', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 
+  describe('onAuthError callback', () => {
+    it('invokes onAuthError on auth failure', async () => {
+      const onAuthError = vi.fn((err: Error): never => {
+        throw err
+      })
+      const handler = withSupabase(
+        { auth: 'user', env: baseEnv, onAuthError },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      await expect(handler(req)).rejects.toThrow()
+      expect(onAuthError).toHaveBeenCalledTimes(1)
+      const [calledWith] = onAuthError.mock.calls[0]
+      expect(calledWith).toMatchObject({
+        name: 'AuthError',
+        status: 401,
+        code: expect.any(String),
+        message: expect.any(String),
+      })
+    })
+
+    it('propagates the error thrown by onAuthError', async () => {
+      class MyError extends Error {
+        readonly cause: unknown
+        constructor(cause: unknown) {
+          super('framework-native')
+          this.cause = cause
+        }
+      }
+      const handler = withSupabase(
+        {
+          auth: 'user',
+          env: baseEnv,
+          onAuthError: (error) => {
+            throw new MyError(error)
+          },
+        },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      await expect(handler(req)).rejects.toBeInstanceOf(MyError)
+    })
+
+    it('falls back to JSON response when onAuthError is absent (unchanged default)', async () => {
+      const handler = withSupabase({ auth: 'user', env: baseEnv }, async () =>
+        Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      const res = await handler(req)
+      expect(res.status).toBe(401)
+      const body = await res.json()
+      expect(body.message).toBeDefined()
+    })
+
+    it('does not invoke onAuthError on successful auth', async () => {
+      const onAuthError = vi.fn((): never => {
+        throw new Error('should not be called')
+      })
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, onAuthError },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      await handler(req)
+      expect(onAuthError).not.toHaveBeenCalled()
+    })
+  })
+
   describe('allow → auth deprecation', () => {
     beforeEach(() => {
       _resetAllowDeprecationWarned()

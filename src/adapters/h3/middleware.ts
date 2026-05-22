@@ -8,6 +8,11 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 const adapterWithSupabase = defineAdapter<H3Event>({
   name: 'h3',
   extractRequest: (event) => event.req,
+  getExistingContext: (event) =>
+    (event.context as { supabaseContext?: SupabaseContext }).supabaseContext,
+  throwAuthError: (error) => {
+    throw new HTTPError(error.message, { status: error.status, cause: error })
+  },
 })
 
 /**
@@ -83,15 +88,15 @@ export function withSupabase(
  * ```
  */
 export function withSupabase(
-  config: WithSupabaseConfig,
+  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): (input: Request | H3Event) => Promise<Response>
 export function withSupabase<Database>(
-  config: WithSupabaseConfig,
+  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (input: Request | H3Event) => Promise<Response>
 export function withSupabase(
-  config?: WithSupabaseConfig,
+  config?: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): Middleware | ((input: Request | H3Event) => Promise<Response>) {
   if (handler) return adapterWithSupabase(config!, handler)

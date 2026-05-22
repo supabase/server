@@ -5,11 +5,6 @@ import { defineAdapter } from '../../core/define-adapter.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
-const adapterWithSupabase = defineAdapter<{ request: Request }>({
-  name: 'elysia',
-  extractRequest: (ctx) => ctx.request,
-})
-
 export class SupabaseError extends Error {
   status: number
   declare cause: AuthError
@@ -18,6 +13,18 @@ export class SupabaseError extends Error {
     this.status = inner.status
   }
 }
+
+const adapterWithSupabase = defineAdapter<{
+  request: Request
+  supabaseContext?: SupabaseContext
+}>({
+  name: 'elysia',
+  extractRequest: (ctx) => ctx.request,
+  getExistingContext: (ctx) => ctx.supabaseContext,
+  throwAuthError: (error) => {
+    throw new SupabaseError(error)
+  },
+})
 
 /**
  * Elysia plugin that creates a {@link SupabaseContext} and makes it available in route handlers.
@@ -126,15 +133,15 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
  * ```
  */
 export function withSupabase(
-  config: WithSupabaseConfig,
+  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): (input: Request | { request: Request }) => Promise<Response>
 export function withSupabase<Database>(
-  config: WithSupabaseConfig,
+  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (input: Request | { request: Request }) => Promise<Response>
 export function withSupabase(
-  config?: WithSupabaseConfig,
+  config?: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): unknown {
   if (handler) return adapterWithSupabase(config!, handler)

@@ -9,6 +9,14 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 const adapterWithSupabase = defineAdapter<Context>({
   name: 'hono',
   extractRequest: (c) => c.req.raw,
+  getExistingContext: (c) =>
+    (c.var as { supabaseContext?: SupabaseContext }).supabaseContext,
+  throwAuthError: (error) => {
+    throw new HTTPException(error.status as 401 | 500, {
+      message: error.message,
+      cause: error,
+    })
+  },
 })
 
 /**
@@ -71,15 +79,15 @@ export function withSupabase(
  * ```
  */
 export function withSupabase(
-  config: WithSupabaseConfig,
+  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): (input: Request | Context, next?: Next) => Promise<Response>
 export function withSupabase<Database>(
-  config: WithSupabaseConfig,
+  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (input: Request | Context, next?: Next) => Promise<Response>
 export function withSupabase(
-  config?: WithSupabaseConfig,
+  config?: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ):
   | MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>

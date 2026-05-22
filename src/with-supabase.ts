@@ -50,6 +50,7 @@ export function withSupabase<Database = unknown>(
       config,
     )
     if (error) {
+      if (config.onAuthError) config.onAuthError(error)
       return Response.json(
         { message: error.message, code: error.code },
         {

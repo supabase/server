@@ -165,12 +165,16 @@ describe('h3 withSupabase fetch-handler form (two-arg)', () => {
     })
   })
 
-  it('returns auth errors as JSON (no HTTPError) — base library behavior', async () => {
+  it('throws HTTPError on auth failure so onError handles it (consistent with one-arg form)', async () => {
     const app = new H3()
-    let onErrorFired = false
+    let caught: unknown
     app.use(
-      onError(() => {
-        onErrorFired = true
+      onError((error) => {
+        caught = error
+        return Response.json(
+          { caught: (error as Error).message },
+          { status: HTTPError.isError(error) ? error.status : 500 },
+        )
       }),
     )
     app.all(
@@ -182,7 +186,29 @@ describe('h3 withSupabase fetch-handler form (two-arg)', () => {
 
     const res = await app.request('/')
     expect(res.status).toBe(401)
-    expect(onErrorFired).toBe(false)
+    expect(caught).toBeDefined()
+    expect(HTTPError.isError(caught)).toBe(true)
+  })
+
+  it('skips re-running auth when an upstream middleware already set event.context.supabaseContext', async () => {
+    const app = new H3()
+    app.use(withSupabase({ auth: 'none', env }))
+
+    let innerHandlerCalls = 0
+    app.all(
+      '/protected',
+      withSupabase({ auth: 'secret', env }, async (_req, ctx) => {
+        innerHandlerCalls++
+        return Response.json({ authMode: ctx.authMode })
+      }),
+    )
+
+    // No apikey header — would fail 'secret' if the two-arg form re-ran auth
+    const res = await app.request('/protected')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.authMode).toBe('none')
+    expect(innerHandlerCalls).toBe(1)
   })
 
   it('also accepts a plain Request directly (Web Fetch use)', async () => {

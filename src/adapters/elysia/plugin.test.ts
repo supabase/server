@@ -1,7 +1,7 @@
 import { Elysia } from 'elysia'
 import { describe, expect, it } from 'vitest'
 
-import { withSupabase } from './plugin.js'
+import { SupabaseError, withSupabase } from './plugin.js'
 
 describe('elysia supabase plugin', () => {
   const env = {
@@ -147,11 +147,17 @@ describe('elysia withSupabase fetch-handler form (two-arg)', () => {
     })
   })
 
-  it('returns auth errors as JSON (no SupabaseError) — base library behavior', async () => {
-    let onErrorFired = false
+  it('throws SupabaseError on auth failure so onError handles it (consistent with one-arg form)', async () => {
+    let caughtCode: string | undefined
     const app = new Elysia()
-      .onError(() => {
-        onErrorFired = true
+      .error({ SupabaseError })
+      .onError(({ code, error, status }) => {
+        if (code !== 'SupabaseError') return
+        caughtCode = error.cause.code
+        return status(error.status as 401, {
+          error: error.message,
+          code: error.cause.code,
+        })
       })
       .all(
         '/',
@@ -162,7 +168,25 @@ describe('elysia withSupabase fetch-handler form (two-arg)', () => {
 
     const res = await app.handle(new Request('http://localhost/'))
     expect(res.status).toBe(401)
-    expect(onErrorFired).toBe(false)
+    expect(caughtCode).toBeDefined()
+  })
+
+  it('skips re-running auth when an upstream plugin already resolved supabaseContext', async () => {
+    let innerHandlerCalls = 0
+    const app = new Elysia().use(withSupabase({ auth: 'none', env })).all(
+      '/protected',
+      withSupabase({ auth: 'secret', env }, async (_req, ctx) => {
+        innerHandlerCalls++
+        return Response.json({ authMode: ctx.authMode })
+      }),
+    )
+
+    // No apikey header — would fail 'secret' if the two-arg form re-ran auth
+    const res = await app.handle(new Request('http://localhost/protected'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.authMode).toBe('none')
+    expect(innerHandlerCalls).toBe(1)
   })
 
   it('also accepts a plain Request directly (Web Fetch use)', async () => {

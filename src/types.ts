@@ -3,6 +3,8 @@ import type {
   SupabaseClientOptions,
 } from '@supabase/supabase-js'
 
+import type { AuthError } from './errors.js'
+
 /**
  * Authentication mode that determines what credentials a request must provide.
  *
@@ -289,6 +291,34 @@ export interface WithSupabaseConfig {
    * ```
    */
   supabaseOptions?: SupabaseClientOptions<string>
+
+  /**
+   * Callback invoked when auth fails, before the default JSON error
+   * response is built. The callback must throw — its return type is
+   * `never` and any value it returns is ignored. Use this to map auth
+   * failures into framework-native errors that flow through your
+   * framework's error pipeline (`HTTPException` for Hono,
+   * `HTTPError` for H3, a custom error class for Elysia, etc.).
+   *
+   * When omitted (the default), {@link withSupabase} returns the auth
+   * error as a JSON response — the original behavior, unchanged.
+   *
+   * @example
+   * ```ts
+   * import { HTTPException } from 'hono/http-exception'
+   *
+   * withSupabase({
+   *   auth: 'user',
+   *   onAuthError: (error) => {
+   *     throw new HTTPException(error.status as 401 | 500, {
+   *       message: error.message,
+   *       cause: error,
+   *     })
+   *   },
+   * }, handler)
+   * ```
+   */
+  onAuthError?: (error: AuthError) => never
 }
 
 /**
