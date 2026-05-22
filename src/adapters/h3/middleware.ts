@@ -86,7 +86,13 @@ export function withSupabase(
   config?: WithSupabaseConfig,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): Middleware | ((req: Request) => Promise<Response>) {
-  if (handler) return withSupabaseHandler(config!, handler)
+  if (handler) {
+    const inner = withSupabaseHandler(config!, handler)
+    return (req: Request) => {
+      if (req instanceof Request) return inner(req)
+      throw new TypeError(buildH3ArgErrorMessage(req))
+    }
+  }
   return defineMiddleware(async (event, next) => {
     const context = event.context as { supabaseContext?: SupabaseContext }
     if (context.supabaseContext) return next()
@@ -97,4 +103,21 @@ export function withSupabase(
     context.supabaseContext = ctx
     return next()
   })
+}
+
+function buildH3ArgErrorMessage(received: unknown): string {
+  return (
+    `withSupabase from @supabase/server/adapters/h3 returns a Web Fetch handler that expects a Request, but received ${describeH3Arg(received)}. ` +
+    'Mount on an H3 route with `app.all(path, (event) => handler(event.req))`.'
+  )
+}
+
+function describeH3Arg(received: unknown): string {
+  if (received === null || typeof received !== 'object') return typeof received
+  const r = received as { req?: unknown; context?: unknown }
+  if (r.req instanceof Request && r.context !== undefined) return 'an H3Event'
+  return (
+    (received as { constructor?: { name?: string } }).constructor?.name ??
+    'object'
+  )
 }

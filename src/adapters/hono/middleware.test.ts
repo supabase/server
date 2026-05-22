@@ -173,4 +173,36 @@ describe('hono withSupabase fetch-handler form (two-arg)', () => {
     expect(res.status).toBe(401)
     expect(onErrorFired).toBe(false)
   })
+
+  it('throws a helpful TypeError when passed a Hono Context instead of c.req.raw', () => {
+    const handler = withSupabase({ auth: 'none', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const fakeContext = { req: { raw: new Request('https://example.test/') } }
+    try {
+      handler(fakeContext as unknown as Request)
+      expect.fail('should have thrown')
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError)
+      expect((e as Error).message).toContain('Hono Context')
+      expect((e as Error).message).toContain('c.req.raw')
+    }
+  })
+
+  it('throws a helpful TypeError when passed a HonoRequest instead of c.req.raw', () => {
+    const handler = withSupabase({ auth: 'none', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const fakeHonoRequest = { raw: new Request('https://example.test/') }
+    try {
+      handler(fakeHonoRequest as unknown as Request)
+      expect.fail('should have thrown')
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError)
+      expect((e as Error).message).toContain('HonoRequest')
+      expect((e as Error).message).toContain('c.req.raw')
+    }
+  })
 })

@@ -128,7 +128,13 @@ export function withSupabase(
   config?: WithSupabaseConfig,
   handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
 ): unknown {
-  if (handler) return withSupabaseHandler(config!, handler)
+  if (handler) {
+    const inner = withSupabaseHandler(config!, handler)
+    return (req: Request) => {
+      if (req instanceof Request) return inner(req)
+      throw new TypeError(buildElysiaArgErrorMessage(req))
+    }
+  }
   return new Elysia()
     .error({ SupabaseError })
     .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
@@ -142,4 +148,23 @@ export function withSupabase(
       return { supabaseContext: data }
     })
     .as('scoped')
+}
+
+function buildElysiaArgErrorMessage(received: unknown): string {
+  return (
+    `withSupabase from @supabase/server/adapters/elysia returns a Web Fetch handler that expects a Request, but received ${describeElysiaArg(received)}. ` +
+    'Mount on an Elysia route with `.all(path, ({ request }) => handler(request))`.'
+  )
+}
+
+function describeElysiaArg(received: unknown): string {
+  if (received === null || typeof received !== 'object') return typeof received
+  const r = received as { request?: unknown; set?: unknown }
+  if (r.request instanceof Request && r.set !== undefined) {
+    return 'an Elysia context (did you mean to destructure `{ request }`?)'
+  }
+  return (
+    (received as { constructor?: { name?: string } }).constructor?.name ??
+    'object'
+  )
 }

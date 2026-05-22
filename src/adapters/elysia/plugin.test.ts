@@ -161,4 +161,23 @@ describe('elysia withSupabase fetch-handler form (two-arg)', () => {
     expect(res.status).toBe(401)
     expect(onErrorFired).toBe(false)
   })
+
+  it('throws a helpful TypeError when passed an Elysia context instead of ctx.request', () => {
+    const handler = withSupabase({ auth: 'none', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const fakeElysiaCtx = {
+      request: new Request('http://localhost/'),
+      set: { status: 200, headers: {} },
+    }
+    try {
+      handler(fakeElysiaCtx as unknown as Request)
+      expect.fail('should have thrown')
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError)
+      expect((e as Error).message).toContain('Elysia context')
+      expect((e as Error).message).toContain('request')
+    }
+  })
 })

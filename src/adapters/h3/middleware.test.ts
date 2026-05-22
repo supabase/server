@@ -181,4 +181,20 @@ describe('h3 withSupabase fetch-handler form (two-arg)', () => {
     expect(res.status).toBe(401)
     expect(onErrorFired).toBe(false)
   })
+
+  it('throws a helpful TypeError when passed an H3Event instead of event.req', () => {
+    const handler = withSupabase({ auth: 'none', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const fakeEvent = { req: new Request('https://example.test/'), context: {} }
+    try {
+      handler(fakeEvent as unknown as Request)
+      expect.fail('should have thrown')
+    } catch (e) {
+      expect(e).toBeInstanceOf(TypeError)
+      expect((e as Error).message).toContain('H3Event')
+      expect((e as Error).message).toContain('event.req')
+    }
+  })
 })

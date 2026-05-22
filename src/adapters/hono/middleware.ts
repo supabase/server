@@ -76,7 +76,13 @@ export function withSupabase(
 ):
   | MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>
   | ((req: Request) => Promise<Response>) {
-  if (handler) return withSupabaseHandler(config!, handler)
+  if (handler) {
+    const inner = withSupabaseHandler(config!, handler)
+    return (req: Request) => {
+      if (req instanceof Request) return inner(req)
+      throw new TypeError(buildHonoArgErrorMessage(req))
+    }
+  }
   return createMiddleware<{
     Variables: { supabaseContext: SupabaseContext }
   }>(async (c, next) => {
@@ -100,4 +106,28 @@ export function withSupabase(
     c.set('supabaseContext', ctx)
     await next()
   })
+}
+
+function buildHonoArgErrorMessage(received: unknown): string {
+  return (
+    `withSupabase from @supabase/server/adapters/hono returns a Web Fetch handler that expects a Request, but received ${describeHonoArg(received)}. ` +
+    'Mount on a Hono route with `app.all(path, (c) => handler(c.req.raw))`.'
+  )
+}
+
+function describeHonoArg(received: unknown): string {
+  if (received === null || typeof received !== 'object') return typeof received
+  const r = received as { req?: unknown; raw?: unknown }
+  if (
+    r.req !== null &&
+    typeof r.req === 'object' &&
+    (r.req as { raw?: unknown }).raw instanceof Request
+  ) {
+    return 'a Hono Context'
+  }
+  if (r.raw instanceof Request) return 'a HonoRequest'
+  return (
+    (received as { constructor?: { name?: string } }).constructor?.name ??
+    'object'
+  )
 }

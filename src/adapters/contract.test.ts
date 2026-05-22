@@ -17,19 +17,27 @@ declare global {
 }
 
 /**
- * Contract test: every adapter's two-arg `withSupabase` form must be the
- * base `withSupabase` from `@supabase/server`, delegated through. Two
- * checks, each direct:
+ * Contract test: every adapter's two-arg `withSupabase` form must
+ * delegate to the base `withSupabase` from `@supabase/server` —
+ * forwarding the consumer's `config` and `handler` to base, forwarding
+ * a valid `Request` to base's returned handler, and returning base's
+ * `Response` unchanged.
  *
- * 1. **Runtime identity** — `vi.mock` replaces the base; every adapter
- *    discovered under `src/adapters/*` must call the mock with the
- *    consumer's args and return the mock's return value. Proves
- *    delegation without setting up env, fabricating a Request, or
- *    parsing a Response.
+ * Adapters are allowed to interpose input validation before forwarding
+ * (e.g. detecting that the caller passed a framework context instead
+ * of a Request and throwing a framework-specific TypeError). The
+ * "happy path" behavior — a valid Request goes through unchanged —
+ * stays pinned.
+ *
+ * Two checks:
+ *
+ * 1. **Runtime delegation** — `vi.mock` replaces the base; every
+ *    adapter discovered under `src/adapters/*` must call the mock with
+ *    the consumer's args, then forward a real Request to the mock's
+ *    returned handler, then return that handler's Response.
  * 2. **Type-level identity** — `expectTypeOf` asserts each adapter's
- *    two-arg form has the same handler-parameter type and return type as
- *    base. Catches signature drift at typecheck (the runtime check would
- *    also catch it, but later).
+ *    two-arg form has the same handler-parameter type and return type
+ *    as base. Catches signature drift at typecheck.
  *
  * The type-level check enumerates known adapters statically (TS can't
  * `import.meta.glob` types). New adapters added to `src/adapters/` are
@@ -52,22 +60,25 @@ const adapterEntries = Object.entries(adapters)
 
 describe('every adapter delegates its two-arg form to base withSupabase', () => {
   it.each(adapterEntries)(
-    '%s — calls base.withSupabase(config, handler) and returns its result',
+    "%s — forwards config/handler to base and a valid Request through base's returned handler",
     async (_path, loader) => {
       // Distinct sentinel per case so a cross-adapter leak would surface.
-      const SENTINEL = (() => Promise.resolve(new Response())) as (
-        req: Request,
-      ) => Promise<Response>
-      baseMock.withSupabase.mockReturnValueOnce(SENTINEL)
+      const SENTINEL_RESPONSE = new Response('sentinel')
+      const baseInner = vi.fn(async () => SENTINEL_RESPONSE)
+      baseMock.withSupabase.mockReturnValueOnce(baseInner)
 
       const mod = await loader()
       const config: WithSupabaseConfig = { auth: 'user' }
       const handler = async () => Response.json({})
 
-      const result = mod.withSupabase(config, handler)
-
+      const adapterHandler = mod.withSupabase(config, handler)
       expect(baseMock.withSupabase).toHaveBeenLastCalledWith(config, handler)
-      expect(result).toBe(SENTINEL)
+
+      const req = new Request('https://example.test/')
+      const result = await adapterHandler(req)
+
+      expect(baseInner).toHaveBeenCalledWith(req)
+      expect(result).toBe(SENTINEL_RESPONSE)
     },
   )
 
