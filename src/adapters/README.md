@@ -27,7 +27,7 @@ Before you start, **read [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and agree wi
 - **Tests for every auth mode.** Cover `'user'`, `'publishable'`, `'secret'`, `'none'`, the array form, and the failure paths (missing token, invalid JWT, missing apikey). The Hono adapter's [`hono/middleware.test.ts`](hono/middleware.test.ts) is the canonical reference — your test file should look structurally similar.
 - **Strict TypeScript.** No `any`, no `// @ts-ignore`. Public types must be exported from the adapter's `index.ts` so consumers can extend them.
 - **No new runtime dependencies** beyond the framework you're adapting. The framework itself goes in `peerDependencies` (and `peerDependenciesMeta` if optional). Don't pull in a wrapper, polyfill, or utility lib just to make the adapter shorter.
-- **Match the existing adapter shape.** Export `withSupabase` with two call forms — `withSupabase(config)` returning the framework's native middleware/plugin, and `withSupabase(config, handler)` returning a dual-mode route handler built via [`defineAdapter`](../core/define-adapter.ts) (see [Designing an adapter](#designing-an-adapter) below). Use `verifyAuth`, `createContextClient`, and `createAdminClient` from `@supabase/server/core` — never re-implement auth or env handling inside an adapter.
+- **Match the existing adapter shape.** Export `withSupabase` with two call forms — `withSupabase(config)` returning the framework's native middleware/plugin, and `withSupabase(config, handler)` returning a dual-mode route handler built via [`defineAdapter`](../core/adapters/define-adapter.ts) (see [Designing an adapter](#designing-an-adapter) below). Use `verifyAuth`, `createContextClient`, and `createAdminClient` from `@supabase/server/core` — never re-implement auth or env handling inside an adapter.
 - **Wire up the build outputs.** Add the adapter entry to `package.json#exports`, `jsr.json` (if applicable), and `tsdown.config.ts#entry` so it ships in the published artifact.
 - **Docs are required.** Add `docs/adapters/<name>.md` mirroring the structure of [`docs/adapters/hono.md`](../../docs/adapters/hono.md) — at minimum: setup, basic example, per-route auth, CORS note.
 - **Update both adapter tables.** Add a row to the table in this `src/adapters/README.md` _and_ the mirror table in the top-level [`README.md`](../../README.md). Keep the framework-version column accurate against `package.json#peerDependencies`. PRs that touch an existing adapter must update the version column if the peer-dep range changed.
@@ -58,7 +58,7 @@ Common contract every one-arg implementation must uphold:
 
 `withSupabase(config, handler)` returns a dual-mode route handler that accepts either a `Request` (Web Fetch use) or the framework's native route input (`Context`, `H3Event`, Elysia args), extracts the underlying Request, and runs base `withSupabase` against it. Mountable directly via `app.all(path, withSupabase(config, handler))`.
 
-Don't hand-roll this — [`defineAdapter`](../core/define-adapter.ts) encapsulates the entire dual-mode contract, including:
+Don't hand-roll this — [`defineAdapter`](../core/adapters/define-adapter.ts) (exported publicly as `@supabase/server/core/adapters`) encapsulates the entire dual-mode contract, including:
 
 - Request extraction from the framework's native input.
 - `cors: false` forced on the base call (the framework owns CORS).
@@ -68,7 +68,11 @@ Don't hand-roll this — [`defineAdapter`](../core/define-adapter.ts) encapsulat
 Wire it up at the top of your adapter file:
 
 ```ts
-import { defineAdapter } from '../../core/define-adapter.js'
+// In-tree (bundled adapters in this repo):
+import { defineAdapter } from '../../core/adapters/index.js'
+
+// Third-party adapter published as its own npm package:
+// import { defineAdapter } from '@supabase/server/core/adapters'
 
 const adapterWithSupabase = defineAdapter<MyFrameworkContext>({
   name: 'my-framework',

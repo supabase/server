@@ -1,6 +1,6 @@
-import type { AuthError } from '../errors.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../types.js'
-import { withSupabase as baseWithSupabase } from '../with-supabase.js'
+import type { AuthError } from '../../errors.js'
+import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
+import { withSupabase as baseWithSupabase } from '../../with-supabase.js'
 
 /**
  * Spec for {@link defineAdapter}.
@@ -77,12 +77,11 @@ export interface AdapterSpec<NativeContext> {
  * adapter's responsibility; `defineAdapter` only covers the two-arg
  * form.
  *
- * @example
+ * @example Third-party adapter package
  * ```ts
- * // adapters/hono/middleware.ts
  * import type { Context } from 'hono'
  * import { HTTPException } from 'hono/http-exception'
- * import { defineAdapter } from '../../core/define-adapter.js'
+ * import { defineAdapter } from '@supabase/server/core/adapters'
  *
  * const adapterWithSupabase = defineAdapter<Context>({
  *   name: 'hono',

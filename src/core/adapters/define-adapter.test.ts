@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { AuthError } from '../errors.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../types.js'
+import { AuthError } from '../../errors.js'
+import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
 import { defineAdapter } from './define-adapter.js'
 
 const baseMock = vi.hoisted(() => ({ withSupabase: vi.fn() }))
-vi.mock('../with-supabase.js', () => baseMock)
+vi.mock('../../with-supabase.js', () => baseMock)
 
 interface FakeContext {
   request: Request

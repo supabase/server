@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception'
 import { createMiddleware } from 'hono/factory'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
-import { defineAdapter } from '../../core/define-adapter.js'
+import { defineAdapter } from '../../core/adapters/index.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
 const adapterWithSupabase = defineAdapter<Context>({
