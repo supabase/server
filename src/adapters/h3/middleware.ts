@@ -58,13 +58,24 @@ export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): Middleware
 /**
- * Two-arg form — wraps the base `withSupabase` from `@supabase/server`
- * with a dual-mode handler that accepts either a plain `Request` (Web
- * Fetch) or an H3 `H3Event` (H3 route handler). Mount directly with
- * `app.all(path, withSupabase(config, handler))` — no manual `event.req`
- * extraction needed. Use this form to compose with gates from
- * `@supabase/server/gates/*`. See
+ * Two-arg form — a dual-mode route handler that accepts either a plain
+ * `Request` (Web Fetch) or an `H3Event` (H3 route handler), extracts
+ * the underlying Request, and runs base `withSupabase` against it.
+ * Mount directly with `app.all(path, withSupabase(config, handler))` —
+ * no `event.req` extraction needed. Use this form to compose with
+ * gates from `@supabase/server/gates/*`. See
  * [gates README](../../core/gates/README.md) for the pattern.
+ *
+ * Behavior matches the one-arg middleware form:
+ * - **Auth failures throw `HTTPError`**, flowing into H3's `onError`
+ *   hook (not returned as a JSON response). Discriminate via the
+ *   original {@link AuthError} on `err.cause`.
+ * - **Skips re-running auth when an upstream middleware has already
+ *   set `event.context.supabaseContext`** — the inner handler runs
+ *   with that existing context. Useful when `app.use(withSupabase(...))`
+ *   is wired app-wide and a route adds gates on top.
+ * - **CORS is excluded from the config** (`Omit<…, 'cors'>`). Use
+ *   H3's CORS utilities.
  *
  * @example
  * ```ts

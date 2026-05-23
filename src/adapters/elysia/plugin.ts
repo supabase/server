@@ -103,13 +103,25 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
 >
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 /**
- * Two-arg form — wraps the base `withSupabase` from `@supabase/server`
- * with a dual-mode handler that accepts either a plain `Request` (Web
- * Fetch) or an Elysia route context. Mount directly with
- * `.all(path, withSupabase(config, handler))` — no manual `{ request }`
- * destructuring needed. Use this form to compose with gates from
- * `@supabase/server/gates/*`. See
+ * Two-arg form — a dual-mode route handler that accepts either a plain
+ * `Request` (Web Fetch) or an Elysia route context, extracts the
+ * underlying Request, and runs base `withSupabase` against it. Mount
+ * directly with `.all(path, withSupabase(config, handler))` — no
+ * `{ request }` destructuring needed. Use this form to compose with
+ * gates from `@supabase/server/gates/*`. See
  * [gates README](../../core/gates/README.md) for the pattern.
+ *
+ * Behavior matches the one-arg plugin form:
+ * - **Auth failures throw `SupabaseError`**, flowing into Elysia's
+ *   `onError` (not returned as a JSON response). Discriminate via
+ *   `code === 'SupabaseError'`; the original {@link AuthError} is on
+ *   `.cause` and `.status` is on the error directly.
+ * - **Skips re-running auth when an upstream plugin has already
+ *   resolved `supabaseContext`** — the inner handler runs with that
+ *   existing context. Useful when `.use(withSupabase(...))` is wired
+ *   app-wide and a route adds gates on top.
+ * - **CORS is excluded from the config** (`Omit<…, 'cors'>`). Use
+ *   Elysia's CORS plugin.
  *
  * @example
  * ```ts

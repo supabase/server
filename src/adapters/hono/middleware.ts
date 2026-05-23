@@ -49,13 +49,24 @@ export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>
 /**
- * Two-arg form — wraps the base `withSupabase` from `@supabase/server`
- * with a dual-mode handler that accepts either a plain `Request` (Web
- * Fetch) or a Hono `Context` (Hono route handler). Mount directly with
- * `app.all(path, withSupabase(config, handler))` — no manual
- * `c.req.raw` extraction needed. Use this form to compose with gates
- * from `@supabase/server/gates/*`. See
+ * Two-arg form — a dual-mode route handler that accepts either a plain
+ * `Request` (Web Fetch) or a Hono `Context` (Hono route handler),
+ * extracts the underlying Request, and runs base `withSupabase` against
+ * it. Mount directly with `app.all(path, withSupabase(config, handler))`
+ * — no `c.req.raw` extraction needed. Use this form to compose with
+ * gates from `@supabase/server/gates/*`. See
  * [gates README](../../core/gates/README.md) for the pattern.
+ *
+ * Behavior matches the one-arg middleware form:
+ * - **Auth failures throw `HTTPException`**, flowing into `app.onError`
+ *   (not returned as a JSON response). Discriminate via the original
+ *   {@link AuthError} on `err.cause`.
+ * - **Skips re-running auth when an upstream middleware has already
+ *   set `c.var.supabaseContext`** — the inner handler runs with that
+ *   existing context. Useful when `app.use('*', withSupabase(...))` is
+ *   wired app-wide and a route adds gates on top.
+ * - **CORS is excluded from the config** (`Omit<…, 'cors'>`). Use
+ *   Hono's `cors()` middleware.
  *
  * @example
  * ```ts

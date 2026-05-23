@@ -215,4 +215,42 @@ describe('hono withSupabase fetch-handler form (two-arg)', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
   })
+
+  it('composes a gate against the upstream-set ctx on the skip-if-set path', async () => {
+    // Upstream one-arg middleware populates c.var.supabaseContext.
+    // Two-arg form skips base, but the gate still runs against the
+    // upstream-set ctx and contributes its own slot. The handler sees
+    // the full intersection — fields from upstream + gate contribution.
+    const { withFeatureFlag } =
+      await import('../../gates/feature-flag/index.js')
+
+    const app = new Hono<{ Variables: { supabaseContext: SupabaseContext } }>()
+    app.use('*', withSupabase({ auth: 'none', env }))
+
+    app.all(
+      '/beta',
+      withSupabase(
+        { auth: 'secret', env }, // would fail if base actually re-ran
+        withFeatureFlag(
+          { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+          async (_req, ctx) =>
+            Response.json({
+              // from upstream withSupabase (skipped, but ctx reused)
+              authMode: ctx.authMode,
+              // from the gate (still ran against the upstream-set ctx)
+              flag: ctx.featureFlag.name,
+              enabled: ctx.featureFlag.enabled,
+            }),
+        ),
+      ),
+    )
+
+    const res = await app.request('/beta', { headers: { 'x-beta': '1' } })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      authMode: 'none',
+      flag: 'beta',
+      enabled: true,
+    })
+  })
 })
