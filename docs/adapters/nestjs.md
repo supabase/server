@@ -115,11 +115,11 @@ async function bootstrap() {
 bootstrap()
 ```
 
-## Skip behavior
+## Multiple guards
 
-If a previous guard or middleware already populated `request.supabaseContext`, subsequent `withSupabase` guards skip auth and reuse the existing context. This lets a global guard set a baseline auth mode while controller- or handler-level guards apply a stricter one — but only if the stricter guard runs first.
+`withSupabase` always runs, even if a previous guard already set `request.supabaseContext`. NestJS executes guards in order (global → controller → handler), so a handler-level guard naturally tightens what a global guard set: the later guard re-authenticates with its own config and either rejects the request or overwrites the context. The innermost guard wins.
 
-NestJS executes guards in this order: global → controller → handler. Because of that, a stricter handler-level guard cannot override a more permissive global guard via the skip mechanism. If you need different auth per route, prefer per-route `@UseGuards(...)` without a global guard.
+If you need different auth per route, prefer per-route `@UseGuards(...)` without a global guard.
 
 ## CORS
 
