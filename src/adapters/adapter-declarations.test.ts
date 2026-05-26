@@ -18,9 +18,9 @@ declare global {
  * un-importable adapter. This test catches that at CI time.
  *
  * Runtime delegation of the two-arg form is enforced by
- * `src/core/adapters/define-adapter.test.ts`. Per-adapter end-to-end
- * behavior is pinned by each adapter's own `*.test.ts`. This file only
- * checks declarations.
+ * {@link file://./../core/define-adapter.test.ts}, and per-adapter
+ * end-to-end behavior is pinned by each adapter's own `*.test.ts`. This
+ * file only checks declarations.
  */
 
 interface AdapterModule {

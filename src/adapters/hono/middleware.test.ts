@@ -105,25 +105,26 @@ describe('hono withSupabase fetch-handler form (two-arg)', () => {
     jwks: null,
   }
 
-  it('composes with a gate and exposes the full ctx to the inner handler', async () => {
+  it('mounts directly on app.all and exposes the full ctx to the inner handler', async () => {
     const { withFeatureFlag } =
       await import('../../gates/feature-flag/index.js')
 
-    const beta = withSupabase(
-      { auth: 'none', env },
-      withFeatureFlag(
-        { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
-        async (_req, ctx) =>
-          Response.json({
-            authMode: ctx.authMode,
-            flag: ctx.featureFlag.name,
-            enabled: ctx.featureFlag.enabled,
-          }),
+    const app = new Hono()
+    app.all(
+      '/beta',
+      withSupabase(
+        { auth: 'none', env },
+        withFeatureFlag(
+          { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+          async (_req, ctx) =>
+            Response.json({
+              authMode: ctx.authMode,
+              flag: ctx.featureFlag.name,
+              enabled: ctx.featureFlag.enabled,
+            }),
+        ),
       ),
     )
-
-    const app = new Hono()
-    app.all('/beta', (c) => beta(c.req.raw))
 
     const res = await app.request('/beta', { headers: { 'x-beta': '1' } })
     expect(res.status).toBe(200)
@@ -138,15 +139,16 @@ describe('hono withSupabase fetch-handler form (two-arg)', () => {
     const { withFeatureFlag } =
       await import('../../gates/feature-flag/index.js')
 
-    const beta = withSupabase(
-      { auth: 'none', env },
-      withFeatureFlag({ name: 'beta', evaluate: () => false }, async () =>
-        Response.json({ reached: true }),
+    const app = new Hono()
+    app.all(
+      '/beta',
+      withSupabase(
+        { auth: 'none', env },
+        withFeatureFlag({ name: 'beta', evaluate: () => false }, async () =>
+          Response.json({ reached: true }),
+        ),
       ),
     )
-
-    const app = new Hono()
-    app.all('/beta', (c) => beta(c.req.raw))
 
     const res = await app.request('/beta')
     expect(res.status).toBe(404)
@@ -156,21 +158,99 @@ describe('hono withSupabase fetch-handler form (two-arg)', () => {
     })
   })
 
-  it('returns auth errors as JSON (no HTTPException) — base library behavior', async () => {
-    const handler = withSupabase({ auth: 'user', env }, async () =>
-      Response.json({ ok: true }),
-    )
-
+  it('throws HTTPException on auth failure so app.onError handles it (consistent with one-arg form)', async () => {
     const app = new Hono()
-    let onErrorFired = false
+    let caught: Error | undefined
     app.onError((err, c) => {
-      onErrorFired = true
-      return c.json({ caught: err.message })
+      caught = err
+      return c.json({ caught: err.message }, 401)
     })
-    app.all('/', (c) => handler(c.req.raw))
+    app.all(
+      '/',
+      withSupabase({ auth: 'user', env }, async () =>
+        Response.json({ ok: true }),
+      ),
+    )
 
     const res = await app.request('/')
     expect(res.status).toBe(401)
-    expect(onErrorFired).toBe(false)
+    expect(caught).toBeDefined()
+    // HTTPException carries the original AuthError as cause.
+    const cause = (
+      caught as (Error & { cause?: { code?: string } }) | undefined
+    )?.cause
+    expect(cause?.code).toBeDefined()
+  })
+
+  it('skips re-running auth when an upstream middleware already set c.var.supabaseContext', async () => {
+    const app = new Hono<{ Variables: { supabaseContext: SupabaseContext } }>()
+    // Upstream: app-wide auth runs once via the one-arg middleware
+    app.use('*', withSupabase({ auth: 'none', env }))
+
+    let innerHandlerCalls = 0
+    app.all(
+      '/protected',
+      // Two-arg form: would re-verify if not for skip-if-set
+      withSupabase({ auth: 'secret', env }, async (_req, ctx) => {
+        innerHandlerCalls++
+        return Response.json({ authMode: ctx.authMode })
+      }),
+    )
+
+    // No apikey header — would fail 'secret' if it actually ran
+    const res = await app.request('/protected')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // The upstream middleware's auth mode is preserved
+    expect(body.authMode).toBe('none')
+    expect(innerHandlerCalls).toBe(1)
+  })
+
+  it('also accepts a plain Request directly (Web Fetch use)', async () => {
+    const handler = withSupabase({ auth: 'none', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const res = await handler(new Request('https://example.test/'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+
+  it('composes a gate against the upstream-set ctx on the skip-if-set path', async () => {
+    // Upstream one-arg middleware populates c.var.supabaseContext.
+    // Two-arg form skips base, but the gate still runs against the
+    // upstream-set ctx and contributes its own slot. The handler sees
+    // the full intersection — fields from upstream + gate contribution.
+    const { withFeatureFlag } =
+      await import('../../gates/feature-flag/index.js')
+
+    const app = new Hono<{ Variables: { supabaseContext: SupabaseContext } }>()
+    app.use('*', withSupabase({ auth: 'none', env }))
+
+    app.all(
+      '/beta',
+      withSupabase(
+        { auth: 'secret', env }, // would fail if base actually re-ran
+        withFeatureFlag(
+          { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+          async (_req, ctx) =>
+            Response.json({
+              // from upstream withSupabase (skipped, but ctx reused)
+              authMode: ctx.authMode,
+              // from the gate (still ran against the upstream-set ctx)
+              flag: ctx.featureFlag.name,
+              enabled: ctx.featureFlag.enabled,
+            }),
+        ),
+      ),
+    )
+
+    const res = await app.request('/beta', { headers: { 'x-beta': '1' } })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      authMode: 'none',
+      flag: 'beta',
+      enabled: true,
+    })
   })
 })

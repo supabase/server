@@ -29,6 +29,11 @@
       "import": "./dist/core/index.mjs",
       "require": "./dist/core/index.cjs"
     },
+    "./core/adapters": {
+      "types": "./dist/core/adapters/index.d.mts",
+      "import": "./dist/core/adapters/index.mjs",
+      "require": "./dist/core/adapters/index.cjs"
+    },
     "./core/gates": {
       "types": "./dist/core/gates/index.d.mts",
       "import": "./dist/core/gates/index.mjs",
@@ -43,6 +48,11 @@
       "types": "./dist/adapters/h3/index.d.mts",
       "import": "./dist/adapters/h3/index.mjs",
       "require": "./dist/adapters/h3/index.cjs"
+    },
+    "./adapters/elysia": {
+      "types": "./dist/adapters/elysia/index.d.mts",
+      "import": "./dist/adapters/elysia/index.mjs",
+      "require": "./dist/adapters/elysia/index.cjs"
     },
     "./gates/cloudflare": {
       "types": "./dist/gates/cloudflare/index.d.mts",
@@ -68,11 +78,6 @@
       "types": "./dist/gates/x402/index.d.mts",
       "import": "./dist/gates/x402/index.mjs",
       "require": "./dist/gates/x402/index.cjs"
-    },
-    "./adapters/elysia": {
-      "types": "./dist/adapters/elysia/index.d.mts",
-      "import": "./dist/adapters/elysia/index.mjs",
-      "require": "./dist/adapters/elysia/index.cjs"
     },
     "./package.json": "./package.json"
   },

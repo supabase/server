@@ -144,23 +144,29 @@ app.use(
 
 ## Composing with gates
 
-For routes that compose with a [gate](../../src/core/gates/README.md), call `withSupabase` with two args. That form is the base `withSupabase` from `@supabase/server` — it returns a Web Fetch handler, which you mount on an Elysia route:
+For routes that compose with a [gate](../../src/core/gates/README.md), call `withSupabase` with two args. That form returns a dual-mode handler — it accepts either an Elysia route context (when mounted on a route) or a plain `Request` (Web Fetch) — and extracts the underlying Request automatically. Mount directly with `.all(path, withSupabase(...))`:
 
 ```ts
 import { Elysia } from 'elysia'
 import { withSupabase } from '@supabase/server/adapters/elysia'
 import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
 
-const beta = withSupabase(
-  { auth: 'user' },
-  withFeatureFlag(
-    { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
-    async (_req, ctx) =>
-      Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
-  ),
-)
-
-new Elysia().all('/beta', ({ request }) => beta(request)).listen(3000)
+new Elysia()
+  .all(
+    '/beta',
+    withSupabase(
+      { auth: 'user' },
+      withFeatureFlag(
+        { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+        async (_req, ctx) =>
+          Response.json({
+            user: ctx.userClaims?.id,
+            flag: ctx.featureFlag.name,
+          }),
+      ),
+    ),
+  )
+  .listen(3000)
 ```
 
 Routes that don't need a gate continue to use the one-arg plugin form documented above. The two coexist in one app; each route picks the form that fits.

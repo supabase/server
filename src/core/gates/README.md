@@ -70,29 +70,31 @@ Two things to know when stacking gates:
 Each framework adapter (`@supabase/server/adapters/hono`, `/h3`, `/elysia`) exports `withSupabase` with two call shapes:
 
 - **One arg** — `withSupabase(config)` — the framework-native middleware/plugin. See the per-adapter docs (`docs/adapters/*.md`).
-- **Two args** — `withSupabase(config, handler)` — the base `withSupabase` from `@supabase/server`, re-exported here for ergonomics. Returns a Web Fetch handler. This is the form to use for gate composition.
+- **Two args** — `withSupabase(config, handler)` — a dual-mode handler that accepts either a plain `Request` or the framework's native route context, extracts the underlying Request, and runs base `withSupabase` against it. Mount directly with `app.all(path, withSupabase(config, gate))` — no manual `c.req.raw` / `event.req` / `({ request })` extraction needed.
 
-Pick by what you want the route to be. The two forms can coexist in one app — routes that just need auth use the one-arg middleware, routes that compose with gates use the two-arg fetch handler.
+The two forms can coexist in one app — routes that just need auth use the one-arg middleware, routes that compose with gates use the two-arg handler.
 
 ```ts
 import { Hono } from 'hono'
 import { withSupabase } from '@supabase/server/adapters/hono'
 import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
 
-const beta = withSupabase(
-  { auth: 'user' },
-  withFeatureFlag(
-    { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
-    async (_req, ctx) =>
-      Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+const app = new Hono()
+
+app.all(
+  '/beta',
+  withSupabase(
+    { auth: 'user' },
+    withFeatureFlag(
+      { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+      async (_req, ctx) =>
+        Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+    ),
   ),
 )
-
-const app = new Hono()
-app.all('/beta', (c) => beta(c.req.raw))
 ```
 
-H3 is `app.all('/beta', (event) => beta(event.req))`. Elysia is `.all('/beta', ({ request }) => beta(request))`. The gate stack itself is identical across frameworks — only the route mount changes.
+The call site is identical across frameworks — H3 uses `app.all('/beta', withSupabase(...))`, Elysia uses `.all('/beta', withSupabase(...))`. Only the framework's own routing call varies. The gate stack itself is unchanged.
 
 `Base` (the upstream ctx shape) is inferred through the gate's `Wrapped` signature, so the inner handler sees the full intersection `SupabaseContext & { gateA: … } & { gateB: … }`.
 
