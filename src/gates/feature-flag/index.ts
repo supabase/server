@@ -6,7 +6,7 @@
 
 export { withFeatureFlag } from './with-feature-flag.js'
 export type {
-  FeatureFlagState,
+  FeatureFlagContribution,
   FeatureFlagVerdict,
   WithFeatureFlagConfig,
 } from './with-feature-flag.js'

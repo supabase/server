@@ -10,7 +10,7 @@
  * file is referenced from both as the worked example of the pattern.
  */
 
-import { defineGate, type Gate } from '../../core/gates/index.js'
+import { defineGate } from '../../core/gates/index.js'
 
 /**
  * Per-instance configuration the consumer passes to `withFeatureFlag(config, handler)`.
@@ -65,7 +65,7 @@ export interface FeatureFlagVerdict {
  * branch by construction. The contribution shape is the contract this gate
  * offers downstream handlers.
  */
-export interface FeatureFlagState {
+export interface FeatureFlagContribution {
   name: string
   enabled: true
   variant: string | null
@@ -102,7 +102,7 @@ export interface FeatureFlagState {
  * })
  * ```
  */
-export const withFeatureFlag: Gate<
+export const withFeatureFlag = defineGate<
   // 1. Key — the slot this gate contributes to `ctx`. Must be unique in a stack.
   'featureFlag',
   // 2. Config — what the consumer passes to `withFeatureFlag(config, handler)`.
@@ -111,12 +111,7 @@ export const withFeatureFlag: Gate<
   //    so this gate can be used standalone or anywhere in a stack.
   Record<never, never>,
   // 4. Contribution — the shape that lands at `ctx.featureFlag`.
-  FeatureFlagState
-> = defineGate<
-  'featureFlag',
-  WithFeatureFlagConfig,
-  Record<never, never>,
-  FeatureFlagState
+  FeatureFlagContribution
 >({
   key: 'featureFlag',
   /**

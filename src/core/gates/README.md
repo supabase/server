@@ -112,7 +112,7 @@ export interface FlagConfig {
   evaluate: (req: Request) => boolean
 }
 
-export interface FlagState {
+export interface FlagContribution {
   enabled: boolean
 }
 
@@ -120,7 +120,7 @@ export const withFeatureFlag = defineGate<
   'featureFlag', // Key
   FlagConfig, // Config
   {}, // In: no upstream prerequisites
-  FlagState // Contribution: shape under ctx.featureFlag
+  FlagContribution // Contribution: shape under ctx.featureFlag
 >({
   key: 'featureFlag',
   run: (config) => async (req) => {
