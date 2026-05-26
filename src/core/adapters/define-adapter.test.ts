@@ -27,7 +27,7 @@ const fake = defineAdapter<FakeContext, Middleware>({
 
 describe('defineAdapter — one-arg form (middleware)', () => {
   it('returns whatever the spec.middleware factory returns, passing config through', () => {
-    const result = fake.withSupabase({ auth: 'user' })
+    const result = fake({ auth: 'user' })
     expect(result).toEqual({
       tag: MIDDLEWARE_SENTINEL,
       config: { auth: 'user' },
@@ -35,7 +35,7 @@ describe('defineAdapter — one-arg form (middleware)', () => {
   })
 
   it('accepts a no-arg call (config is undefined)', () => {
-    const result = fake.withSupabase()
+    const result = fake()
     expect(result).toEqual({
       tag: MIDDLEWARE_SENTINEL,
       config: undefined,
@@ -44,7 +44,7 @@ describe('defineAdapter — one-arg form (middleware)', () => {
 
   it('does not call base.withSupabase for the one-arg form', () => {
     baseMock.withSupabase.mockClear()
-    fake.withSupabase({ auth: 'user' })
+    fake({ auth: 'user' })
     expect(baseMock.withSupabase).not.toHaveBeenCalled()
   })
 })
@@ -56,7 +56,7 @@ describe('defineAdapter — two-arg form (route handler)', () => {
     const config = { auth: 'user' } as const
     const handler = async () => Response.json({})
 
-    fake.withSupabase(config, handler)
+    fake(config, handler)
 
     expect(baseMock.withSupabase).toHaveBeenLastCalledWith(
       { auth: 'user', cors: false },
@@ -69,10 +69,7 @@ describe('defineAdapter — two-arg form (route handler)', () => {
     const inner = vi.fn(async () => baseResponse)
     baseMock.withSupabase.mockReturnValueOnce(inner)
 
-    const wrapped = fake.withSupabase(
-      { auth: 'user' },
-      async () => new Response(),
-    )
+    const wrapped = fake({ auth: 'user' }, async () => new Response())
     const req = new Request('https://example.test/')
 
     const res = await wrapped(req)
@@ -86,10 +83,7 @@ describe('defineAdapter — two-arg form (route handler)', () => {
     const inner = vi.fn(async () => baseResponse)
     baseMock.withSupabase.mockReturnValueOnce(inner)
 
-    const wrapped = fake.withSupabase(
-      { auth: 'user' },
-      async () => new Response(),
-    )
+    const wrapped = fake({ auth: 'user' }, async () => new Response())
     const req = new Request('https://example.test/')
 
     const res = await wrapped({ request: req })
@@ -101,10 +95,7 @@ describe('defineAdapter — two-arg form (route handler)', () => {
   it('throws TypeError with the adapter name when input is unrecognized', () => {
     baseMock.withSupabase.mockReturnValueOnce(async () => new Response())
 
-    const wrapped = fake.withSupabase(
-      { auth: 'user' },
-      async () => new Response(),
-    )
+    const wrapped = fake({ auth: 'user' }, async () => new Response())
 
     try {
       // @ts-expect-error — intentionally wrong shape
@@ -131,7 +122,7 @@ describe('defineAdapter — getExistingContext (skip-if-set)', () => {
     baseMock.withSupabase.mockReturnValueOnce(inner)
 
     const userHandler = vi.fn(async () => Response.json({ ok: true }))
-    const wrapped = skip.withSupabase({ auth: 'user' }, userHandler)
+    const wrapped = skip({ auth: 'user' }, userHandler)
 
     const req = new Request('https://example.test/')
     const existingCtx = { authMode: 'user' } as unknown as SupabaseContext
@@ -147,7 +138,7 @@ describe('defineAdapter — getExistingContext (skip-if-set)', () => {
     baseMock.withSupabase.mockReturnValueOnce(inner)
 
     const userHandler = vi.fn(async () => new Response())
-    const wrapped = skip.withSupabase({ auth: 'user' }, userHandler)
+    const wrapped = skip({ auth: 'user' }, userHandler)
 
     const req = new Request('https://example.test/')
     await wrapped({ request: req })
@@ -161,7 +152,7 @@ describe('defineAdapter — getExistingContext (skip-if-set)', () => {
     baseMock.withSupabase.mockReturnValueOnce(inner)
 
     const userHandler = vi.fn(async () => new Response())
-    const wrapped = skip.withSupabase({ auth: 'user' }, userHandler)
+    const wrapped = skip({ auth: 'user' }, userHandler)
 
     const req = new Request('https://example.test/')
     await wrapped(req)
@@ -192,7 +183,7 @@ describe('defineAdapter — throwAuthError', () => {
   it('passes throwAuthError as onAuthError on the base config (two-arg form)', () => {
     baseMock.withSupabase.mockReturnValueOnce(async () => new Response())
 
-    throwing.withSupabase({ auth: 'user' }, async () => new Response())
+    throwing({ auth: 'user' }, async () => new Response())
 
     const [calledConfig] = baseMock.withSupabase.mock.calls.at(-1) as [
       WithSupabaseConfig,
@@ -205,7 +196,7 @@ describe('defineAdapter — throwAuthError', () => {
   it('does not pass onAuthError when throwAuthError is omitted', () => {
     baseMock.withSupabase.mockReturnValueOnce(async () => new Response())
 
-    fake.withSupabase({ auth: 'user' }, async () => new Response())
+    fake({ auth: 'user' }, async () => new Response())
 
     const [calledConfig] = baseMock.withSupabase.mock.calls.at(-1) as [
       WithSupabaseConfig,
