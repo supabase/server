@@ -29,16 +29,20 @@ defineGate<Key, Config, In, Contribution>({ key, run })
 | `Key`          | The literal-string slot the gate contributes to `ctx`.        | `'featureFlag'`               |
 | `Config`       | The object the consumer passes to `withFoo(config, handler)`. | `WithFeatureFlagConfig`       |
 | `In`           | Upstream prerequisites — what must already be on `ctx`.       | `Record<never, never>` (none) |
-| `Contribution` | The shape that lands at `ctx[Key]` after a successful run.    | `FeatureFlagState`            |
+| `Contribution` | The shape that lands at `ctx[Key]` after a successful run.    | `FeatureFlagContribution`     |
 
 ```ts
-export const withFeatureFlag: Gate<
+export const withFeatureFlag = defineGate<
   'featureFlag', // Key
   WithFeatureFlagConfig, // Config
   Record<never, never>, // In (no prerequisites)
-  FeatureFlagState // Contribution
-> = defineGate(/* ... */)
+  FeatureFlagContribution // Contribution
+>({
+  /* ... */
+})
 ```
+
+Pass the four type parameters directly to `defineGate`. The exported gate's type is inferred as `Gate<Key, Config, In, Contribution>` — no separate `: Gate<…>` annotation needed. `Gate` stays exported from `@supabase/server/core/gates` for cases where you need to refer to a gate's type (e.g., a function that accepts an arbitrary gate); the canonical authoring pattern doesn't write it.
 
 ## `run` has two stages
 
