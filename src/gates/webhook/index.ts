@@ -7,7 +7,7 @@
 export { withWebhook } from './with-webhook.js'
 export type {
   WebhookProvider,
-  WebhookState,
+  WebhookContribution,
   WebhookVerifyResult,
   WithWebhookConfig,
 } from './with-webhook.js'

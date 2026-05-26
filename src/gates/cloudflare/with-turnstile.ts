@@ -8,7 +8,7 @@
  * @see https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
  */
 
-import { defineGate, type Gate } from '../../core/gates/index.js'
+import { defineGate } from '../../core/gates/index.js'
 
 const SITEVERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify'
@@ -49,7 +49,7 @@ export interface WithTurnstileConfig {
 /**
  * Shape contributed at `ctx.turnstile` after a successful verification.
  */
-export interface TurnstileState {
+export interface TurnstileContribution {
   /** ISO 8601 timestamp when the challenge was solved. */
   challengeTs: string
   /** Hostname of the page the widget was rendered on. */
@@ -88,16 +88,11 @@ interface SiteverifyResponse {
  * }
  * ```
  */
-export const withTurnstile: Gate<
+export const withTurnstile = defineGate<
   'turnstile',
   WithTurnstileConfig,
   Record<never, never>,
-  TurnstileState
-> = defineGate<
-  'turnstile',
-  WithTurnstileConfig,
-  Record<never, never>,
-  TurnstileState
+  TurnstileContribution
 >({
   key: 'turnstile',
   run: (config) => {

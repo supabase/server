@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   withPayment,
   type PaymentIntent,
-  type PaymentState,
+  type PaymentContribution,
   type StripeLike,
   type SupabaseRpcClient,
 } from './with-payment.js'
 
 type Ctx = {
-  payment: PaymentState
+  payment: PaymentContribution
 }
 
 const innerOk = async () => Response.json({ ok: true })

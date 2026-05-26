@@ -13,7 +13,7 @@
 
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 
-import { defineGate, type Gate } from '../../core/gates/index.js'
+import { defineGate } from '../../core/gates/index.js'
 
 const HEADER_NAME = 'cf-access-jwt-assertion'
 
@@ -42,7 +42,7 @@ export interface WithAccessConfig {
 }
 
 /** Shape contributed at `ctx.access` after a successful verification. */
-export interface AccessState {
+export interface AccessContribution {
   /** The user's email address from the verified token. */
   email: string | null
   /** The `sub` claim — Cloudflare's stable identity id for this user. */
@@ -73,12 +73,12 @@ export interface AccessState {
  * }
  * ```
  */
-export const withAccess: Gate<
+export const withAccess = defineGate<
   'access',
   WithAccessConfig,
   Record<never, never>,
-  AccessState
-> = defineGate<'access', WithAccessConfig, Record<never, never>, AccessState>({
+  AccessContribution
+>({
   key: 'access',
   run: (config) => {
     const issuer = `https://${config.teamDomain}`

@@ -8,7 +8,7 @@
  * (Svix/Resend, Slack, Shopify, in-house).
  */
 
-import { defineGate, type Gate } from '../../core/gates/index.js'
+import { defineGate } from '../../core/gates/index.js'
 
 const FIVE_MIN_MS = 5 * 60 * 1000
 
@@ -37,7 +37,7 @@ export interface WithWebhookConfig {
 }
 
 /** Shape contributed at `ctx.webhook` after a successful verification. */
-export interface WebhookState {
+export interface WebhookContribution {
   /** The parsed JSON event body. */
   event: unknown
   /** The raw body bytes (as string) the signature was computed over. */
@@ -73,16 +73,11 @@ export interface WebhookState {
  * }
  * ```
  */
-export const withWebhook: Gate<
+export const withWebhook = defineGate<
   'webhook',
   WithWebhookConfig,
   Record<never, never>,
-  WebhookState
-> = defineGate<
-  'webhook',
-  WithWebhookConfig,
-  Record<never, never>,
-  WebhookState
+  WebhookContribution
 >({
   key: 'webhook',
   run: (config) => async (req) => {

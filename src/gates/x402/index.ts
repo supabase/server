@@ -9,7 +9,7 @@ export type {
   Network,
   PaymentIntent,
   PaymentIntentCreateParams,
-  PaymentState,
+  PaymentContribution,
   StripeLike,
   SupabaseRpcClient,
   WithPaymentConfig,

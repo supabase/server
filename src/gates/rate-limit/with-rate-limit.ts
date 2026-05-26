@@ -12,7 +12,7 @@
  * that provides `supabaseAdmin`).
  */
 
-import { defineGate, type Gate } from '../../core/gates/index.js'
+import { defineGate } from '../../core/gates/index.js'
 
 const DEFAULT_RPC = '_supabase_server_rate_limit_hit'
 
@@ -57,7 +57,7 @@ export interface WithRateLimitConfig {
 }
 
 /** Shape contributed at `ctx.rateLimit` after a successful hit. */
-export interface RateLimitState {
+export interface RateLimitContribution {
   /** The configured limit for this window. */
   limit: number
   /** Hits remaining in the current window. */
@@ -96,16 +96,11 @@ interface RpcResult {
  * }
  * ```
  */
-export const withRateLimit: Gate<
+export const withRateLimit = defineGate<
   'rateLimit',
   WithRateLimitConfig,
   { supabaseAdmin: SupabaseRpcClient },
-  RateLimitState
-> = defineGate<
-  'rateLimit',
-  WithRateLimitConfig,
-  { supabaseAdmin: SupabaseRpcClient },
-  RateLimitState
+  RateLimitContribution
 >({
   key: 'rateLimit',
   run: (config) => {

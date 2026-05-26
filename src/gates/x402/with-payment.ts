@@ -13,7 +13,7 @@
  * @see https://www.x402.org
  */
 
-import { defineGate, type Gate } from '../../core/gates/index.js'
+import { defineGate } from '../../core/gates/index.js'
 
 const DEFAULT_REGISTER_RPC = '_supabase_server_x402_register'
 const DEFAULT_LOOKUP_RPC = '_supabase_server_x402_lookup'
@@ -103,7 +103,7 @@ export interface WithPaymentConfig {
 /**
  * Shape contributed at `ctx.payment` once the gate has admitted a paid request.
  */
-export interface PaymentState {
+export interface PaymentContribution {
   /** The id of the settled Stripe `PaymentIntent` that paid for this call. */
   intentId: string
 }
@@ -135,16 +135,11 @@ export interface PaymentState {
  * }
  * ```
  */
-export const withPayment: Gate<
+export const withPayment = defineGate<
   'payment',
   WithPaymentConfig,
   { supabaseAdmin: SupabaseRpcClient },
-  PaymentState
-> = defineGate<
-  'payment',
-  WithPaymentConfig,
-  { supabaseAdmin: SupabaseRpcClient },
-  PaymentState
+  PaymentContribution
 >({
   key: 'payment',
   run: (config) => {
