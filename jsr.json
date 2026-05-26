@@ -4,12 +4,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
-    "./core/gates": "./src/core/gates/index.ts",
     "./core/adapters": "./src/core/adapters/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
-    "./adapters/elysia": "./src/adapters/elysia/index.ts",
-    "./gates/feature-flag": "./src/gates/feature-flag/index.ts"
+    "./adapters/elysia": "./src/adapters/elysia/index.ts"
   },
   "publish": {
     "include": ["src/**/*.ts", "README.md", "LICENSE"],

@@ -303,20 +303,9 @@ export interface WithSupabaseConfig {
    * When omitted (the default), {@link withSupabase} returns the auth
    * error as a JSON response — the original behavior, unchanged.
    *
-   * @example
-   * ```ts
-   * import { HTTPException } from 'hono/http-exception'
-   *
-   * withSupabase({
-   *   auth: 'user',
-   *   onAuthError: (error) => {
-   *     throw new HTTPException(error.status as 401 | 500, {
-   *       message: error.message,
-   *       cause: error,
-   *     })
-   *   },
-   * }, handler)
-   * ```
+   * Framework adapters set this internally via `defineAdapter`'s
+   * `throwAuthError` hook so the two-arg form's auth failures match
+   * the one-arg middleware/plugin form's error pipeline.
    */
   onAuthError?: (error: AuthError) => never
 }

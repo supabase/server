@@ -29,11 +29,6 @@
       "import": "./dist/core/index.mjs",
       "require": "./dist/core/index.cjs"
     },
-    "./core/gates": {
-      "types": "./dist/core/gates/index.d.mts",
-      "import": "./dist/core/gates/index.mjs",
-      "require": "./dist/core/gates/index.cjs"
-    },
     "./core/adapters": {
       "types": "./dist/core/adapters/index.d.mts",
       "import": "./dist/core/adapters/index.mjs",
@@ -48,11 +43,6 @@
       "types": "./dist/adapters/h3/index.d.mts",
       "import": "./dist/adapters/h3/index.mjs",
       "require": "./dist/adapters/h3/index.cjs"
-    },
-    "./gates/feature-flag": {
-      "types": "./dist/gates/feature-flag/index.d.mts",
-      "import": "./dist/gates/feature-flag/index.mjs",
-      "require": "./dist/gates/feature-flag/index.cjs"
     },
     "./adapters/elysia": {
       "types": "./dist/adapters/elysia/index.d.mts",

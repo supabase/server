@@ -3,28 +3,33 @@ import type { H3Event, Middleware } from 'h3'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import { defineAdapter } from '../../core/adapters/index.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
-
-const adapterWithSupabase = defineAdapter<H3Event>({
-  name: 'h3',
-  extractRequest: (event) => event.req,
-  getExistingContext: (event) =>
-    (event.context as { supabaseContext?: SupabaseContext }).supabaseContext,
-  throwAuthError: (error) => {
-    throw new HTTPError(error.message, { status: error.status, cause: error })
-  },
-})
+import type { SupabaseContext } from '../../types.js'
 
 /**
- * H3 middleware that creates a {@link SupabaseContext} and stores it in `event.context.supabaseContext`.
+ * H3 adapter for `@supabase/server`.
  *
- * Skips if a previous middleware already set the context, enabling chained middleware via `app.use()`.
- * Throws an `HTTPError` on auth failure.
+ * Exports a single overloaded `withSupabase`:
  *
- * @param config - Auth modes and optional environment overrides. CORS is excluded — use H3's CORS utilities.
- * @returns An H3 middleware.
+ * - **One arg** — `withSupabase(config)` returns an H3 `Middleware` that
+ *   creates a {@link SupabaseContext}, stores it on
+ *   `event.context.supabaseContext`, and throws an `HTTPError` (carrying
+ *   the original `AuthError` as `.cause`) on auth failure. Skips
+ *   re-running auth if a previous middleware already set the context.
+ * - **Two args** — `withSupabase(config, handler)` returns a dual-mode
+ *   route handler that accepts either a plain `Request` (Web Fetch) or
+ *   an `H3Event` (H3 route handler), extracts the underlying `Request`,
+ *   and runs base `withSupabase` against it. Mount directly via
+ *   `app.all(path, withSupabase(config, handler))`. Use this form to
+ *   compose with gates from `@supabase/server/gates/*`.
  *
- * @example App-wide auth via `app.use()`
+ * Behavior of the two-arg form matches the one-arg middleware:
+ * - **Auth failures throw `HTTPError`**, flowing into H3's `onError` hook.
+ * - **Skip-if-set** — when an upstream middleware already populated
+ *   `event.context.supabaseContext`, the inner handler runs with that
+ *   existing context instead of re-verifying.
+ * - **CORS is excluded from the config** — use H3's CORS utilities.
+ *
+ * @example One-arg — app-wide auth via `app.use()`
  * ```ts
  * import { H3 } from 'h3'
  * import { withSupabase } from '@supabase/server/adapters/h3'
@@ -40,44 +45,7 @@ const adapterWithSupabase = defineAdapter<H3Event>({
  * export default { fetch: app.fetch }
  * ```
  *
- * @example Per-route auth via `defineHandler`
- * ```ts
- * import { defineHandler } from 'h3'
- * import { withSupabase } from '@supabase/server/adapters/h3'
- *
- * export default defineHandler({
- *   middleware: [withSupabase({ auth: 'user' })],
- *   handler: async (event) => {
- *     const { supabase } = event.context.supabaseContext
- *     return supabase.from('favorite_games').select()
- *   },
- * })
- * ```
- */
-export function withSupabase(
-  config?: Omit<WithSupabaseConfig, 'cors'>,
-): Middleware
-/**
- * Two-arg form — a dual-mode route handler that accepts either a plain
- * `Request` (Web Fetch) or an `H3Event` (H3 route handler), extracts
- * the underlying Request, and runs base `withSupabase` against it.
- * Mount directly with `app.all(path, withSupabase(config, handler))` —
- * no `event.req` extraction needed. Use this form to compose with
- * gates from `@supabase/server/gates/*`. See
- * [gates README](../../core/gates/README.md) for the pattern.
- *
- * Behavior matches the one-arg middleware form:
- * - **Auth failures throw `HTTPError`**, flowing into H3's `onError`
- *   hook (not returned as a JSON response). Discriminate via the
- *   original {@link AuthError} on `err.cause`.
- * - **Skips re-running auth when an upstream middleware has already
- *   set `event.context.supabaseContext`** — the inner handler runs
- *   with that existing context. Useful when `app.use(withSupabase(...))`
- *   is wired app-wide and a route adds gates on top.
- * - **CORS is excluded from the config** (`Omit<…, 'cors'>`). Use
- *   H3's CORS utilities.
- *
- * @example
+ * @example Two-arg — per-route auth + gates
  * ```ts
  * import { H3 } from 'h3'
  * import { withSupabase } from '@supabase/server/adapters/h3'
@@ -98,27 +66,29 @@ export function withSupabase(
  * )
  * ```
  */
-export function withSupabase(
-  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
-  handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
-): (input: Request | H3Event) => Promise<Response>
-export function withSupabase<Database>(
-  config: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
-  handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
-): (input: Request | H3Event) => Promise<Response>
-export function withSupabase(
-  config?: Omit<WithSupabaseConfig, 'cors' | 'onAuthError'>,
-  handler?: (req: Request, ctx: SupabaseContext) => Promise<Response>,
-): Middleware | ((input: Request | H3Event) => Promise<Response>) {
-  if (handler) return adapterWithSupabase(config!, handler)
-  return defineMiddleware(async (event, next) => {
-    const context = event.context as { supabaseContext?: SupabaseContext }
-    if (context.supabaseContext) return next()
-    const { data: ctx, error } = await createSupabaseContext(event.req, config)
-    if (error) {
-      throw new HTTPError(error.message, { status: error.status, cause: error })
-    }
-    context.supabaseContext = ctx
-    return next()
-  })
-}
+export const { withSupabase } = defineAdapter<H3Event, Middleware>({
+  name: 'h3',
+  extractRequest: (event) => event.req,
+  getExistingContext: (event) =>
+    (event.context as { supabaseContext?: SupabaseContext }).supabaseContext,
+  throwAuthError: (error) => {
+    throw new HTTPError(error.message, { status: error.status, cause: error })
+  },
+  middleware: (config) =>
+    defineMiddleware(async (event, next) => {
+      const context = event.context as { supabaseContext?: SupabaseContext }
+      if (context.supabaseContext) return next()
+      const { data: ctx, error } = await createSupabaseContext(
+        event.req,
+        config,
+      )
+      if (error) {
+        throw new HTTPError(error.message, {
+          status: error.status,
+          cause: error,
+        })
+      }
+      context.supabaseContext = ctx
+      return next()
+    }),
+})
