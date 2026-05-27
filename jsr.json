@@ -7,7 +7,8 @@
     "./core/adapters": "./src/core/adapters/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
-    "./adapters/elysia": "./src/adapters/elysia/index.ts"
+    "./adapters/elysia": "./src/adapters/elysia/index.ts",
+    "./adapters/nestjs": "./src/adapters/nestjs/index.ts"
   },
   "publish": {
     "include": ["src/**/*.ts", "README.md", "LICENSE"],
