@@ -49,6 +49,11 @@
       "import": "./dist/adapters/elysia/index.mjs",
       "require": "./dist/adapters/elysia/index.cjs"
     },
+    "./adapters/nestjs": {
+      "types": "./dist/adapters/nestjs/index.d.mts",
+      "import": "./dist/adapters/nestjs/index.mjs",
+      "require": "./dist/adapters/nestjs/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -73,19 +78,23 @@
     "prepare": "simple-git-hooks",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm pretty-quick --staged",
     "commit-msg": "pnpm commitlint --edit \"$1\""
   },
   "peerDependencies": {
+    "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@supabase/supabase-js": "^2.0.0",
     "h3": "^2.0.0",
     "hono": "^4.0.0",
     "elysia": "^1.4.0"
   },
   "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
     "h3": {
       "optional": true
     },
@@ -99,18 +108,29 @@
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
+    "@nestjs/common": "^11.1.19",
+    "@nestjs/core": "^11.1.19",
+    "@nestjs/platform-express": "^11.1.19",
+    "@nestjs/platform-fastify": "^11.1.19",
+    "@nestjs/testing": "^11.1.19",
     "@supabase/supabase-js": "^2.105.4",
+    "@swc/core": "^1.15.33",
+    "@types/supertest": "^7.2.0",
     "eslint": "^10.0.2",
     "elysia": "^1.4.0",
     "h3": "2.0.1-rc.20",
     "hono": "^4.12.5",
     "prettier": "3.8.1",
     "pretty-quick": "^4.2.2",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
     "simple-git-hooks": "^2.13.1",
+    "supertest": "^7.2.2",
     "tsdown": "^0.20.3",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
+    "unplugin-swc": "^1.5.9",
     "vitest": "^4.0.18"
   },
   "dependencies": {
