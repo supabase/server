@@ -3,5 +3,7 @@ minimumReleaseAgeExclude:
   - '@supabase/*'
 blockExoticSubdeps: true
 allowBuilds:
+  '@nestjs/core': false
+  '@swc/core': false
   esbuild: false
   simple-git-hooks: true
