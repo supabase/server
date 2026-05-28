@@ -2,7 +2,10 @@ import { defineMiddleware, HTTPError } from 'h3'
 import type { H3Event, Middleware } from 'h3'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
-import { defineAdapter } from '../../core/adapters/index.js'
+import {
+  defineAdapter,
+  type AdapterWithSupabase,
+} from '../../core/adapters/index.js'
 import type { SupabaseContext } from '../../types.js'
 
 /**
@@ -66,29 +69,30 @@ import type { SupabaseContext } from '../../types.js'
  * )
  * ```
  */
-export const { withSupabase } = defineAdapter<H3Event, Middleware>({
-  name: 'h3',
-  extractRequest: (event) => event.req,
-  getExistingContext: (event) =>
-    (event.context as { supabaseContext?: SupabaseContext }).supabaseContext,
-  throwAuthError: (error) => {
-    throw new HTTPError(error.message, { status: error.status, cause: error })
-  },
-  middleware: (config) =>
-    defineMiddleware(async (event, next) => {
-      const context = event.context as { supabaseContext?: SupabaseContext }
-      if (context.supabaseContext) return next()
-      const { data: ctx, error } = await createSupabaseContext(
-        event.req,
-        config,
-      )
-      if (error) {
-        throw new HTTPError(error.message, {
-          status: error.status,
-          cause: error,
-        })
-      }
-      context.supabaseContext = ctx
-      return next()
-    }),
-})
+export const withSupabase: AdapterWithSupabase<H3Event, Middleware> =
+  defineAdapter<H3Event, Middleware>({
+    name: 'h3',
+    extractRequest: (event) => event.req,
+    getExistingContext: (event) =>
+      (event.context as { supabaseContext?: SupabaseContext }).supabaseContext,
+    throwAuthError: (error) => {
+      throw new HTTPError(error.message, { status: error.status, cause: error })
+    },
+    middleware: (config) =>
+      defineMiddleware(async (event, next) => {
+        const context = event.context as { supabaseContext?: SupabaseContext }
+        if (context.supabaseContext) return next()
+        const { data: ctx, error } = await createSupabaseContext(
+          event.req,
+          config,
+        )
+        if (error) {
+          throw new HTTPError(error.message, {
+            status: error.status,
+            cause: error,
+          })
+        }
+        context.supabaseContext = ctx
+        return next()
+      }),
+  })

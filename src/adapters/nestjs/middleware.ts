@@ -6,7 +6,10 @@ import {
   type Type,
 } from '@nestjs/common'
 
-import { defineAdapter } from '../../core/adapters/index.js'
+import {
+  defineAdapter,
+  type AdapterWithSupabase,
+} from '../../core/adapters/index.js'
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext } from '../../types.js'
@@ -100,10 +103,10 @@ function throwHttpException(error: AuthError): never {
  * await app.listen(3000)
  * ```
  */
-export const { withSupabase } = defineAdapter<
+export const withSupabase: AdapterWithSupabase<
   ExecutionContext,
   Type<CanActivate>
->({
+> = defineAdapter<ExecutionContext, Type<CanActivate>>({
   name: 'nestjs',
   extractRequest: (executionContext) => {
     if (executionContext.getType() !== 'http') return undefined

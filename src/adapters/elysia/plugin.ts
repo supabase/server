@@ -1,7 +1,10 @@
 import { Elysia, type ExtractErrorFromHandle } from 'elysia'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
-import { defineAdapter } from '../../core/adapters/index.js'
+import {
+  defineAdapter,
+  type AdapterWithSupabase,
+} from '../../core/adapters/index.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext } from '../../types.js'
 
@@ -109,7 +112,10 @@ type SupabasePlugin = Elysia<
  *   .listen(3000)
  * ```
  */
-export const { withSupabase } = defineAdapter<
+export const withSupabase: AdapterWithSupabase<
+  { request: Request; supabaseContext?: SupabaseContext },
+  SupabasePlugin
+> = defineAdapter<
   { request: Request; supabaseContext?: SupabaseContext },
   SupabasePlugin
 >({

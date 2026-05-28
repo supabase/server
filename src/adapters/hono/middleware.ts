@@ -3,7 +3,10 @@ import { HTTPException } from 'hono/http-exception'
 import { createMiddleware } from 'hono/factory'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
-import { defineAdapter } from '../../core/adapters/index.js'
+import {
+  defineAdapter,
+  type AdapterWithSupabase,
+} from '../../core/adapters/index.js'
 import type { SupabaseContext } from '../../types.js'
 
 /**
@@ -68,7 +71,10 @@ import type { SupabaseContext } from '../../types.js'
  * )
  * ```
  */
-export const { withSupabase } = defineAdapter<
+export const withSupabase: AdapterWithSupabase<
+  Context,
+  MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>
+> = defineAdapter<
   Context,
   MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>
 >({

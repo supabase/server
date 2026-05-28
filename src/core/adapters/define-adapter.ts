@@ -121,7 +121,7 @@ export interface AdapterWithSupabase<NativeContext, MiddlewareReturn> {
  * import { createMiddleware } from 'hono/factory'
  * import { defineAdapter } from '@supabase/server/core/adapters'
  *
- * export const { withSupabase } = defineAdapter<
+ * export const withSupabase = defineAdapter<
  *   Context,
  *   MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }>
  * >({
@@ -145,7 +145,7 @@ export interface AdapterWithSupabase<NativeContext, MiddlewareReturn> {
  */
 export function defineAdapter<NativeContext, MiddlewareReturn>(
   spec: AdapterSpec<NativeContext, MiddlewareReturn>,
-): { withSupabase: AdapterWithSupabase<NativeContext, MiddlewareReturn> } {
+): AdapterWithSupabase<NativeContext, MiddlewareReturn> {
   function extract(input: Request | NativeContext): Request {
     if (input instanceof Request) return input
     const req = spec.extractRequest(input)
@@ -188,12 +188,7 @@ export function defineAdapter<NativeContext, MiddlewareReturn>(
     return spec.middleware(config)
   }
 
-  return {
-    withSupabase: withSupabase as AdapterWithSupabase<
-      NativeContext,
-      MiddlewareReturn
-    >,
-  }
+  return withSupabase as AdapterWithSupabase<NativeContext, MiddlewareReturn>
 }
 
 function buildErrorMessage(name: string, received: unknown): string {
