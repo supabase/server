@@ -105,7 +105,7 @@ export function defineGate<
     ctx: In,
   ) => Promise<Response | { [K in Key]: Contribution }>
 }): Gate<Key, Config, In, Contribution> {
-  const factory = (config: Config, handler: never) => {
+  return ((config: Config, handler: never) => {
     const inner = spec.run(config)
     return async (req: Request, baseCtx?: object) => {
       const upstream = baseCtx ?? ({} as object)
@@ -131,14 +131,6 @@ export function defineGate<
         handler as unknown as (req: Request, ctx: object) => Promise<Response>
       )(req, ctx)
     }
-  }
-  // Expose `key` and `run` so framework adapters that can't compose gates as
-  // fetch-handler wrappers (e.g. NestJS guards) can drive the check phase
-  // directly. The callable form is unchanged; this only adds readable
-  // metadata.
-  return Object.assign(factory, {
-    key: spec.key,
-    run: spec.run,
   }) as Gate<Key, Config, In, Contribution>
 }
 
@@ -218,17 +210,4 @@ export interface Gate<
       ctx: Base & { [K in Key]: Contribution },
     ) => Promise<Response>,
   ): Wrapped<Base, In>
-  /** The literal-string ctx key this gate contributes. */
-  readonly key: Key
-  /**
-   * The gate's check builder. Adapters that can't compose gates as
-   * fetch-handler wrappers (e.g. NestJS guards) call `run(config)(req, upstream)`
-   * directly to drive the check phase, then route the result themselves.
-   */
-  readonly run: (
-    config: Config,
-  ) => (
-    req: Request,
-    ctx: In,
-  ) => Promise<Response | { [K in Key]: Contribution }>
 }

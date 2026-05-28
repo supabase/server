@@ -12,8 +12,34 @@ import {
 } from '../../core/adapters/index.js'
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { AuthError } from '../../errors.js'
+import type { SupabaseContext } from '../../types.js'
 
-import { toWebRequest, type NestRequestLike } from './_internal.js'
+/**
+ * Shape of the request object that the guard reads and writes. NestJS supports
+ * both Express and Fastify; the headers + url surface used here is identical
+ * across both.
+ */
+interface NestRequestLike {
+  headers: Record<string, string | string[] | undefined>
+  url?: string
+  supabaseContext?: SupabaseContext
+}
+
+function toWebRequest(req: NestRequestLike): Request {
+  const headers = new Headers()
+  for (const [name, value] of Object.entries(req.headers ?? {})) {
+    // HTTP/2 pseudo-headers (`:method`, `:path`, …) leak into `req.headers`
+    // under Fastify with HTTP/2. Web `Headers` rejects names starting with
+    // a colon, so skip them — they aren't auth credentials anyway.
+    if (name.startsWith(':')) continue
+    if (Array.isArray(value)) headers.set(name, value.join(', '))
+    else if (value != null) headers.set(name, String(value))
+  }
+  // The URL only needs to be syntactically valid — `extractCredentials` reads
+  // headers only, not the URL. We still pass `req.url` when available so any
+  // future URL-aware primitives keep working.
+  return new Request(`http://nestjs.local${req.url ?? '/'}`, { headers })
+}
 
 function throwHttpException(error: AuthError): never {
   throw new HttpException(
