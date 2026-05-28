@@ -9,6 +9,7 @@
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
     "./adapters/elysia": "./src/adapters/elysia/index.ts",
+    "./adapters/nestjs": "./src/adapters/nestjs/index.ts",
     "./gates/cloudflare": "./src/gates/cloudflare/index.ts",
     "./gates/feature-flag": "./src/gates/feature-flag/index.ts",
     "./gates/rate-limit": "./src/gates/rate-limit/index.ts",

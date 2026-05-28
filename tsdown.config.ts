@@ -9,6 +9,7 @@ export default defineConfig({
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
     'src/adapters/elysia/index.ts',
+    'src/adapters/nestjs/index.ts',
     'src/gates/cloudflare/index.ts',
     'src/gates/feature-flag/index.ts',
     'src/gates/rate-limit/index.ts',
@@ -17,5 +18,5 @@ export default defineConfig({
   ],
   format: ['esm', 'cjs'],
   dts: true,
-  external: ['@supabase/supabase-js', 'hono', 'h3', 'elysia'],
+  external: ['@supabase/supabase-js', 'hono', 'h3', 'elysia', '@nestjs/common'],
 })
