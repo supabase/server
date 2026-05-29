@@ -74,7 +74,7 @@ Shipped payload types: `SendEmailHookPayload`, `SendSMSHookPayload`, `CustomAcce
 
 ## Returning a response
 
-Supabase treats an empty `200` as success. To override behavior (e.g. a Custom Access Token Hook), return the JSON Supabase expects:
+The response shape is the handler's to decide, per hook — `withAuthHook` only owns the request side. Supabase Auth treats an empty `200` as success. To override behavior (e.g. a Custom Access Token Hook), return the JSON Supabase expects:
 
 ```ts
 withAuthHook<CustomAccessTokenHookPayload>(config, async (_req, ctx) => {
@@ -82,6 +82,8 @@ withAuthHook<CustomAccessTokenHookPayload>(config, async (_req, ctx) => {
   return Response.json({ claims })
 })
 ```
+
+> **If you return a body, make it JSON.** Supabase Auth parses the hook response as JSON to look for an `{ error: { http_code, message } }` result. An empty `200` (`new Response(null, { status: 200 })`) reads as success, and `Response.json(...)` is fine — but a bare string like `new Response('OK')` is `text/plain` and gets rejected with `Invalid JSON response. Received content-type: text/plain`.
 
 ## Single namespace caveat
 
