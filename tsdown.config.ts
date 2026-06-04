@@ -19,6 +19,5 @@ export default defineConfig({
     'elysia',
     '@nestjs/common',
     '@tanstack/start-client-core',
-    '@tanstack/start-server-core',
   ],
 })

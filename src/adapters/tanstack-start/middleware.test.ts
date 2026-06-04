@@ -1,16 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { AuthError } from '../../errors.js'
 import type { SupabaseContext } from '../../types.js'
-
-// getRequest() reads the active request from start-server-core's module-level
-// context, which only exists inside a running server. Mock it so we can drive
-// the middleware in isolation with a crafted Request.
-const { getRequestMock } = vi.hoisted(() => ({
-  getRequestMock: vi.fn<() => Request>(),
-}))
-vi.mock('@tanstack/start-server-core', () => ({ getRequest: getRequestMock }))
-
 import { withSupabase } from './middleware.js'
 
 const env = {
@@ -21,20 +12,30 @@ const env = {
 }
 
 /**
- * Invokes the middleware's server handler with the given request and returns
- * the context that was passed to `next()`. Rejects if the middleware throws.
+ * Invokes the request middleware's server handler with the given request (and
+ * optional pre-existing context) and returns the context passed to `next()`.
+ * Rejects if the middleware throws. Request middleware receives the `Request`
+ * directly in its handler args, so no module-level mocking is required.
  */
 async function run(
   middleware: ReturnType<typeof withSupabase>,
   request: Request,
+  context: Record<string, unknown> = {},
 ): Promise<{ supabaseContext: SupabaseContext }> {
-  getRequestMock.mockReturnValue(request)
   const server = middleware.options.server as (opts: {
+    request: Request
+    pathname: string
+    context: unknown
+    handlerType: 'serverFn' | 'router'
     next: (ctx?: { context?: unknown }) => Promise<unknown>
   }) => Promise<unknown>
 
   let captured: { supabaseContext: SupabaseContext } | undefined
   await server({
+    request,
+    pathname: new URL(request.url).pathname,
+    context,
+    handlerType: 'serverFn',
     next: async (ctx) => {
       captured = ctx?.context as { supabaseContext: SupabaseContext }
       return { context: ctx?.context }
@@ -113,5 +114,17 @@ describe('tanstack-start supabase middleware', () => {
         new Request('http://localhost/'),
       ),
     ).rejects.toBeInstanceOf(AuthError)
+  })
+
+  it('skips auth when a prior middleware already set the context', async () => {
+    const existing = { authMode: 'none' } as unknown as SupabaseContext
+    // `secret` would fail without an apikey header, but the skip means the
+    // auth flow never runs and the already-established context is preserved.
+    const ctx = await run(
+      withSupabase({ auth: 'secret', env }),
+      new Request('http://localhost/'),
+      { supabaseContext: existing },
+    )
+    expect(ctx.supabaseContext).toBe(existing)
   })
 })
