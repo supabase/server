@@ -49,6 +49,11 @@
       "import": "./dist/adapters/nestjs/index.mjs",
       "require": "./dist/adapters/nestjs/index.cjs"
     },
+    "./adapters/tanstack-start": {
+      "types": "./dist/adapters/tanstack-start/index.d.mts",
+      "import": "./dist/adapters/tanstack-start/index.mjs",
+      "require": "./dist/adapters/tanstack-start/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -82,12 +87,20 @@
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@supabase/supabase-js": "^2.0.0",
+    "@tanstack/start-client-core": "^1.170.0",
+    "@tanstack/start-server-core": "^1.169.0",
+    "elysia": "^1.4.0",
     "h3": "^2.0.0",
-    "hono": "^4.0.0",
-    "elysia": "^1.4.0"
+    "hono": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
+      "optional": true
+    },
+    "@tanstack/start-client-core": {
+      "optional": true
+    },
+    "@tanstack/start-server-core": {
       "optional": true
     },
     "h3": {
@@ -110,9 +123,11 @@
     "@nestjs/testing": "^11.1.19",
     "@supabase/supabase-js": "^2.105.4",
     "@swc/core": "^1.15.33",
+    "@tanstack/start-client-core": "^1.170.4",
+    "@tanstack/start-server-core": "^1.169.4",
     "@types/supertest": "^7.2.0",
-    "eslint": "^10.0.2",
     "elysia": "^1.4.0",
+    "eslint": "^10.0.2",
     "h3": "2.0.1-rc.20",
     "hono": "^4.12.5",
     "prettier": "3.8.1",
