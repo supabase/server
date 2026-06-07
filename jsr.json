@@ -7,6 +7,7 @@
     "./core/adapters": "./src/core/adapters/index.ts",
     "./gates/auth-hook": "./src/gates/auth-hook/index.ts",
     "./gates/feature-flag": "./src/gates/feature-flag/index.ts",
+    "./gates/postgres": "./src/gates/postgres/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
     "./adapters/elysia": "./src/adapters/elysia/index.ts",
