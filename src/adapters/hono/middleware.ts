@@ -18,8 +18,15 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * ```ts
  * import { Hono } from 'hono'
  * import { withSupabase } from '@supabase/server/adapters/hono'
+ * import type { SupabaseContext } from '@supabase/server'
  *
- * const app = new Hono()
+ * type Env = {
+ *   Variables: {
+ *     supabaseContext: SupabaseContext
+ *   }
+ * }
+ *
+ * const app = new Hono<Env>()
  * app.use('*', withSupabase({ auth: 'user' }))
  *
  * app.get('/profile', async (c) => {
