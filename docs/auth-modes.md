@@ -130,7 +130,7 @@ Accept multiple auth methods. Modes are tried in order — the first match wins.
 import { withSupabase } from '@supabase/server'
 
 export default {
-  fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
+  fetch: withSupabase({ auth: ['secret', 'user'] }, async (req, ctx) => {
     // ctx.authMode tells you which mode matched
     if (ctx.authMode === 'user') {
       // Called by an authenticated user
@@ -152,6 +152,19 @@ export default {
 A request with a valid JWT matches `'user'`. A request with a valid secret key matches `'secret'`. A request with neither is rejected.
 
 **Fallthrough vs rejection.** A mode is only "tried" when its credential is actually present. A request with no `Authorization` header moves on to the next mode. But if a JWT _is_ present and fails verification (malformed, expired, wrong signature, or missing a `sub` claim), the request is rejected immediately with `InvalidCredentialsError` — it will not silently fall through to `'publishable'`, `'secret'`, or `'none'`. The same rule applies on the API-key side: `'publishable'` and `'secret'` fall through only when no `apikey` header is sent. This prevents a bad credential from being downgraded to a less-privileged auth mode.
+
+> [!IMPORTANT]
+> **List key-based modes before `'user'`.** When you combine `'user'` with `'publishable'`/`'secret'`, put the key-based modes first and keep `'user'` **last** — e.g. `['secret', 'user']`, not `['user', 'secret']`.
+>
+> This is because of how Supabase's API gateway behaves. A request that authenticates with an `apikey` but omits the `Authorization` header does **not** reach your function header-less: the gateway injects an `Authorization: Bearer <token>` derived from the key (an `anon` token for a publishable key, a `service_role` token for a secret key). Since that token _is_ present, a `'user'` mode listed first will try to verify it, fail, and reject the request with `InvalidCredentialsError` — **before** `'secret'`/`'publishable'` is ever reached.
+>
+> ```ts
+> withSupabase({ auth: ['secret', 'user'] }, handler) // ✅ secret matches the apikey first
+> withSupabase({ auth: ['publishable', 'secret', 'user'] }, handler) // ✅ user last
+> withSupabase({ auth: ['user', 'secret'] }, handler) // ❌ user verifies the injected token → 401
+> ```
+>
+> A genuine user request (a real JWT in `Authorization`) still matches `'user'` regardless of position, because the key-based modes fall through when the `apikey` isn't one of their keys.
 
 ## Named key syntax
 
@@ -194,8 +207,10 @@ When using named keys, `ctx.authMode` tells you the mode and `keyName` on the `A
 ### Combining named keys with other modes
 
 ```ts
-withSupabase({ auth: ['user', 'publishable:web'] }, async (_req, ctx) => {
-  // Accepts either a valid JWT or the "web" publishable key
+withSupabase({ auth: ['publishable:web', 'user'] }, async (_req, ctx) => {
+  // Accepts either the "web" publishable key or a valid JWT.
+  // Key-based mode first, `'user'` last — see "List key-based modes before
+  // `'user'`" above.
   return Response.json({ authMode: ctx.authMode })
 })
 ```

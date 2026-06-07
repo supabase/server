@@ -136,7 +136,8 @@ export default {
 // Users view their own play stats from the app (JWT).
 // A backend service pulls stats for any user (secret key + user_id in body).
 export default {
-  fetch: withSupabase({ auth: ['user', 'secret'] }, async (req, ctx) => {
+  // Key-based modes go before 'user' (see auth-mode ordering note below).
+  fetch: withSupabase({ auth: ['secret', 'user'] }, async (req, ctx) => {
     const callerIsUser = ctx.authMode === 'user'
 
     if (callerIsUser) {
@@ -200,7 +201,7 @@ await fetch(refreshEndpoint, {
 | `"secret"`         | Valid secret key      | Server-to-server, internal calls                    |
 | `"none"`           | None                  | Open endpoints, wrappers that handle their own auth |
 
-Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
+Array syntax (`auth: ["secret", "user"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). **List key-based modes (`"secret"`/`"publishable"`) before `"user"`** — behind Supabase's API gateway an `apikey` request that omits `Authorization` still arrives with a gateway-injected bearer token, so a `"user"` mode placed first would try to verify it and reject before the key-based mode is reached. See [`docs/auth-modes.md`](docs/auth-modes.md).
 
 Named key validation: `auth: "publishable:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
 

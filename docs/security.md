@@ -60,7 +60,9 @@ JWT verification in `user` mode works as follows:
 
 If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
 
-**No silent downgrade.** When `user` is combined with other modes (e.g. `auth: ['user', 'publishable']`), a JWT that is present but fails verification rejects the request with `InvalidCredentialsError` — it does not fall through to the next mode. This prevents a bad token paired with a valid `apikey` (or with `'none'`) from being silently downgraded to a less-privileged auth mode. Requests that simply omit the `Authorization` header still fall through as expected.
+**No silent downgrade.** When `user` is combined with other modes (e.g. `auth: ['publishable', 'user']`), a JWT that is present but fails verification rejects the request with `InvalidCredentialsError` — it does not fall through to the next mode. This prevents a bad token paired with a valid `apikey` (or with `'none'`) from being silently downgraded to a less-privileged auth mode.
+
+**List key-based modes before `user`.** At the SDK level, a request that omits the `Authorization` header falls through to the next mode — but behind Supabase's API gateway it won't. For an `apikey` request with no `Authorization` header, the gateway injects an `Authorization: Bearer <token>` derived from the key (an `anon` token for a publishable key, a `service_role` token for a secret key). A `user` mode placed before your key-based mode would then try to verify that injected token, fail, and reject before the key-based mode is reached. Always order key-based modes (`secret`/`publishable`) before `user` — e.g. `['secret', 'user']`. See [`auth-modes.md`](auth-modes.md).
 
 ## CORS handling
 

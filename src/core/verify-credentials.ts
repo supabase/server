@@ -247,6 +247,12 @@ async function tryMode(
  * through to the next mode. Use {@link verifyAuth} to extract and verify in a
  * single call.
  *
+ * When combining `'user'` with key-based modes, list the key-based modes first
+ * (e.g. `['secret', 'user']`). Behind Supabase's API gateway an `apikey`
+ * request that omits the `Authorization` header still arrives with a
+ * gateway-injected bearer token, so a `'user'` mode placed first would attempt
+ * to verify it and reject before the key-based mode is reached.
+ *
  * @param credentials - The credentials to verify (from {@link extractCredentials}).
  * @param options - Allowed auth modes and optional env overrides.
  * @returns `{ data: AuthResult, error: null }` on success, `{ data: null, error: AuthError }` on failure.
@@ -255,7 +261,7 @@ async function tryMode(
  * ```ts
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {
- *   auth: ['user', 'publishable'],
+ *   auth: ['publishable', 'user'],
  * })
  * if (error) {
  *   return Response.json({ message: error.message }, { status: error.status })

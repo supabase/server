@@ -68,7 +68,7 @@ function verifyCredentials(
 ): Promise<{ data: AuthResult; error: null } | { data: null; error: AuthError }>
 ```
 
-Verifies pre-extracted credentials against allowed auth modes. Tries each mode in order — first match wins.
+Verifies pre-extracted credentials against allowed auth modes. Tries each mode in order — first match wins. When combining `'user'` with key-based modes, list the key-based modes first (e.g. `['secret', 'user']`) — see the ordering note in [`auth-modes.md`](auth-modes.md).
 
 ### extractCredentials
 

@@ -91,9 +91,9 @@ console.log(auth!.userClaims) // { id: '...', email: '...', role: 'authenticated
 Supports all auth mode syntax — single mode, arrays, and named keys:
 
 ```ts
-// Multiple modes
+// Multiple modes — key-based modes before 'user' (see auth-modes.md)
 const { data: auth } = await verifyCredentials(creds, {
-  auth: ['user', 'publishable'],
+  auth: ['publishable', 'user'],
 })
 
 // Named key

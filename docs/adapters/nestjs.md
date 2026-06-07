@@ -90,7 +90,7 @@ export class AppController {
 
   // Dual auth — users or services
   @Get('reports')
-  @UseGuards(withSupabase({ auth: ['user', 'secret'] }))
+  @UseGuards(withSupabase({ auth: ['secret', 'user'] }))
   reports(@SupabaseCtx('authMode') authMode: SupabaseContext['authMode']) {
     return { authMode }
   }

@@ -71,7 +71,7 @@ app.post('/admin/sync', withSupabase({ auth: 'secret' }), async (c) => {
 })
 
 // Dual auth — users or services
-app.get('/reports', withSupabase({ auth: ['user', 'secret'] }), async (c) => {
+app.get('/reports', withSupabase({ auth: ['secret', 'user'] }), async (c) => {
   const { supabase, authMode } = c.var.supabaseContext
   return c.json({ authMode })
 })

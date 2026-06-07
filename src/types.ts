@@ -20,7 +20,8 @@ import type {
  * // A mode is tried only when its credential is present; a JWT that is
  * // present but fails verification rejects immediately rather than falling
  * // through to the next mode.
- * withSupabase({ auth: ['user', 'publishable'] }, handler)
+ * // List key-based modes before 'user' (see WithSupabaseConfig.auth).
+ * withSupabase({ auth: ['publishable', 'user'] }, handler)
  * ```
  */
 export type AuthMode = 'none' | 'publishable' | 'secret' | 'user'
@@ -45,8 +46,8 @@ export type Allow = AuthMode
  * // Accept any secret key
  * withSupabase({ auth: 'secret:*' }, handler)
  *
- * // Mix named keys with other modes
- * withSupabase({ auth: ['user', 'publishable:web_app'] }, handler)
+ * // Mix named keys with other modes (key-based modes before 'user')
+ * withSupabase({ auth: ['publishable:web_app', 'user'] }, handler)
  * ```
  */
 export type AuthModeWithKey =
@@ -228,8 +229,9 @@ export interface UserClaims {
  * const config: WithSupabaseConfig = { auth: 'user' }
  *
  * // Accept users or service-to-service calls, custom CORS headers
+ * // (key-based modes listed before 'user' — see the `auth` field docs)
  * const config: WithSupabaseConfig = {
- *   auth: ['user', 'secret'],
+ *   auth: ['secret', 'user'],
  *   cors: { 'Access-Control-Allow-Origin': 'https://myapp.com' },
  * }
  *
@@ -242,6 +244,13 @@ export interface WithSupabaseConfig {
    * Auth mode(s) to accept. Modes are tried in order — the first match wins.
    * A mode falls through only when its credential is absent; a present-but-invalid
    * JWT short-circuits the chain with `InvalidCredentialsError`.
+   *
+   * When combining `'user'` with `'publishable'`/`'secret'`, list the key-based
+   * modes first and keep `'user'` last (e.g. `['secret', 'user']`). Behind
+   * Supabase's API gateway, an `apikey` request that omits the `Authorization`
+   * header still arrives with a gateway-injected bearer token, so a `'user'`
+   * mode placed first would try to verify it and reject before the key-based
+   * mode is reached.
    *
    * @defaultValue `"user"`
    */
