@@ -7,6 +7,7 @@ export default defineConfig({
     'src/core/adapters/index.ts',
     'src/gates/auth-hook/index.ts',
     'src/gates/feature-flag/index.ts',
+    'src/gates/postgres/index.ts',
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
     'src/adapters/elysia/index.ts',

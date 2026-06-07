@@ -44,6 +44,11 @@
       "import": "./dist/gates/feature-flag/index.mjs",
       "require": "./dist/gates/feature-flag/index.cjs"
     },
+    "./gates/postgres": {
+      "types": "./dist/gates/postgres/index.d.mts",
+      "import": "./dist/gates/postgres/index.mjs",
+      "require": "./dist/gates/postgres/index.cjs"
+    },
     "./adapters/hono": {
       "types": "./dist/adapters/hono/index.d.mts",
       "import": "./dist/adapters/hono/index.mjs",
@@ -97,9 +102,9 @@
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@supabase/supabase-js": "^2.0.0",
+    "elysia": "^1.4.0",
     "h3": "^2.0.0",
-    "hono": "^4.0.0",
-    "elysia": "^1.4.0"
+    "hono": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
@@ -125,9 +130,10 @@
     "@nestjs/testing": "^11.1.19",
     "@supabase/supabase-js": "^2.105.4",
     "@swc/core": "^1.15.33",
+    "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
-    "eslint": "^10.0.2",
     "elysia": "^1.4.0",
+    "eslint": "^10.0.2",
     "h3": "2.0.1-rc.20",
     "hono": "^4.12.5",
     "prettier": "3.8.1",
@@ -144,6 +150,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "jose": "^6.2.0"
+    "jose": "^6.2.0",
+    "pg": "^8.21.0"
   }
 }
