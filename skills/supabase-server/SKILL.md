@@ -28,7 +28,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 - Wraps fetch handlers with credential verification, CORS, and pre-configured Supabase clients
 - Supports 4 auth modes: `user` (JWT), `publishable` (publishable key), `secret` (secret key), `none` (no credentials required)
-- Array syntax (`auth: ['user', 'secret']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidCredentialsError` — it does not silently downgrade to the next mode.
+- Array syntax (`auth: ['secret', 'user']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidCredentialsError` — it does not silently downgrade to the next mode. **List key-based modes (`secret`/`publishable`) before `user`:** behind Supabase's API gateway an `apikey` request that omits `Authorization` still arrives with a gateway-injected bearer token (`anon` for a publishable key, `service_role` for a secret key), so a `user` mode placed first would try to verify it and reject before the key-based mode is reached.
 - Provides composable core primitives for custom auth flows and framework integration
 - Includes a Hono adapter for per-route auth
 
@@ -206,6 +206,8 @@ Use `auth: 'secret'` to accept any secret key, or `auth: 'secret:name'` to requi
 **Never use `auth: 'none'` for endpoints that read or write user data without verifying who the caller is.**
 
 **On `auth: ['user', 'none']`.** A stale or malformed JWT on such an endpoint is rejected with `InvalidCredentialsError` — it is not silently downgraded to anonymous. Callers that might hold a cached/expired token should either omit the `Authorization` header entirely or refresh before calling. If the goal is "anonymous unless a valid user is signed in," this is the correct behavior; if the goal is truly "accept anything," use `auth: 'none'` on its own.
+
+> **Gateway caveat:** behind Supabase's API gateway this pattern only works when the caller sends **no `apikey`** either. An `apikey` with no `Authorization` header arrives with a gateway-injected bearer token (`anon`/`service_role`) that `user` mode will try — and fail — to verify, rejecting with `InvalidCredentialsError` before `none` is reached. Since `none` matches everything it must stay last, so no reordering fixes this; the caller must omit the `apikey`. Note the Supabase JS client always sends the publishable key, so anonymous calls through it will hit this.
 
 ## Edge Function recipes
 
