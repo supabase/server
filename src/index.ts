@@ -37,3 +37,22 @@ export {
   MissingSecretKeyError,
   MissingSupabaseURLError,
 } from './errors.js'
+
+// Curated re-exports of commonly needed `@supabase/supabase-js` types so
+// `@supabase/server` is a single import surface. See ./supabase-js.ts.
+export type {
+  AuthResponse,
+  PostgrestError,
+  PostgrestMaybeSingleResponse,
+  PostgrestResponse,
+  PostgrestSingleResponse,
+  QueryData,
+  QueryError,
+  QueryResult,
+  Session,
+  SupabaseAuthError,
+  SupabaseClient,
+  SupabaseClientOptions,
+  User,
+  UserResponse,
+} from './supabase-js.js'

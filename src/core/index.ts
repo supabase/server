@@ -15,3 +15,23 @@ export type {
   CreateAdminClientOptions,
   CreateContextClientOptions,
 } from '../types.js'
+
+// Curated re-exports of commonly needed `@supabase/supabase-js` types so the
+// clients returned by `createContextClient` / `createAdminClient` can be typed
+// without reaching into a second package. See ../supabase-js.ts.
+export type {
+  AuthResponse,
+  PostgrestError,
+  PostgrestMaybeSingleResponse,
+  PostgrestResponse,
+  PostgrestSingleResponse,
+  QueryData,
+  QueryError,
+  QueryResult,
+  Session,
+  SupabaseAuthError,
+  SupabaseClient,
+  SupabaseClientOptions,
+  User,
+  UserResponse,
+} from '../supabase-js.js'
