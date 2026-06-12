@@ -76,7 +76,7 @@ const { data: users } = await supabaseAdmin.from('profiles').select()
 
 ## Using with the Hono adapter
 
-The Hono context variable is typed as `SupabaseContext` (without the generic). To get typed clients, assert the type when destructuring:
+Pass an app environment type to `Hono<Env>()` so Hono knows the `supabaseContext` variable includes your generated database types:
 
 ```ts
 import { Hono } from 'hono'
@@ -84,12 +84,18 @@ import { withSupabase } from '@supabase/server/adapters/hono'
 import type { SupabaseContext } from '@supabase/server'
 import type { Database } from './database.types.ts'
 
-const app = new Hono()
+type Env = {
+  Variables: {
+    supabaseContext: SupabaseContext<Database>
+  }
+}
+
+const app = new Hono<Env>()
 
 app.use('*', withSupabase({ auth: 'user' }))
 
 app.get('/todos', async (c) => {
-  const { supabase } = c.var.supabaseContext as SupabaseContext<Database>
+  const { supabase } = c.var.supabaseContext
   const { data } = await supabase.from('todos').select('id, title')
   return c.json(data)
 })
