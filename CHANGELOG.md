@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/supabase/server/compare/server-v1.1.0...server-v1.2.0) (2026-06-12)
+
+
+### Features
+
+* add NestJS adapter ([#55](https://github.com/supabase/server/issues/55)) ([3052a6b](https://github.com/supabase/server/commit/3052a6b30931f0478bfc4f9dcd25505292b585a9))
+
+
+### Bug Fixes
+
+* **docs:** Replace manual context casting with Hono Env type ([#77](https://github.com/supabase/server/issues/77)) ([5ac7ccf](https://github.com/supabase/server/commit/5ac7ccf629c246164659b8c1dc329c3e3066ff14))
+
 ## [1.1.0](https://github.com/supabase/server/compare/server-v1.0.0...server-v1.1.0) (2026-05-19)
 
 ### Features
