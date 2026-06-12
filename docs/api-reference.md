@@ -310,6 +310,16 @@ interface JsonWebKeySet {
 }
 ```
 
+### Peer Dependencies
+
+Some peer dependencies types are available from `@supabase/server/peer/*` export
+
+#### supabase-js
+
+```ts
+import type { SupabaseClient } from '@supabase/server/peer/supabase-js'
+```
+
 ---
 
 ## Error Classes
