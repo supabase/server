@@ -131,3 +131,83 @@ describe('hono supabase middleware', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 })
+
+describe('hono withSupabase fetch-handler form (two-arg)', () => {
+  const env = {
+    url: 'https://test.supabase.co',
+    publishableKeys: { default: 'sb_publishable_xyz' },
+    secretKeys: { default: 'sb_publishable_xyz' },
+    jwks: null,
+  }
+
+  it('mounts directly on app.all and runs the inner handler with the Supabase ctx', async () => {
+    const app = new Hono()
+    app.all(
+      '/route',
+      withSupabase({ auth: 'none', env }, async (_req, ctx) =>
+        Response.json({
+          authMode: ctx.authMode,
+          hasSupabase: !!ctx.supabase,
+        }),
+      ),
+    )
+
+    const res = await app.request('/route')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ authMode: 'none', hasSupabase: true })
+  })
+
+  it('throws HTTPException on auth failure so app.onError handles it (consistent with one-arg form)', async () => {
+    const app = new Hono()
+    let caught: Error | undefined
+    app.onError((err, c) => {
+      caught = err
+      return c.json({ caught: err.message }, 401)
+    })
+    app.all(
+      '/',
+      withSupabase({ auth: 'user', env }, async () =>
+        Response.json({ ok: true }),
+      ),
+    )
+
+    const res = await app.request('/')
+    expect(res.status).toBe(401)
+    expect(caught).toBeDefined()
+    const cause = (
+      caught as (Error & { cause?: { code?: string } }) | undefined
+    )?.cause
+    expect(cause?.code).toBeDefined()
+  })
+
+  it('skips re-running auth when an upstream middleware already set c.var.supabaseContext', async () => {
+    const app = new Hono<{ Variables: { supabaseContext: SupabaseContext } }>()
+    app.use('*', withSupabase({ auth: 'none', env }))
+
+    let innerHandlerCalls = 0
+    app.all(
+      '/protected',
+      withSupabase({ auth: 'secret', env }, async (_req, ctx) => {
+        innerHandlerCalls++
+        return Response.json({ authMode: ctx.authMode })
+      }),
+    )
+
+    // No apikey header — would fail 'secret' if the two-arg form re-ran auth
+    const res = await app.request('/protected')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.authMode).toBe('none')
+    expect(innerHandlerCalls).toBe(1)
+  })
+
+  it('also accepts a plain Request directly (Web Fetch use)', async () => {
+    const handler = withSupabase({ auth: 'none', env }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const res = await handler(new Request('https://example.test/'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+})

@@ -4,6 +4,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
+    "./core/adapters": "./src/core/adapters/index.ts",
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
     "./adapters/elysia": "./src/adapters/elysia/index.ts",
