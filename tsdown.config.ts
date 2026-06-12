@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/core/index.ts',
+    'src/peer/supabase-js/index.ts',
     'src/adapters/hono/index.ts',
     'src/adapters/h3/index.ts',
     'src/adapters/elysia/index.ts',
