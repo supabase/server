@@ -1,10 +1,33 @@
 import { Hono } from 'hono'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import type { SupabaseContext } from '../../types.js'
 import { withSupabase } from './middleware.js'
 
 type Env = { Variables: { supabaseContext: SupabaseContext } }
+
+type Database = {
+  public: {
+    Tables: {
+      todos: {
+        Row: { id: number; title: string }
+        Insert: { id?: number; title: string }
+        Update: { id?: number; title?: string }
+        Relationships: []
+      }
+    }
+    Views: {}
+    Functions: {}
+    Enums: {}
+    CompositeTypes: {}
+  }
+}
+
+type TypedEnv = {
+  Variables: {
+    supabaseContext: SupabaseContext<Database>
+  }
+}
 
 describe('hono supabase middleware', () => {
   const env = {
@@ -32,6 +55,18 @@ describe('hono supabase middleware', () => {
     expect(body.authMode).toBe('none')
     expect(body.hasSupabase).toBe(true)
     expect(body.hasAdmin).toBe(true)
+  })
+
+  it('uses the Hono app env to type the Supabase context', async () => {
+    const app = new Hono<TypedEnv>()
+    app.use('*', withSupabase({ auth: 'none', env }))
+    app.get('/', (c) => {
+      const ctx = c.get('supabaseContext')
+      expectTypeOf(ctx).toEqualTypeOf<SupabaseContext<Database>>()
+      return c.json({ authMode: ctx.authMode })
+    })
+    const res = await app.request('/')
+    expect(res.status).toBe(200)
   })
 
   it('throws HTTPException on auth failure', async () => {
