@@ -1,6 +1,6 @@
 /**
- * Postgres client helpers for the {@link withPostgres} / {@link withPostgresAdmin}
- * gates.
+ * Postgres client helpers for the {@link withPostgres} gate — the RLS-scoped
+ * `db` client and the RLS-bypassing `adminDb` client it can contribute.
  *
  * The `pg` import lives here and nowhere else in the package — keep it that way
  * so importing the package root (or any edge-targeted subpath) never pulls
@@ -17,7 +17,8 @@
 import { Pool, type PoolClient, type QueryResult } from 'pg'
 
 /**
- * A minimal Postgres surface contributed at `ctx.postgres` / `ctx.postgresAdmin`.
+ * A minimal Postgres surface contributed at `ctx.postgres.db` /
+ * `ctx.postgres.adminDb`.
  *
  * - `query` — run a single statement. For the user client this is its own
  *   auth-scoped transaction; for the admin client it runs straight on the pool.

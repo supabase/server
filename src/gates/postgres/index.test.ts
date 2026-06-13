@@ -22,7 +22,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { JWTClaims } from '../../types.js'
 
 import { withPostgres } from './with-postgres.js'
-import { withPostgresAdmin } from './with-postgres-admin.js'
 
 const DB_URL =
   typeof process !== 'undefined' ? process.env.SUPABASE_DB_URL : undefined
@@ -85,9 +84,9 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
     await pool.end()
   })
 
-  it('scopes ctx.postgres.query to the caller — other users rows are invisible', async () => {
+  it('scopes ctx.postgres.db to the caller — other users rows are invisible', async () => {
     const handler = withPostgres({ pool }, async (_req, ctx) => {
-      const r = await ctx.postgres.query(
+      const r = await ctx.postgres.db.query(
         'select body from gate_pg_notes order by body',
       )
       return Response.json({ bodies: r.rows.map((row) => row.body) })
@@ -97,13 +96,13 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
     expect(await res.json()).toEqual({ bodies: ['a1', 'a2'] })
   })
 
-  it('ctx.postgres.tx commits a multi-statement block atomically', async () => {
+  it('ctx.postgres.db.tx commits a multi-statement block atomically', async () => {
     const handler = withPostgres({ pool }, async (_req, ctx) => {
-      await ctx.postgres.tx(async (c) => {
+      await ctx.postgres.db.tx(async (c) => {
         await c.query(`insert into gate_pg_notes (body) values ('tx1')`)
         await c.query(`insert into gate_pg_notes (body) values ('tx2')`)
       })
-      const r = await ctx.postgres.query(
+      const r = await ctx.postgres.db.query(
         `select count(*)::int as n from gate_pg_notes where body in ('tx1', 'tx2')`,
       )
       return Response.json({ n: r.rows[0].n })
@@ -113,10 +112,10 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
     expect(await res.json()).toEqual({ n: 2 })
   })
 
-  it('ctx.postgres.tx rolls the whole block back when fn throws', async () => {
+  it('ctx.postgres.db.tx rolls the whole block back when fn throws', async () => {
     const handler = withPostgres({ pool }, async (_req, ctx) => {
       try {
-        await ctx.postgres.tx(async (c) => {
+        await ctx.postgres.db.tx(async (c) => {
           await c.query(
             `insert into gate_pg_notes (body) values ('rollback-me')`,
           )
@@ -125,7 +124,7 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
       } catch {
         // expected
       }
-      const r = await ctx.postgres.query(
+      const r = await ctx.postgres.db.query(
         `select count(*)::int as n from gate_pg_notes where body = 'rollback-me'`,
       )
       return Response.json({ n: r.rows[0].n })
@@ -135,21 +134,21 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
     expect(await res.json()).toEqual({ n: 0 })
   })
 
-  it('ctx.postgresAdmin.query bypasses RLS and sees every row', async () => {
-    const handler = withPostgresAdmin({ pool }, async (_req, ctx) => {
-      const r = await ctx.postgresAdmin.query(
+  it('ctx.postgres.adminDb bypasses RLS and sees every row when admin: true', async () => {
+    const handler = withPostgres({ pool, admin: true }, async (_req, ctx) => {
+      const r = await ctx.postgres.adminDb.query(
         `select count(*)::int as n from gate_pg_notes where body in ('a1', 'a2', 'b1')`,
       )
       return Response.json({ n: r.rows[0].n })
     })
 
-    const res = await handler(req())
+    const res = await handler(req(), { jwtClaims: null })
     expect(await res.json()).toEqual({ n: 3 })
   })
 
   it('null jwtClaims runs as anon — owner-scoped policy yields no rows', async () => {
     const handler = withPostgres({ pool }, async (_req, ctx) => {
-      const r = await ctx.postgres.query(
+      const r = await ctx.postgres.db.query(
         'select count(*)::int as n from gate_pg_notes',
       )
       return Response.json({ n: r.rows[0].n })
@@ -161,7 +160,7 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
 
   it('does not leak connections — pool returns to baseline after N requests', async () => {
     const handler = withPostgres({ pool }, async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.db.query('select 1')
       return Response.json({ ok: true })
     })
 
@@ -177,7 +176,7 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
 
   it('rejects composing withPostgres without an upstream jwtClaims (compile-fail)', () => {
     const handler = withPostgres({ pool }, async (_req, ctx) => {
-      void ctx.postgres
+      void ctx.postgres.db
       return Response.json({ ok: true })
     })
     // `withPostgres` declares `In = { jwtClaims }`, so `baseCtx` is required —
@@ -187,5 +186,15 @@ describe.skipIf(!DB_URL)('postgres gates (integration)', () => {
       // @ts-expect-error — missing required baseCtx providing jwtClaims
       handler(req())
     void compileFail
+  })
+
+  it('rejects ctx.postgres.adminDb without admin: true (compile-fail)', () => {
+    void withPostgres({ pool }, async (_req, ctx) => {
+      // Without `admin: true`, the contribution narrows to `{ db }` only —
+      // reaching for `adminDb` is a type error. Type-checked, never executed.
+      // @ts-expect-error — adminDb only exists when configured with admin: true
+      void ctx.postgres.adminDb
+      return Response.json({ ok: true })
+    })
   })
 })
