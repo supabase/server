@@ -302,20 +302,13 @@ For per-route auth, use scoped groups:
 import { Elysia } from 'elysia'
 import { withSupabase } from '@supabase/server/adapters/elysia'
 
-const app = new Elysia()
-  .get('/health', () => ({ status: 'ok' }))
-  .group('/api', (app) =>
-    app
-      .use(withSupabase({ auth: 'user' }))
-      .get('/profile', async ({ supabaseContext }) => {
-        return supabaseContext.userClaims
-      }),
-  )
+const app = new H3()
+app.use(withSupabase({ auth: 'user' }))
 
-app.listen(3000)
+export default { fetch: app.fetch }
 ```
 
-The adapter does not handle CORS — use `@elysiajs/cors` for that.
+See [docs/adapters/h3.md](docs/adapters/h3.md) for per-route auth, Nuxt server-middleware patterns, CORS, and more.
 
 ### NestJS
 

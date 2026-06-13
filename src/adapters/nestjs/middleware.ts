@@ -6,8 +6,13 @@ import {
   type Type,
 } from '@nestjs/common'
 
+import {
+  defineAdapter,
+  type AdapterWithSupabase,
+} from '../../core/adapters/index.js'
 import { createSupabaseContext } from '../../create-supabase-context.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
+import type { AuthError } from '../../errors.js'
+import type { SupabaseContext } from '../../types.js'
 
 /**
  * Shape of the request object that the guard reads and writes. NestJS supports
@@ -36,36 +41,42 @@ function toWebRequest(req: NestRequestLike): Request {
   return new Request(`http://nestjs.local${req.url ?? '/'}`, { headers })
 }
 
+function throwHttpException(error: AuthError): never {
+  throw new HttpException(
+    { message: error.message, code: error.code },
+    error.status,
+    { cause: error },
+  )
+}
+
 /**
- * NestJS guard that creates a {@link SupabaseContext} and stores it on the
- * underlying request as `request.supabaseContext`.
+ * NestJS adapter for `@supabase/server`.
  *
- * **HTTP-only.** The guard reads HTTP headers via `switchToHttp()` and throws
- * if applied to an RPC or WebSocket handler — those transports must
- * authenticate via context-specific mechanisms.
+ * Exports a single overloaded `withSupabase`:
  *
- * Always runs, even if a previous guard already set the context. This matches
- * Nest's guard order (global → controller → handler), so handler-level guards
- * can tighten what a global guard set rather than being skipped.
+ * - **One arg** — `withSupabase(config)` returns a NestJS guard class that
+ *   creates a {@link SupabaseContext}, stores it on the underlying request as
+ *   `request.supabaseContext`, and throws `HttpException` (carrying the
+ *   original `AuthError` as `.cause`) on auth failure.
  *
- * Throws `HttpException` on auth failure — the original `AuthError` is
- * available via `cause`.
+ *   The guard **always runs**, even if a previous guard already set the
+ *   context — matching Nest's guard order (global → controller → handler) so
+ *   handler-level guards can tighten what a global guard set.
  *
- * @param config - Auth modes and optional environment overrides. CORS is excluded —
- *   use NestJS's built-in CORS (`app.enableCors()`).
- * @returns A guard class that can be passed to `@UseGuards(...)`.
+ *   **HTTP-only.** Throws on RPC/WebSocket contexts — those transports must
+ *   authenticate via context-specific mechanisms.
  *
- * @example App-wide auth via `app.useGlobalGuards()`
- * ```ts
- * import { NestFactory } from '@nestjs/core'
- * import { withSupabase } from '@supabase/server/adapters/nestjs'
+ * - **Two args** — `withSupabase(config, handler)` returns a dual-mode route
+ *   handler that accepts either a plain `Request` (Web Fetch) or a NestJS
+ *   `ExecutionContext`, extracts the underlying `Request`, and runs base
+ *   `withSupabase` against it. Use this form to compose with gates from
+ *   `@supabase/server/gates/*`.
  *
- * const app = await NestFactory.create(AppModule)
- * app.useGlobalGuards(new (withSupabase({ auth: 'user' }))())
- * await app.listen(3000)
- * ```
+ *   Auth failures throw `HttpException` for consistency with the one-arg
+ *   form. CORS is excluded from the config — use NestJS's built-in CORS
+ *   (`app.enableCors()`).
  *
- * @example Per-route auth via `@UseGuards(...)`
+ * @example One-arg — per-route auth via `@UseGuards(...)`
  * ```ts
  * import { Controller, Get, UseGuards } from '@nestjs/common'
  * import { withSupabase, SupabaseCtx } from '@supabase/server/adapters/nestjs'
@@ -81,45 +92,66 @@ function toWebRequest(req: NestRequestLike): Request {
  *   }
  * }
  * ```
+ *
+ * @example One-arg — app-wide auth via `app.useGlobalGuards()`
+ * ```ts
+ * import { NestFactory } from '@nestjs/core'
+ * import { withSupabase } from '@supabase/server/adapters/nestjs'
+ *
+ * const app = await NestFactory.create(AppModule)
+ * app.useGlobalGuards(new (withSupabase({ auth: 'user' }))())
+ * await app.listen(3000)
+ * ```
  */
-export function withSupabase(
-  config?: Omit<WithSupabaseConfig, 'cors'>,
-): Type<CanActivate> {
-  @Injectable()
-  class SupabaseAuthGuard implements CanActivate {
-    async canActivate(executionContext: ExecutionContext): Promise<boolean> {
-      // Fail loudly on non-HTTP transports rather than silently allowing them
-      // through — the guard cannot read WS/RPC payloads, so a misapplied guard
-      // would otherwise be a no-op on every message.
-      const contextType = executionContext.getType()
-      if (contextType !== 'http') {
-        throw new HttpException(
-          {
-            message: `withSupabase guard only supports HTTP contexts (got '${contextType}'). Authenticate non-HTTP transports separately.`,
-            code: 'unsupported_context',
-          },
-          500,
+export const withSupabase: AdapterWithSupabase<
+  ExecutionContext,
+  Type<CanActivate>
+> = defineAdapter<ExecutionContext, Type<CanActivate>>({
+  name: 'nestjs',
+  extractRequest: (executionContext) => {
+    if (executionContext.getType() !== 'http') return undefined
+    return toWebRequest(
+      executionContext.switchToHttp().getRequest<NestRequestLike>(),
+    )
+  },
+  throwAuthError: throwHttpException,
+  // No `getExistingContext` — Nest runs guards in global → controller → handler
+  // order, so a handler-level guard must always re-evaluate (and override) what
+  // an outer guard set. Skipping would let a permissive outer guard mask a
+  // stricter inner one.
+  middleware: (config) => {
+    @Injectable()
+    class SupabaseAuthGuard implements CanActivate {
+      async canActivate(executionContext: ExecutionContext): Promise<boolean> {
+        // Fail loudly on non-HTTP transports rather than silently allowing them
+        // through — the guard cannot read WS/RPC payloads, so a misapplied
+        // guard would otherwise be a no-op on every message.
+        const contextType = executionContext.getType()
+        if (contextType !== 'http') {
+          throw new HttpException(
+            {
+              message: `withSupabase guard only supports HTTP contexts (got '${contextType}'). Authenticate non-HTTP transports separately.`,
+              code: 'unsupported_context',
+            },
+            500,
+          )
+        }
+
+        const req = executionContext
+          .switchToHttp()
+          .getRequest<NestRequestLike>()
+
+        const { data: ctx, error } = await createSupabaseContext(
+          toWebRequest(req),
+          config,
         )
+        if (error) throwHttpException(error)
+
+        req.supabaseContext = ctx
+        return true
       }
-
-      const req = executionContext.switchToHttp().getRequest<NestRequestLike>()
-
-      const { data: ctx, error } = await createSupabaseContext(
-        toWebRequest(req),
-        config,
-      )
-      if (error) {
-        throw new HttpException(
-          { message: error.message, code: error.code },
-          error.status,
-          { cause: error },
-        )
-      }
-
-      req.supabaseContext = ctx
-      return true
     }
-  }
 
-  return SupabaseAuthGuard
-}
+    return SupabaseAuthGuard
+  },
+})

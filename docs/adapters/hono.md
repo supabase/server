@@ -8,7 +8,10 @@ Install Hono as a peer dependency:
 pnpm add hono
 ```
 
-The adapter exports its own `withSupabase` that returns Hono middleware instead of a fetch handler.
+The adapter exports `withSupabase` with two call shapes:
+
+- **One arg** — `withSupabase(config)` — returns Hono middleware. Everything in this document describes this form.
+- **Two args** — `withSupabase(config, handler)` — the base `withSupabase` from `@supabase/server`, re-exported here for ergonomics. Returns a Web Fetch handler. Use it when you want to compose with [gates](../../src/core/gates/README.md). See the "Composing with gates" section at the bottom.
 
 ## Basic app with auth
 
@@ -172,3 +175,29 @@ app.use(
   }),
 )
 ```
+
+## Composing with gates
+
+For routes that compose with a [gate](../../src/core/gates/README.md), call `withSupabase` with two args. That form returns a dual-mode handler — it accepts either a Hono `Context` (when mounted on a route) or a plain `Request` (Web Fetch) — and extracts the underlying Request automatically. Mount directly with `app.all(path, withSupabase(...))`:
+
+```ts
+import { Hono } from 'hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
+import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
+
+const app = new Hono()
+
+app.all(
+  '/beta',
+  withSupabase(
+    { auth: 'user' },
+    withFeatureFlag(
+      { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+      async (_req, ctx) =>
+        Response.json({ user: ctx.userClaims?.id, flag: ctx.featureFlag.name }),
+    ),
+  ),
+)
+```
+
+Routes that don't need a gate continue to use the one-arg middleware form documented above. The two coexist in one app; each route picks the form that fits.

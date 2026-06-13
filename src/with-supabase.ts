@@ -25,6 +25,14 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  * }
  * ```
  */
+export function withSupabase(
+  config: WithSupabaseConfig,
+  handler: (req: Request, ctx: SupabaseContext) => Promise<Response>,
+): (req: Request) => Promise<Response>
+export function withSupabase<Database>(
+  config: WithSupabaseConfig,
+  handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
+): (req: Request) => Promise<Response>
 export function withSupabase<Database = unknown>(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
@@ -42,6 +50,7 @@ export function withSupabase<Database = unknown>(
       config,
     )
     if (error) {
+      if (config.onAuthError) config.onAuthError(error)
       return Response.json(
         { message: error.message, code: error.code },
         {

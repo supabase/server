@@ -8,7 +8,10 @@ Install Elysia as a peer dependency:
 pnpm add elysia
 ```
 
-The adapter exports its own `withSupabase` that returns an Elysia plugin instead of a fetch handler.
+The adapter exports `withSupabase` with two call shapes:
+
+- **One arg** — `withSupabase(config)` — returns an Elysia plugin. Everything in this document describes this form.
+- **Two args** — `withSupabase(config, handler)` — the base `withSupabase` from `@supabase/server`, re-exported here for ergonomics. Returns a Web Fetch handler. Use it when you want to compose with [gates](../../src/core/gates/README.md). See the "Composing with gates" section at the bottom.
 
 ## Basic app with auth
 
@@ -138,3 +141,32 @@ app.use(
   }),
 )
 ```
+
+## Composing with gates
+
+For routes that compose with a [gate](../../src/core/gates/README.md), call `withSupabase` with two args. That form returns a dual-mode handler — it accepts either an Elysia route context (when mounted on a route) or a plain `Request` (Web Fetch) — and extracts the underlying Request automatically. Mount directly with `.all(path, withSupabase(...))`:
+
+```ts
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
+import { withFeatureFlag } from '@supabase/server/gates/feature-flag'
+
+new Elysia()
+  .all(
+    '/beta',
+    withSupabase(
+      { auth: 'user' },
+      withFeatureFlag(
+        { name: 'beta', evaluate: (req) => req.headers.has('x-beta') },
+        async (_req, ctx) =>
+          Response.json({
+            user: ctx.userClaims?.id,
+            flag: ctx.featureFlag.name,
+          }),
+      ),
+    ),
+  )
+  .listen(3000)
+```
+
+Routes that don't need a gate continue to use the one-arg plugin form documented above. The two coexist in one app; each route picks the form that fits.
