@@ -277,11 +277,13 @@ describe('verifyCredentials', () => {
 
   describe('user mode', () => {
     let jwks: JsonWebKeySet
+    let privateKey: CryptoKey
     let validToken: string
 
     beforeAll(async () => {
-      const { privateKey, publicKey } = await generateKeyPair('RS256')
-      const publicJwk = await exportJWK(publicKey)
+      const keyPair = await generateKeyPair('RS256')
+      privateKey = keyPair.privateKey
+      const publicJwk = await exportJWK(keyPair.publicKey)
       publicJwk.alg = 'RS256'
       publicJwk.use = 'sig'
       jwks = { keys: [publicJwk] }
@@ -311,6 +313,69 @@ describe('verifyCredentials', () => {
       expect(result.data!.jwtClaims!.sub).toBe('user-123')
       expect(result.data!.token).toBe(validToken)
     })
+
+    it('succeeds when JWT audience and issuer match configured values', async () => {
+      const token = await new SignJWT({ sub: 'user-123' })
+        .setProtectedHeader({ alg: 'RS256' })
+        .setAudience('https://test.supabase.co')
+        .setIssuer('https://test.supabase.co/auth/v1')
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+      const result = await verifyCredentials(
+        { token, apikey: null },
+        {
+          auth: 'user',
+          env: makeEnv({
+            jwks,
+            audience: 'https://test.supabase.co',
+            issuer: 'https://test.supabase.co/auth/v1',
+          }),
+        },
+      )
+
+      expect(result.error).toBeNull()
+      expect(result.data!.jwtClaims!.aud).toBe('https://test.supabase.co')
+      expect(result.data!.jwtClaims!.iss).toBe(
+        'https://test.supabase.co/auth/v1',
+      )
+    })
+
+    it.each([
+      [
+        'audience',
+        'https://wrong.supabase.co',
+        'https://test.supabase.co/auth/v1',
+      ],
+      [
+        'issuer',
+        'https://test.supabase.co',
+        'https://wrong.supabase.co/auth/v1',
+      ],
+    ])(
+      'fails when configured JWT %s does not match',
+      async (_label, audience, issuer) => {
+        const token = await new SignJWT({ sub: 'user-123' })
+          .setProtectedHeader({ alg: 'RS256' })
+          .setAudience('https://test.supabase.co')
+          .setIssuer('https://test.supabase.co/auth/v1')
+          .setIssuedAt()
+          .setExpirationTime('1h')
+          .sign(privateKey)
+
+        const result = await verifyCredentials(
+          { token, apikey: null },
+          {
+            auth: 'user',
+            env: makeEnv({ jwks, audience, issuer }),
+          },
+        )
+
+        expect(result.error).not.toBeNull()
+        expect(result.error!.code).toBe(InvalidCredentialsError)
+      },
+    )
 
     it('fails with invalid JWT', async () => {
       const creds: Credentials = { token: 'invalid.jwt.token', apikey: null }

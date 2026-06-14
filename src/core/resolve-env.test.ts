@@ -22,6 +22,18 @@ describe('resolveEnv', () => {
     expect(result.data!.url).toBe('https://test.supabase.co')
   })
 
+  it('reads optional JWT audience and issuer from process.env', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWT_AUDIENCE', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWT_ISSUER', 'https://test.supabase.co/auth/v1')
+
+    const result = resolveEnv()
+
+    expect(result.error).toBeNull()
+    expect(result.data!.audience).toBe('https://test.supabase.co')
+    expect(result.data!.issuer).toBe('https://test.supabase.co/auth/v1')
+  })
+
   it('parses JSON publishable keys', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     vi.stubEnv(

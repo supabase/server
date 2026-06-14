@@ -177,6 +177,8 @@ export function resolveEnv(
       overrides?.secretKeys ??
       resolveKeys('SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'),
     jwks: overrides?.jwks ?? resolveJwks(),
+    audience: overrides?.audience ?? getEnvVar('SUPABASE_JWT_AUDIENCE'),
+    issuer: overrides?.issuer ?? getEnvVar('SUPABASE_JWT_ISSUER'),
   }
 
   return { data, error: null }
