@@ -16,10 +16,6 @@ type Database = {
         Relationships: []
       }
     }
-    Views: {}
-    Functions: {}
-    Enums: {}
-    CompositeTypes: {}
   }
 }
 
@@ -61,9 +57,13 @@ describe('hono supabase middleware', () => {
     const app = new Hono<TypedEnv>()
     app.use('*', withSupabase({ auth: 'none', env }))
     app.get('/', (c) => {
-      const ctx = c.get('supabaseContext')
-      expectTypeOf(ctx).toEqualTypeOf<SupabaseContext<Database>>()
-      return c.json({ authMode: ctx.authMode })
+      // Hono provides two ways to get typed Supabse Context
+      const getCtx = c.get('supabaseContext')
+      const varCtx = c.var.supabaseContext
+      expect(getCtx).toBe(varCtx)
+
+      expectTypeOf(getCtx).toEqualTypeOf<SupabaseContext<Database>>()
+      return c.json({ authMode: getCtx.authMode })
     })
     const res = await app.request('/')
     expect(res.status).toBe(200)
