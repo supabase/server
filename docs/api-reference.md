@@ -310,6 +310,23 @@ interface JsonWebKeySet {
 }
 ```
 
+### Peer Dependencies
+
+Some peer dependencies types are available from `@supabase/server/peer/*` export
+
+#### supabase-js
+
+Only a curated set of types are available to import — It means that may be missing types from the original lib.
+
+```ts
+import type {
+  SupabaseClient,
+  PostgrestError,
+  AuthError as SupabaseAuthError, // Avoid clashing with this SDK's own `AuthError` class.
+  // ...
+} from '@supabase/server/peer/supabase-js'
+```
+
 ---
 
 ## Error Classes
