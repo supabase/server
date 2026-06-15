@@ -266,12 +266,13 @@ Adapters wrap `withSupabase` for a specific framework's middleware contract. The
 
 > **Adapters are a community-driven initiative.** They're developed, maintained, and evolved by contributors — including responding to upstream framework changes. See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring) if you'd like to add or help maintain one.
 
-| Framework | Import                             | Framework version      | Docs                                               |
-| --------- | ---------------------------------- | ---------------------- | -------------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`               | [docs/adapters/hono.md](docs/adapters/hono.md)     |
-| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`               | [docs/adapters/h3.md](docs/adapters/h3.md)         |
-| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`               | [docs/adapters/elysia.md](docs/adapters/elysia.md) |
-| NestJS    | `@supabase/server/adapters/nestjs` | `^10.0.0 \|\| ^11.0.0` | [docs/adapters/nestjs.md](docs/adapters/nestjs.md) |
+| Framework      | Import                                     | Framework version                      | Docs                                                               |
+| -------------- | ------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------ |
+| Hono           | `@supabase/server/adapters/hono`           | `^4.0.0`                               | [docs/adapters/hono.md](docs/adapters/hono.md)                     |
+| H3 / Nuxt      | `@supabase/server/adapters/h3`             | `^2.0.0`                               | [docs/adapters/h3.md](docs/adapters/h3.md)                         |
+| Elysia         | `@supabase/server/adapters/elysia`         | `^1.4.0`                               | [docs/adapters/elysia.md](docs/adapters/elysia.md)                 |
+| NestJS         | `@supabase/server/adapters/nestjs`         | `^10.0.0 \|\| ^11.0.0`                 | [docs/adapters/nestjs.md](docs/adapters/nestjs.md)                 |
+| TanStack Start | `@supabase/server/adapters/tanstack-start` | `@tanstack/start-client-core ^1.170.0` | [docs/adapters/tanstack-start.md](docs/adapters/tanstack-start.md) |
 
 See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
 
