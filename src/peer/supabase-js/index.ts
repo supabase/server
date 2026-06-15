@@ -31,4 +31,5 @@ export type {
   Session,
   UserResponse,
   AuthResponse,
+  AuthError,
 } from '@supabase/supabase-js'
