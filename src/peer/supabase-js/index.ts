@@ -31,7 +31,4 @@ export type {
   Session,
   UserResponse,
   AuthResponse,
-
-  // Aliased to avoid clashing with this SDK's own `AuthError` class.
-  AuthError as SupabaseAuthError,
 } from '@supabase/supabase-js'
