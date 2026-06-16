@@ -1,9 +1,17 @@
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - '@supabase/*'
+  # Security override (Dependabot #37, GHSA missing-binary-integrity-check).
+  # Remove once 0.28.x is past the age gate or vite ships it natively.
+  - esbuild
+  - '@esbuild/*'
 blockExoticSubdeps: true
 allowBuilds:
   '@nestjs/core': false
   '@swc/core': false
   esbuild: false
   simple-git-hooks: true
+overrides:
+  # Remove once vite >7.3.2 ships esbuild ^0.28.1 natively
+  # (GHSA: esbuild missing-binary-integrity-check, Dependabot alert #37)
+  esbuild: ^0.28.1
