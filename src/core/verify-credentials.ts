@@ -269,7 +269,6 @@ async function tryMode(
           keyName: null,
         }
       } catch (e) {
-        console.error(e)
         return INVALID
       }
     }
