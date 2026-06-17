@@ -1,6 +1,10 @@
 import {
   createLocalJWKSet,
   createRemoteJWKSet,
+  decodeProtectedHeader,
+  importJWK,
+  JSONWebKeySet,
+  JWTPayload,
   jwtVerify,
   type JWTVerifyGetKey,
 } from 'jose'
@@ -91,7 +95,10 @@ function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
 
 const INVALID = Symbol('invalid')
 
-let remoteJwksResolver: { url: string; resolver: JWTVerifyGetKey } | undefined =
+export type JwksResolver = JWTVerifyGetKey & {
+  jwks: () => JSONWebKeySet | undefined
+}
+let remoteJwksResolver: { url: string; resolver: JwksResolver } | undefined =
   undefined
 
 /**
@@ -104,7 +111,7 @@ let remoteJwksResolver: { url: string; resolver: JWTVerifyGetKey } | undefined =
  *
  * @internal
  */
-function getJwksResolver(jwks: JsonWebKeySet | URL): JWTVerifyGetKey {
+function getJwksResolver(jwks: JsonWebKeySet | URL): JwksResolver {
   if (jwks instanceof URL) {
     const url = jwks.toString()
     if (remoteJwksResolver?.url !== url) {
@@ -112,7 +119,17 @@ function getJwksResolver(jwks: JsonWebKeySet | URL): JWTVerifyGetKey {
     }
     return remoteJwksResolver.resolver
   }
-  return createLocalJWKSet(jwks)
+
+  const localJwkSet = createLocalJWKSet(jwks)
+  function localJwtVerifyGetKey(...args: Parameters<typeof localJwkSet>) {
+    return localJwkSet(...args)
+  }
+
+  const localJwksResolver: JwksResolver = Object.assign(localJwtVerifyGetKey, {
+    jwks: () => jwks,
+  })
+
+  return localJwksResolver
 }
 
 /**
@@ -215,8 +232,31 @@ async function tryMode(
       if (credentials.token.startsWith('sb_')) return null
       if (!env.jwks) return null
       try {
-        const jwkSet = getJwksResolver(env.jwks)
-        const { payload } = await jwtVerify(credentials.token, jwkSet)
+        const jwkResolver = getJwksResolver(env.jwks)
+        const { alg, kid } = decodeProtectedHeader(credentials.token)
+        if (!alg || !kid) {
+          return INVALID
+        }
+
+        let payload: JWTPayload | null = null
+
+        // Symmetric algorithm requires importing the shared secret
+        if (alg === 'HS256') {
+          const jwk = jwkResolver
+            .jwks()
+            ?.keys.find((key) => key.alg === alg && key.kid === kid)
+          if (!jwk) {
+            return INVALID
+          }
+          const sharedSecret = await importJWK(jwk, 'HS256')
+
+          const verify = await jwtVerify(credentials.token, sharedSecret)
+          payload = verify.payload
+        } else {
+          const verify = await jwtVerify(credentials.token, jwkResolver)
+          payload = verify.payload
+        }
+
         if (typeof payload.sub !== 'string') {
           return INVALID
         }
@@ -228,7 +268,8 @@ async function tryMode(
           jwtClaims,
           keyName: null,
         }
-      } catch {
+      } catch (e) {
+        console.error(e)
         return INVALID
       }
     }

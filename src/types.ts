@@ -100,6 +100,7 @@ export interface SupabaseEnv {
    * Each env var is authoritative when set: a malformed value resolves to
    * `null` rather than falling through to the other variable.
    */
+  // TODO:(kallebysantso) This should map to jose `JSONWebKeySet`
   jwks: JsonWebKeySet | URL | null
 }
 
@@ -108,6 +109,7 @@ export interface SupabaseEnv {
  *
  * @see https://datatracker.ietf.org/doc/html/rfc7517
  */
+// TODO:(kallebysantso) This should be replaced by jose `JSONWebKeySet`
 export interface JsonWebKeySet {
   /** Array of JSON Web Keys. */
   keys: JsonWebKey[]
