@@ -268,7 +268,7 @@ async function tryMode(
           jwtClaims,
           keyName: null,
         }
-      } catch (e) {
+      } catch {
         return INVALID
       }
     }
