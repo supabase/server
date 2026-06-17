@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/supabase/server/compare/server-v1.1.0...server-v1.2.0) (2026-06-17)
+
+
+### Features
+
+* add NestJS adapter ([#55](https://github.com/supabase/server/issues/55)) ([3052a6b](https://github.com/supabase/server/commit/3052a6b30931f0478bfc4f9dcd25505292b585a9))
+* add support for `HS256` JWKs ([#83](https://github.com/supabase/server/issues/83)) ([67c840d](https://github.com/supabase/server/commit/67c840dc5e8df9374877ca94dc6b6e278e4b13f9))
+
+
+### Bug Fixes
+
+* **docs:** Replace manual context casting with Hono Env type ([#77](https://github.com/supabase/server/issues/77)) ([5ac7ccf](https://github.com/supabase/server/commit/5ac7ccf629c246164659b8c1dc329c3e3066ff14))
+* **test:** lint regression in hono tests ([#79](https://github.com/supabase/server/issues/79)) ([182412b](https://github.com/supabase/server/commit/182412b2f0586fa942a6b6d2662fddf0776da9cf))
+
 ## [1.1.0](https://github.com/supabase/server/compare/server-v1.0.0...server-v1.1.0) (2026-05-19)
 
 ### Features
