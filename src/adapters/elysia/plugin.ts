@@ -29,7 +29,7 @@ export class SupabaseError extends Error {
  * import { withSupabase } from '@supabase/server/adapters/elysia'
  *
  * const app = new Elysia()
- *   .use(withSupabase({ allow: 'user' }))
+ *   .use(withSupabase({ auth: 'user' }))
  *   .get('/games', async ({ supabaseContext }) => {
  *     const { data } = await supabaseContext.supabase.from('favorite_games').select()
  *     return data
@@ -47,7 +47,7 @@ export class SupabaseError extends Error {
  *   .get('/health', () => ({ status: 'ok' }))
  *   .group('/api', (app) =>
  *     app
- *       .use(withSupabase({ allow: 'user' }))
+ *       .use(withSupabase({ auth: 'user' }))
  *       .get('/profile', async ({ supabaseContext }) => {
  *         return supabaseContext.userClaims
  *       })

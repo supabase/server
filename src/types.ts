@@ -132,7 +132,7 @@ export interface Credentials {
  * Result of credential verification.
  *
  * Contains the resolved auth mode, the verified token (for `"user"` mode),
- * decoded JWT claims, and the matched key name (for `"public"` / `"secret"` modes).
+ * decoded JWT claims, and the matched key name (for `"publishable"` / `"secret"` modes).
  *
  * @see {@link verifyCredentials}
  * @see {@link verifyAuth}
@@ -150,7 +150,7 @@ export interface AuthResult {
   /** Raw JWT payload, or `null` when no JWT is present. */
   jwtClaims: JWTClaims | null
 
-  /** Name of the matched key (e.g. `"default"`, `"mobile"`), or `null` for `"user"` / `"always"` modes. */
+  /** Name of the matched key (e.g. `"default"`, `"mobile"`), or `null` for `"user"` / `"none"` modes. */
   keyName?: string | null
 }
 
