@@ -134,6 +134,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
+    "@supabase/web-middleware": "https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9",
     "jose": "^6.2.0"
   }
 }
