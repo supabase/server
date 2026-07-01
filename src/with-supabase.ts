@@ -49,7 +49,7 @@ type PluginsCtx<Plugins extends readonly AnyEntry[]> =
  * ```
  */
 export function withSupabase<Database = unknown>(
-  config: WithSupabaseConfig,
+  config: WithSupabaseConfig & { plugins?: never },
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (req: Request) => Promise<Response>
 
