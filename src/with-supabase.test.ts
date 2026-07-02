@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineMiddleware } from '@supabase/web-middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { withSupabase } from './with-supabase.js'
@@ -96,6 +97,127 @@ describe('withSupabase', () => {
     const req = new Request('http://localhost')
     const res = await handler(req)
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
+  })
+
+  describe('middleware', () => {
+    it('composes middleware after the Supabase context is established', async () => {
+      const withFlag = defineMiddleware<
+        'flag',
+        void,
+        Record<never, never>,
+        boolean
+      >({
+        key: 'flag',
+        run: () => async () => ({ flag: true }),
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withFlag()] },
+        async (_req, ctx) =>
+          Response.json({ authMode: ctx.authMode, flag: ctx.flag }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(body.authMode).toBe('none')
+      expect(body.flag).toBe(true)
+    })
+
+    it('middleware receives the Supabase context at runtime', async () => {
+      let capturedHasSupabase = false
+
+      const withCapture = defineMiddleware<
+        'captured',
+        void,
+        Record<never, never>,
+        true
+      >({
+        key: 'captured',
+        run: () => async (_req, ctx) => {
+          capturedHasSupabase = !!(ctx as { supabase?: unknown }).supabase
+          return { captured: true as const }
+        },
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withCapture()] },
+        async () => Response.json({ ok: true }),
+      )
+
+      await handler(new Request('http://localhost'))
+      expect(capturedHasSupabase).toBe(true)
+    })
+
+    it('middleware can short-circuit before the handler', async () => {
+      const withBlock = defineMiddleware<
+        'blocked',
+        void,
+        Record<never, never>,
+        true
+      >({
+        key: 'blocked',
+        run: () => async () => new Response('blocked', { status: 403 }),
+      })
+
+      const innerHandler = vi.fn(async () => Response.json({ ok: true }))
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withBlock()] },
+        innerHandler,
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.status).toBe(403)
+      expect(innerHandler).not.toHaveBeenCalled()
+    })
+
+    it('middleware run in array order (first = outermost, runs first on request)', async () => {
+      const order: string[] = []
+
+      const withA = defineMiddleware<'a', void, Record<never, never>, true>({
+        key: 'a',
+        run: () => async () => {
+          order.push('a')
+          return { a: true as const }
+        },
+      })
+      const withB = defineMiddleware<'b', void, Record<never, never>, true>({
+        key: 'b',
+        run: () => async () => {
+          order.push('b')
+          return { b: true as const }
+        },
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withA(), withB()] },
+        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(order).toEqual(['a', 'b'])
+      expect(await res.json()).toEqual({ a: true, b: true })
+    })
+
+    it('CORS headers still apply when middleware are present', async () => {
+      const withNoop = defineMiddleware<
+        'noop',
+        void,
+        Record<never, never>,
+        true
+      >({
+        key: 'noop',
+        run: () => async () => ({ noop: true as const }),
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withNoop()] },
+        async () => Response.json({ ok: true }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
   })
 
   describe('allow → auth deprecation', () => {

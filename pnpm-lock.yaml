@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@supabase/web-middleware':
+        specifier: https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9
+        version: https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9
       jose:
         specifier: ^6.2.0
         version: 6.2.0
@@ -827,6 +830,11 @@ packages:
   '@supabase/supabase-js@2.106.0':
     resolution: {integrity: sha512-OOoo3sLj9iVXNp6b+fkyOfFeQrvvNy7nQbaONNf72dOaictUeS39hFDS9argIRTag6M3ZxIypNWcrDAwLgUihQ==}
     engines: {node: '>=20.0.0'}
+
+  '@supabase/web-middleware@https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9':
+    resolution: {integrity: sha512-xiwxauZor23Bbnp5XLHcamOQqS81fqX7nJHQM4yEYju6lFQuVqiNUxpws1ORdiAR4eten3HOxJTjIGVrbMr8nw==, tarball: https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9}
+    version: 0.1.0
+    engines: {node: '>=20'}
 
   '@swc/core-darwin-arm64@1.15.33':
     resolution: {integrity: sha512-N+L0uXhuO7FIfzqwgxmzv0zIpV0qEp8wPX3QQs2p4atjMoywup2JTeDlXPw+z9pWJGCae3JjM+tZ6myclI+2gA==}
@@ -3128,6 +3136,8 @@ snapshots:
       '@supabase/postgrest-js': 2.106.0
       '@supabase/realtime-js': 2.106.0
       '@supabase/storage-js': 2.106.0
+
+  '@supabase/web-middleware@https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9': {}
 
   '@swc/core-darwin-arm64@1.15.33':
     optional: true
