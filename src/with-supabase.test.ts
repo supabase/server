@@ -99,8 +99,8 @@ describe('withSupabase', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 
-  describe('plugins', () => {
-    it('composes plugins after the Supabase context is established', async () => {
+  describe('middleware', () => {
+    it('composes middleware after the Supabase context is established', async () => {
       const withFlag = defineMiddleware<
         'flag',
         void,
@@ -112,7 +112,7 @@ describe('withSupabase', () => {
       })
 
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, plugins: [withFlag()] },
+        { auth: 'none', env: baseEnv, middleware: [withFlag()] },
         async (_req, ctx) =>
           Response.json({ authMode: ctx.authMode, flag: ctx.flag }),
       )
@@ -123,7 +123,7 @@ describe('withSupabase', () => {
       expect(body.flag).toBe(true)
     })
 
-    it('plugin receives the Supabase context at runtime', async () => {
+    it('middleware receives the Supabase context at runtime', async () => {
       let capturedHasSupabase = false
 
       const withCapture = defineMiddleware<
@@ -140,7 +140,7 @@ describe('withSupabase', () => {
       })
 
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, plugins: [withCapture()] },
+        { auth: 'none', env: baseEnv, middleware: [withCapture()] },
         async () => Response.json({ ok: true }),
       )
 
@@ -148,7 +148,7 @@ describe('withSupabase', () => {
       expect(capturedHasSupabase).toBe(true)
     })
 
-    it('plugin can short-circuit before the handler', async () => {
+    it('middleware can short-circuit before the handler', async () => {
       const withBlock = defineMiddleware<
         'blocked',
         void,
@@ -162,7 +162,7 @@ describe('withSupabase', () => {
       const innerHandler = vi.fn(async () => Response.json({ ok: true }))
 
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, plugins: [withBlock()] },
+        { auth: 'none', env: baseEnv, middleware: [withBlock()] },
         innerHandler,
       )
 
@@ -171,7 +171,7 @@ describe('withSupabase', () => {
       expect(innerHandler).not.toHaveBeenCalled()
     })
 
-    it('plugins run in array order (first = outermost, runs first on request)', async () => {
+    it('middleware run in array order (first = outermost, runs first on request)', async () => {
       const order: string[] = []
 
       const withA = defineMiddleware<'a', void, Record<never, never>, true>({
@@ -190,7 +190,7 @@ describe('withSupabase', () => {
       })
 
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, plugins: [withA(), withB()] },
+        { auth: 'none', env: baseEnv, middleware: [withA(), withB()] },
         async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
       )
 
@@ -199,7 +199,7 @@ describe('withSupabase', () => {
       expect(await res.json()).toEqual({ a: true, b: true })
     })
 
-    it('CORS headers still apply when plugins are present', async () => {
+    it('CORS headers still apply when middleware are present', async () => {
       const withNoop = defineMiddleware<
         'noop',
         void,
@@ -211,7 +211,7 @@ describe('withSupabase', () => {
       })
 
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, plugins: [withNoop()] },
+        { auth: 'none', env: baseEnv, middleware: [withNoop()] },
         async () => Response.json({ ok: true }),
       )
 

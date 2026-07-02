@@ -8,17 +8,17 @@ type AnyEntry = Entry<string, object, unknown>
 type AnyHandler = (req: Request, ctx: any) => Promise<Response>
 
 /**
- * Accumulate the ctx contributions of a plugin tuple — same logic as
+ * Accumulate the ctx contributions of a middleware tuple — same logic as
  * `pipeline`'s internal `Accumulate`, seeded from `object` (no `BaseContext`
  * or `_runtime` in the visible ctx type; see implementation note below).
  */
-type PluginsCtx<Plugins extends readonly AnyEntry[]> =
-  Plugins extends readonly [
+type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
+  Entries extends readonly [
     Entry<infer Key extends string, object, infer Contribution>,
     ...infer Rest,
   ]
     ? Rest extends readonly AnyEntry[]
-      ? { [P in Key]: Contribution } & PluginsCtx<Rest>
+      ? { [P in Key]: Contribution } & MiddlewareCtx<Rest>
       : { [P in Key]: Contribution }
     : object
 
@@ -37,7 +37,7 @@ type PluginsCtx<Plugins extends readonly AnyEntry[]> =
  * ```ts
  * import { withSupabase } from '@supabase/server'
  *
- * // Without plugins — existing API, unchanged.
+ * // Without middleware — existing API, unchanged.
  * export default {
  *   fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
  *     const { data } = await ctx.supabase.rpc('get_my_profile')
@@ -47,15 +47,17 @@ type PluginsCtx<Plugins extends readonly AnyEntry[]> =
  * ```
  */
 export function withSupabase<Database = unknown>(
-  config: WithSupabaseConfig & { plugins?: never },
+  config: WithSupabaseConfig & { middleware?: never },
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (req: Request) => Promise<Response>
 
 /**
- * Variant that accepts a `plugins` array — each `withFoo(config)` call returns
- * an `Entry` from `@supabase/web-middleware`. Plugins run **after** the Supabase
- * context is established; they receive `ctx.supabase`, `ctx.userClaims`, etc.
- * already present and contribute their own typed keys on top.
+ * Variant that accepts a `middleware` array — each `withFoo(config)` call
+ * returns an `Entry` from `@supabase/web-middleware`. Middleware run **after**
+ * the Supabase context is established; they receive `ctx.supabase`,
+ * `ctx.userClaims`, etc. already present and contribute their own typed keys
+ * on top. (This is the server leg of a Plugin: the package's middleware goes
+ * here; its client namespace goes in `createClient`'s `plugins` array.)
  *
  * @example
  * ```ts
@@ -65,7 +67,7 @@ export function withSupabase<Database = unknown>(
  *
  * export default {
  *   fetch: withSupabase(
- *     { auth: 'user', plugins: [withRateLimit({ rpm: 100 }), withGuestbook()] },
+ *     { auth: 'user', middleware: [withRateLimit({ rpm: 100 }), withGuestbook()] },
  *     async (req, ctx) => {
  *       ctx.supabase      // from @supabase/server
  *       ctx.rateLimit     // from withRateLimit
@@ -76,27 +78,27 @@ export function withSupabase<Database = unknown>(
  * }
  * ```
  *
- * **Type note.** `PluginsCtx<Plugins>` accumulates the key contributions of the
- * plugins array. Plugins that declare `In` prerequisites on Supabase-provided
- * keys (`supabase`, `userClaims`, …) satisfy those at runtime (the Supabase
- * context is merged before plugins run) but not at the type level — a full
- * implementation would widen the prerequisite-validation seed to include
- * `SupabaseContext`. Ordering and collision checks within the plugins array work
- * normally via `web-middleware`'s runtime chain.
+ * **Type note.** `MiddlewareCtx<Entries>` accumulates the key contributions of
+ * the middleware array. Middleware that declare `In` prerequisites on
+ * Supabase-provided keys (`supabase`, `userClaims`, …) satisfy those at runtime
+ * (the Supabase context is merged before the middleware run) but not at the
+ * type level — a full implementation would widen the prerequisite-validation
+ * seed to include `SupabaseContext`. Ordering and collision checks within the
+ * middleware array work normally via `web-middleware`'s runtime chain.
  */
 export function withSupabase<
   Database = unknown,
-  const Plugins extends readonly AnyEntry[] = readonly AnyEntry[],
+  const Entries extends readonly AnyEntry[] = readonly AnyEntry[],
 >(
-  config: WithSupabaseConfig & { plugins: Plugins },
+  config: WithSupabaseConfig & { middleware: Entries },
   handler: (
     req: Request,
-    ctx: SupabaseContext<Database> & PluginsCtx<Plugins>,
+    ctx: SupabaseContext<Database> & MiddlewareCtx<Entries>,
   ) => Promise<Response>,
 ): (req: Request) => Promise<Response>
 
 export function withSupabase<Database = unknown>(
-  config: WithSupabaseConfig & { plugins?: readonly AnyEntry[] },
+  config: WithSupabaseConfig & { middleware?: readonly AnyEntry[] },
   handler: AnyHandler,
 ): (req: Request) => Promise<Response> {
   return async (req: Request) => {
@@ -122,11 +124,12 @@ export function withSupabase<Database = unknown>(
     }
 
     let response: Response
-    if (config.plugins?.length) {
-      // Compose plugins around the handler — same fold as pipeline's reduceRight,
-      // but without calling pipeline() so we supply the seeded ctx ourselves.
+    if (config.middleware?.length) {
+      // Compose the middleware around the handler — same fold as pipeline's
+      // reduceRight, but without calling pipeline() so we supply the seeded
+      // ctx ourselves.
       const composed = (
-        config.plugins as readonly AnyEntry[]
+        config.middleware as readonly AnyEntry[]
       ).reduceRight<AnyHandler>((h, entry) => entry(h), handler)
       // Seed _runtime so web-middleware entries recognise this as an upstream
       // context (isContext() checks for _runtime.getEnv). Falls through to
