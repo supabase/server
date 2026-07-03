@@ -20,39 +20,74 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./core": {
-      "types": "./dist/core/index.d.mts",
-      "import": "./dist/core/index.mjs",
-      "require": "./dist/core/index.cjs"
+      "import": {
+        "types": "./dist/core/index.d.mts",
+        "default": "./dist/core/index.mjs"
+      },
+      "require": {
+        "types": "./dist/core/index.d.cts",
+        "default": "./dist/core/index.cjs"
+      }
     },
     "./peer/supabase-js": {
-      "types": "./dist/peer/supabase-js/index.d.mts",
-      "import": "./dist/peer/supabase-js/index.mjs",
-      "require": "./dist/peer/supabase-js/index.cjs"
+      "import": {
+        "types": "./dist/peer/supabase-js/index.d.mts",
+        "default": "./dist/peer/supabase-js/index.mjs"
+      },
+      "require": {
+        "types": "./dist/peer/supabase-js/index.d.cts",
+        "default": "./dist/peer/supabase-js/index.cjs"
+      }
     },
     "./adapters/hono": {
-      "types": "./dist/adapters/hono/index.d.mts",
-      "import": "./dist/adapters/hono/index.mjs",
-      "require": "./dist/adapters/hono/index.cjs"
+      "import": {
+        "types": "./dist/adapters/hono/index.d.mts",
+        "default": "./dist/adapters/hono/index.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/hono/index.d.cts",
+        "default": "./dist/adapters/hono/index.cjs"
+      }
     },
     "./adapters/h3": {
-      "types": "./dist/adapters/h3/index.d.mts",
-      "import": "./dist/adapters/h3/index.mjs",
-      "require": "./dist/adapters/h3/index.cjs"
+      "import": {
+        "types": "./dist/adapters/h3/index.d.mts",
+        "default": "./dist/adapters/h3/index.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/h3/index.d.cts",
+        "default": "./dist/adapters/h3/index.cjs"
+      }
     },
     "./adapters/elysia": {
-      "types": "./dist/adapters/elysia/index.d.mts",
-      "import": "./dist/adapters/elysia/index.mjs",
-      "require": "./dist/adapters/elysia/index.cjs"
+      "import": {
+        "types": "./dist/adapters/elysia/index.d.mts",
+        "default": "./dist/adapters/elysia/index.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/elysia/index.d.cts",
+        "default": "./dist/adapters/elysia/index.cjs"
+      }
     },
     "./adapters/nestjs": {
-      "types": "./dist/adapters/nestjs/index.d.mts",
-      "import": "./dist/adapters/nestjs/index.mjs",
-      "require": "./dist/adapters/nestjs/index.cjs"
+      "import": {
+        "types": "./dist/adapters/nestjs/index.d.mts",
+        "default": "./dist/adapters/nestjs/index.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/nestjs/index.d.cts",
+        "default": "./dist/adapters/nestjs/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -70,6 +105,7 @@
   "packageManager": "pnpm@11.1.2+sha512.415a1cc25974731e75455c1468371be74c5aa5fb7621b50d4056d222451609f11412f23fd602e6169f1e060466641f798597e1be961a10688836a67b16569499",
   "scripts": {
     "build": "tsdown",
+    "check-exports": "attw --pack .",
     "dev": "tsdown --watch",
     "docs": "typedoc",
     "format": "prettier --write .",
@@ -131,7 +167,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
     "unplugin-swc": "^1.5.9",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.0",
+    "@arethetypeswrong/cli": "^0.18.4"
   },
   "dependencies": {
     "jose": "^6.2.0"
