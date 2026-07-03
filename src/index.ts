@@ -1,5 +1,6 @@
 /**
  * Server-side Supabase utilities for modern runtimes.
+ * @module
  * @packageDocumentation
  */
 

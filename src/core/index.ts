@@ -1,5 +1,6 @@
 /**
  * Composable primitives for constructing a {@link index.SupabaseContext}.
+ * @module
  * @packageDocumentation
  */
 
