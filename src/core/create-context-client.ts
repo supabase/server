@@ -14,7 +14,7 @@ import { resolveEnv } from './resolve-env.js'
  * Configured with a publishable key and (optionally) the caller's JWT,
  * so Row-Level Security policies apply. Stateless — one client per request.
  *
- * @throws {@link EnvError} If `SUPABASE_URL` is missing or the specified publishable key is not found.
+ * @throws {@link index.EnvError} If `SUPABASE_URL` is missing or the specified publishable key is not found.
  *
  * @example
  * ```ts

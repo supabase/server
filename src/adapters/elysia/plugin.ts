@@ -31,7 +31,7 @@ export class SupabaseError extends Error {
  * @param config - Auth modes and optional environment overrides. CORS is excluded — use Elysia's CORS utilities.
  * @returns An Elysia plugin that exposes `supabaseContext`.
  *
- * @example App-wide auth via `.use()`
+ * @example App-wide auth via .use()
  * ```ts
  * import { Elysia } from 'elysia'
  * import { withSupabase } from '@supabase/server/adapters/elysia'
@@ -46,7 +46,7 @@ export class SupabaseError extends Error {
  * app.listen(3000)
  * ```
  *
- * @example Per-route auth via scoped `.use()`
+ * @example Per-route auth via scoped .use()
  * ```ts
  * import { Elysia } from 'elysia'
  * import { withSupabase } from '@supabase/server/adapters/elysia'

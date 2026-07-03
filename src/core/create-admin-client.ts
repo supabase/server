@@ -14,7 +14,7 @@ import { resolveEnv } from './resolve-env.js'
  * Uses a secret key for authentication, giving full access to all data.
  * Stateless — one client per request.
  *
- * @throws {@link EnvError} If `SUPABASE_URL` is missing or the specified secret key is not found.
+ * @throws {@link index.EnvError} If `SUPABASE_URL` is missing or the specified secret key is not found.
  *
  * @example
  * ```ts

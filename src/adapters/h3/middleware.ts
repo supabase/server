@@ -13,7 +13,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * @param config - Auth modes and optional environment overrides. CORS is excluded — use H3's CORS utilities.
  * @returns An H3 middleware.
  *
- * @example App-wide auth via `app.use()`
+ * @example App-wide auth via app.use()
  * ```ts
  * import { H3 } from 'h3'
  * import { withSupabase } from '@supabase/server/adapters/h3'
@@ -29,7 +29,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * export default { fetch: app.fetch }
  * ```
  *
- * @example Per-route auth via `defineHandler`
+ * @example Per-route auth via defineHandler
  * ```ts
  * import { defineHandler } from 'h3'
  * import { withSupabase } from '@supabase/server/adapters/h3'

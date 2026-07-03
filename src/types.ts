@@ -73,10 +73,10 @@ export type AllowWithKey = AuthModeWithKey
  * Resolved Supabase environment configuration.
  *
  * Holds the project URL, API keys, and JWKS needed by every other primitive.
- * Typically resolved automatically from environment variables by {@link resolveEnv},
+ * Typically resolved automatically from environment variables by {@link core.resolveEnv},
  * but can be passed explicitly via the `env` option.
  *
- * @see {@link resolveEnv} for how each field maps to environment variables.
+ * @see {@link core.resolveEnv} for how each field maps to environment variables.
  * @category Types
  */
 export interface SupabaseEnv {
@@ -99,8 +99,8 @@ export interface SupabaseEnv {
    * JWKS source used for JWT verification.
    *
    * Sourced from one of (in priority order):
-   * - `SUPABASE_JWKS` — inline JSON. Resolves to a {@link JsonWebKeySet}.
-   * - `SUPABASE_JWKS_URL` — remote endpoint. Resolves to a {@link URL}; keys
+   * - `SUPABASE_JWKS` — inline JSON. Resolves to a `JSONWebKeySet`.
+   * - `SUPABASE_JWKS_URL` — remote endpoint. Resolves to a `URL`; keys
    *   are fetched lazily and cached in memory (cooldown / max-age handled by
    *   `jose`). `https://` is always accepted; plain `http://` is accepted
    *   only for loopback hosts (`localhost`, `127.0.0.0/8`, `::1`) to support
@@ -117,9 +117,9 @@ export interface SupabaseEnv {
 /**
  * Raw credentials extracted from an incoming HTTP request.
  *
- * Produced by {@link extractCredentials} from the `Authorization` and `apikey` headers.
+ * Produced by {@link core.extractCredentials} from the `Authorization` and `apikey` headers.
  *
- * @see {@link extractCredentials}
+ * @see {@link core.extractCredentials}
  * @category Types
  */
 export interface Credentials {
@@ -136,8 +136,8 @@ export interface Credentials {
  * Contains the resolved auth mode, the verified token (for `"user"` mode),
  * decoded JWT claims, and the matched key name (for `"publishable"` / `"secret"` modes).
  *
- * @see {@link verifyCredentials}
- * @see {@link verifyAuth}
+ * @see {@link core.verifyCredentials}
+ * @see {@link core.verifyAuth}
  * @category Types
  */
 export interface AuthResult {
@@ -301,7 +301,7 @@ export interface WithSupabaseConfig {
 /**
  * Auth identity for client creation functions.
  *
- * @see {@link verifyAuth}, {@link verifyCredentials}
+ * @see {@link core.verifyAuth}, {@link core.verifyCredentials}
  * @category Types
  */
 export interface ClientAuth {
@@ -313,7 +313,7 @@ export interface ClientAuth {
 }
 
 /**
- * Options for {@link createContextClient}.
+ * Options for {@link core.createContextClient}.
  * @category Types
  */
 export interface CreateContextClientOptions {
@@ -328,7 +328,7 @@ export interface CreateContextClientOptions {
 }
 
 /**
- * Options for {@link createAdminClient}.
+ * Options for {@link core.createAdminClient}.
  * @category Types
  */
 export interface CreateAdminClientOptions {

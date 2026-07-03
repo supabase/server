@@ -25,8 +25,9 @@ import { resolveEnv } from './resolve-env.js'
 
 /**
  * Options for {@link verifyCredentials}.
+ * @category Primitives
  */
-interface VerifyCredentialsOptions {
+export interface VerifyCredentialsOptions {
   /**
    * Auth mode(s) to try. Modes are attempted in order — the first match wins.
    *
