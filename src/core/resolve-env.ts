@@ -1,5 +1,7 @@
 import { EnvError, Errors, MissingSupabaseURLError } from '../errors.js'
-import type { JsonWebKeySet, SupabaseEnv } from '../types.js'
+import type { JSONWebKeySet } from 'jose'
+
+import type { SupabaseEnv } from '../types.js'
 
 /**
  * Reads an environment variable from the current runtime (Deno, Node.js, or Bun).
@@ -64,13 +66,13 @@ function resolveKeys(
  *
  * @internal
  */
-function parseJwks(raw: string | undefined): JsonWebKeySet | null {
+function parseJwks(raw: string | undefined): JSONWebKeySet | null {
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) return { keys: parsed }
     if (parsed?.keys && Array.isArray(parsed.keys))
-      return parsed as JsonWebKeySet
+      return parsed as JSONWebKeySet
     return null
   } catch {
     return null
@@ -124,7 +126,7 @@ function parseJwksUrl(raw: string | undefined): URL | null {
  *
  * @internal
  */
-function resolveJwks(): JsonWebKeySet | URL | null {
+function resolveJwks(): JSONWebKeySet | URL | null {
   const rawJwks = getEnvVar('SUPABASE_JWKS')
   if (rawJwks && rawJwks.trim()) {
     return parseJwks(rawJwks)
