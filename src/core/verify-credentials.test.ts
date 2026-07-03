@@ -408,7 +408,7 @@ describe('verifyCredentials', () => {
         kid: string,
       ) =>
         await new SignJWT({
-          sub: 'user-123',
+          sub: 'user-remote',
           role: 'authenticated',
           email: 'test@example.com',
         })
