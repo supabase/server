@@ -1,2 +1,2 @@
 # Global owners for the entire repository
-* @supabase/server-dx @supabase/edge-functions @supabase/admin @supabase/security
+* @supabase/server-dx @supabase/edge-functions @supabase/admin @supabase/security @supabase/sdk
