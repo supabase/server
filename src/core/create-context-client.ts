@@ -16,7 +16,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @throws {@link index.EnvError} If `SUPABASE_URL` is missing or the specified publishable key is not found.
  *
- * @example
+ * @example With verified auth
  * ```ts
  * const { data: auth } = await verifyAuth(request, { auth: 'user' })
  * const supabase = createContextClient({

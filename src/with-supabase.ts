@@ -1,4 +1,4 @@
-import { buildCorsHeaders, addCorsHeaders } from './cors.js'
+import { addCorsHeaders, buildCorsHeaders } from './cors.js'
 import { createSupabaseContext } from './create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 
@@ -15,7 +15,7 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  *
  * @category Middleware
  *
- * @example
+ * @example Basic usage
  * ```ts
  * import { withSupabase } from '@supabase/server'
  *

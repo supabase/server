@@ -1,3 +1,6 @@
+import { createAdminClient } from './core/create-admin-client.js'
+import { createContextClient } from './core/create-context-client.js'
+import { verifyAuth } from './core/verify-auth.js'
 import {
   AuthError,
   CreateSupabaseClientError,
@@ -5,9 +8,6 @@ import {
   Errors,
 } from './errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
-import { createAdminClient } from './core/create-admin-client.js'
-import { createContextClient } from './core/create-context-client.js'
-import { verifyAuth } from './core/verify-auth.js'
 
 /**
  * Creates a {@link SupabaseContext} directly from a request.
@@ -22,7 +22,7 @@ import { verifyAuth } from './core/verify-auth.js'
  *
  * @category Middleware
  *
- * @example
+ * @example User auth
  * ```ts
  * const { data: ctx, error } = await createSupabaseContext(request, { auth: 'user' })
  * if (error) {

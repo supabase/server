@@ -16,7 +16,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @throws {@link index.EnvError} If `SUPABASE_URL` is missing or the specified secret key is not found.
  *
- * @example
+ * @example Basic usage
  * ```ts
  * const supabaseAdmin = createAdminClient()
  * const { data } = await supabaseAdmin.from('audit_log').insert({ action: 'user_login' })

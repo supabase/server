@@ -13,7 +13,7 @@ import type { Credentials } from '../types.js'
  * @param request - The incoming HTTP request.
  * @returns The extracted {@link Credentials}. Fields are `null` when the corresponding header is absent.
  *
- * @example
+ * @example Basic usage
  * ```ts
  * import { extractCredentials } from '@supabase/server/core'
  *

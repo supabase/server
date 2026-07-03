@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono'
-import { HTTPException } from 'hono/http-exception'
 import { createMiddleware } from 'hono/factory'
+import { HTTPException } from 'hono/http-exception'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
@@ -14,7 +14,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * @param config - Auth modes and optional environment overrides. CORS is excluded — use Hono's `cors()`.
  * @returns A Hono middleware that sets `c.var.supabaseContext`.
  *
- * @example
+ * @example App-wide auth via app.use()
  * ```ts
  * import { Hono } from 'hono'
  * import { withSupabase } from '@supabase/server/adapters/hono'

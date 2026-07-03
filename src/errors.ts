@@ -3,7 +3,7 @@
  *
  * Always has `status: 500` — environment errors are server-side configuration issues.
  *
- * @example
+ * @example Catching an EnvError
  * ```ts
  * import { EnvError } from '@supabase/server'
  *
@@ -111,7 +111,7 @@ const EnvErrorMap = {
  * Carries an HTTP `status` code suitable for returning directly in a response
  * (typically `401` for invalid credentials, `500` for server-side auth failures).
  *
- * @example
+ * @example Catching an AuthError
  * ```ts
  * import { AuthError, createSupabaseContext } from '@supabase/server'
  *
@@ -185,7 +185,7 @@ const AuthErrorMap = {
  * Factory map for all error types. Keyed by error code constant, each entry
  * returns a pre-configured {@link EnvError} or {@link AuthError}.
  *
- * @example
+ * @example Throwing typed errors
  * ```ts
  * throw Errors[MissingSupabaseURLError]()
  * throw Errors[MissingPublishableKeyError]('mobile')

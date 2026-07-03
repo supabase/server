@@ -12,7 +12,7 @@ import type { SupabaseContext } from '../../types.js'
  * by `withSupabase()`. Pass a key (e.g. `'supabase'`, `'userClaims'`) to pull
  * a single field, or no argument to receive the whole context.
  *
- * @example
+ * @example Injecting the context into a route handler
  * ```ts
  * import { Controller, Get, UseGuards } from '@nestjs/common'
  * import { withSupabase, SupabaseCtx } from '@supabase/server/adapters/nestjs'
