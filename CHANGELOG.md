@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/supabase/server/compare/server-v1.2.0...server-v1.3.0) (2026-07-03)
+
+
+### Features
+
+* add attw type export checking to CI ([#93](https://github.com/supabase/server/issues/93)) ([e1e2b72](https://github.com/supabase/server/commit/e1e2b72e81660c787b0445dbdf69946b95324abd))
+
+
+### Bug Fixes
+
+* add ./peer/supabase-js to jsr.json exports ([#94](https://github.com/supabase/server/issues/94)) ([04276d0](https://github.com/supabase/server/commit/04276d015c8b65f50c1944a9e8407fe01f444703))
+* **test:** correct sub claim in remote JWKS token fixture and wire tests into CI ([#89](https://github.com/supabase/server/issues/89)) ([744105b](https://github.com/supabase/server/commit/744105b458e637b5211021d3e6b9de2d91da6b72))
+
 ## [1.2.0](https://github.com/supabase/server/compare/server-v1.1.0...server-v1.2.0) (2026-06-17)
 
 ### Features
