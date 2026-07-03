@@ -15,6 +15,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -121,7 +122,6 @@ jobs:
 
       - name: Publish to JSR
         if: ${{ steps.version.outputs.skip != 'true' }}
-        continue-on-error: true
         run: npx jsr@0.14.3 publish --allow-dirty
 
       - name: Create GitHub pre-release
