@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/supabase/server/compare/server-v1.3.0...server-v1.3.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* expand [@module](https://github.com/module) comment to restore rich JSR overview ([#96](https://github.com/supabase/server/issues/96)) ([a41aeeb](https://github.com/supabase/server/commit/a41aeebd59ef99ca04bd8bbed859ab046b5de61d))
+
 ## [1.3.0](https://github.com/supabase/server/compare/server-v1.2.0...server-v1.3.0) (2026-07-03)
 
 ### Features
