@@ -9,6 +9,7 @@
  * second package — `@supabase/server` becomes a single import surface.
  *
  *
+ * @module
  * @packageDocumentation
  */
 

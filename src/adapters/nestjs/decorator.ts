@@ -32,6 +32,8 @@ import type { SupabaseContext } from '../../types.js'
  *   }
  * }
  * ```
+ *
+ * @category Adapters
  */
 export const SupabaseCtx: (
   data?: keyof SupabaseContext,

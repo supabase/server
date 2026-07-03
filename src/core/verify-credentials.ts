@@ -25,8 +25,9 @@ import { resolveEnv } from './resolve-env.js'
 
 /**
  * Options for {@link verifyCredentials}.
+ * @category Primitives
  */
-interface VerifyCredentialsOptions {
+export interface VerifyCredentialsOptions {
   /**
    * Auth mode(s) to try. Modes are attempted in order — the first match wins.
    *
@@ -94,6 +95,10 @@ function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
 
 const INVALID = Symbol('invalid')
 
+/**
+ * A JWKS key resolver with an accessor for the cached key set.
+ * @category Primitives
+ */
 export type JwksResolver = JWTVerifyGetKey & {
   jwks: () => JSONWebKeySet | undefined
 }
@@ -300,6 +305,8 @@ async function tryMode(
  *   return Response.json({ message: error.message }, { status: error.status })
  * }
  * ```
+ *
+ * @category Primitives
  */
 export async function verifyCredentials(
   credentials: Credentials,

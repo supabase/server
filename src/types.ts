@@ -5,6 +5,7 @@ import type {
   SupabaseClientOptions,
 } from '@supabase/supabase-js'
 
+/** @category Types */
 export type { JSONWebKeySet }
 
 /**
@@ -26,11 +27,14 @@ export type { JSONWebKeySet }
  * // through to the next mode.
  * withSupabase({ auth: ['user', 'publishable'] }, handler)
  * ```
+ *
+ * @category Types
  */
 export type AuthMode = 'none' | 'publishable' | 'secret' | 'user'
 
 /**
  * @deprecated Use {@link AuthMode} instead. Will be removed in a future major release.
+ * @category Types
  */
 export type Allow = AuthMode
 
@@ -52,6 +56,8 @@ export type Allow = AuthMode
  * // Mix named keys with other modes
  * withSupabase({ auth: ['user', 'publishable:web_app'] }, handler)
  * ```
+ *
+ * @category Types
  */
 export type AuthModeWithKey =
   | AuthMode
@@ -60,6 +66,7 @@ export type AuthModeWithKey =
 
 /**
  * @deprecated Use {@link AuthModeWithKey} instead. Will be removed in a future major release.
+ * @category Types
  */
 export type AllowWithKey = AuthModeWithKey
 
@@ -67,10 +74,11 @@ export type AllowWithKey = AuthModeWithKey
  * Resolved Supabase environment configuration.
  *
  * Holds the project URL, API keys, and JWKS needed by every other primitive.
- * Typically resolved automatically from environment variables by {@link resolveEnv},
+ * Typically resolved automatically from environment variables by {@link core.resolveEnv},
  * but can be passed explicitly via the `env` option.
  *
- * @see {@link resolveEnv} for how each field maps to environment variables.
+ * @see {@link core.resolveEnv} for how each field maps to environment variables.
+ * @category Types
  */
 export interface SupabaseEnv {
   /** Supabase project URL (e.g. `"https://<ref>.supabase.co"`). Sourced from `SUPABASE_URL`. */
@@ -92,8 +100,8 @@ export interface SupabaseEnv {
    * JWKS source used for JWT verification.
    *
    * Sourced from one of (in priority order):
-   * - `SUPABASE_JWKS` — inline JSON. Resolves to a {@link JsonWebKeySet}.
-   * - `SUPABASE_JWKS_URL` — remote endpoint. Resolves to a {@link URL}; keys
+   * - `SUPABASE_JWKS` — inline JSON. Resolves to a `JSONWebKeySet`.
+   * - `SUPABASE_JWKS_URL` — remote endpoint. Resolves to a `URL`; keys
    *   are fetched lazily and cached in memory (cooldown / max-age handled by
    *   `jose`). `https://` is always accepted; plain `http://` is accepted
    *   only for loopback hosts (`localhost`, `127.0.0.0/8`, `::1`) to support
@@ -110,9 +118,10 @@ export interface SupabaseEnv {
 /**
  * Raw credentials extracted from an incoming HTTP request.
  *
- * Produced by {@link extractCredentials} from the `Authorization` and `apikey` headers.
+ * Produced by {@link core.extractCredentials} from the `Authorization` and `apikey` headers.
  *
- * @see {@link extractCredentials}
+ * @see {@link core.extractCredentials}
+ * @category Types
  */
 export interface Credentials {
   /** Bearer token from the `Authorization: Bearer <token>` header, or `null` if absent. */
@@ -128,8 +137,9 @@ export interface Credentials {
  * Contains the resolved auth mode, the verified token (for `"user"` mode),
  * decoded JWT claims, and the matched key name (for `"publishable"` / `"secret"` modes).
  *
- * @see {@link verifyCredentials}
- * @see {@link verifyAuth}
+ * @see {@link core.verifyCredentials}
+ * @see {@link core.verifyAuth}
+ * @category Types
  */
 export interface AuthResult {
   /** The auth mode that was successfully matched. */
@@ -154,6 +164,7 @@ export interface AuthResult {
  * This is the raw JWT payload — use {@link UserClaims} for a normalized, camelCase view.
  *
  * @see https://datatracker.ietf.org/doc/html/rfc7519#section-4.1
+ * @category Types
  */
 export interface JWTClaims {
   /** Subject — the user's unique ID. */
@@ -193,6 +204,7 @@ export interface JWTClaims {
  * Derived from {@link JWTClaims}. For the full Supabase `User` object
  * (including email confirmation status, providers, etc.), call
  * `supabase.auth.getUser()` using the context client.
+ * @category Types
  */
 export interface UserClaims {
   /** User's unique ID (same as `JWTClaims.sub`). */
@@ -230,6 +242,8 @@ export interface UserClaims {
  * // No auth required, CORS disabled
  * const config: WithSupabaseConfig = { auth: 'none', cors: false }
  * ```
+ *
+ * @category Types
  */
 export interface WithSupabaseConfig {
   /**
@@ -288,7 +302,8 @@ export interface WithSupabaseConfig {
 /**
  * Auth identity for client creation functions.
  *
- * @see {@link verifyAuth}, {@link verifyCredentials}
+ * @see {@link core.verifyAuth}, {@link core.verifyCredentials}
+ * @category Types
  */
 export interface ClientAuth {
   /** The caller's JWT, or `null` for anonymous access. */
@@ -298,7 +313,10 @@ export interface ClientAuth {
   keyName?: string | null
 }
 
-/** Options for {@link createContextClient}. */
+/**
+ * Options for {@link core.createContextClient}.
+ * @category Types
+ */
 export interface CreateContextClientOptions {
   /** Auth identity — token and key name from the verified request. */
   auth?: ClientAuth
@@ -310,7 +328,10 @@ export interface CreateContextClientOptions {
   supabaseOptions?: SupabaseClientOptions<string>
 }
 
-/** Options for {@link createAdminClient}. */
+/**
+ * Options for {@link core.createAdminClient}.
+ * @category Types
+ */
 export interface CreateAdminClientOptions {
   /** Auth identity — key name from the verified request. */
   auth?: Pick<ClientAuth, 'keyName'>
@@ -327,6 +348,7 @@ export interface CreateAdminClientOptions {
  *
  * Contains pre-configured Supabase clients and the caller's identity.
  * Identical regardless of which layer or adapter produced it.
+ * @category Types
  */
 export interface SupabaseContext<Database = unknown> {
   /** Supabase client scoped to the caller's identity. RLS policies apply. */

@@ -25,10 +25,18 @@
     "docs/auth-modes.md",
     "docs/environment-variables.md",
     "docs/error-handling.md",
-    "docs/hono-adapter.md",
     "docs/security.md",
     "docs/ssr-frameworks.md",
     "docs/typescript-generics.md"
+  ],
+  "highlightLanguages": [
+    "typescript",
+    "javascript",
+    "tsx",
+    "bash",
+    "sh",
+    "toml",
+    "json"
   ],
   "sort": ["source-order"],
   "kindSortOrder": ["Function", "Class", "Interface", "TypeAlias", "Enum"],

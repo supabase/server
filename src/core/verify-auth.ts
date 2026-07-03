@@ -5,8 +5,9 @@ import { verifyCredentials } from './verify-credentials.js'
 
 /**
  * Options for {@link verifyAuth}.
+ * @category Primitives
  */
-interface VerifyAuthOptions {
+export interface VerifyAuthOptions {
   /**
    * Auth mode(s) to try. Modes are attempted in order — the first match wins.
    *
@@ -55,6 +56,8 @@ interface VerifyAuthOptions {
  *
  * console.log(auth.userClaims!.id) // "d0f1a2b3-..."
  * ```
+ *
+ * @category Primitives
  */
 export async function verifyAuth(
   request: Request,

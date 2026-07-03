@@ -157,6 +157,8 @@ function resolveJwks(): JSONWebKeySet | URL | null {
  * // Override for tests
  * const { data: env } = resolveEnv({ url: 'http://localhost:54321' })
  * ```
+ *
+ * @category Primitives
  */
 export function resolveEnv(
   overrides?: Partial<SupabaseEnv>,

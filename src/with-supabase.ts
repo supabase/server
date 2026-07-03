@@ -13,6 +13,8 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  * @param handler - Receives the `Request` and a fully-initialized {@link SupabaseContext}.
  * @returns A `(req: Request) => Promise<Response>` fetch handler.
  *
+ * @category Middleware
+ *
  * @example
  * ```ts
  * import { withSupabase } from '@supabase/server'

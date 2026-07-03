@@ -1,6 +1,7 @@
 /**
  * H3 framework adapter for `@supabase/server`.
  *
+ * @module
  * @packageDocumentation
  */
 

@@ -1,6 +1,7 @@
 /**
  * NestJS framework adapter for `@supabase/server`.
  *
+ * @module
  * @packageDocumentation
  */
 

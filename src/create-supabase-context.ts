@@ -20,6 +20,8 @@ import { verifyAuth } from './core/verify-auth.js'
  * @param options - Auth modes, environment overrides. The `cors` option is ignored here.
  * @returns `{ data: SupabaseContext, error: null }` on success, `{ data: null, error: AuthError }` on failure.
  *
+ * @category Middleware
+ *
  * @example
  * ```ts
  * const { data: ctx, error } = await createSupabaseContext(request, { auth: 'user' })

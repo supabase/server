@@ -37,6 +37,8 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  *
  * export default { fetch: app.fetch }
  * ```
+ *
+ * @category Adapters
  */
 export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
