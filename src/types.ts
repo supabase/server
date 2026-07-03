@@ -1,7 +1,11 @@
+import type { JSONWebKeySet } from 'jose'
+
 import type {
   SupabaseClient,
   SupabaseClientOptions,
 } from '@supabase/supabase-js'
+
+export type { JSONWebKeySet }
 
 /**
  * Authentication mode that determines what credentials a request must provide.
@@ -100,17 +104,7 @@ export interface SupabaseEnv {
    * Each env var is authoritative when set: a malformed value resolves to
    * `null` rather than falling through to the other variable.
    */
-  jwks: JsonWebKeySet | URL | null
-}
-
-/**
- * A JSON Web Key Set as defined by RFC 7517.
- *
- * @see https://datatracker.ietf.org/doc/html/rfc7517
- */
-export interface JsonWebKeySet {
-  /** Array of JSON Web Keys. */
-  keys: JsonWebKey[]
+  jwks: JSONWebKeySet | URL | null
 }
 
 /**

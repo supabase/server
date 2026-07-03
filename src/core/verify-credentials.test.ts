@@ -9,7 +9,9 @@ import {
   vi,
 } from 'vitest'
 
-import type { Credentials, JsonWebKeySet, SupabaseEnv } from '../types.js'
+import type { JSONWebKeySet } from 'jose'
+
+import type { Credentials, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
 import { _resetAllowDeprecationWarned } from './utils/deprecation.js'
 import { InvalidCredentialsError } from '../errors.js'
@@ -276,7 +278,7 @@ describe('verifyCredentials', () => {
   })
 
   describe('user mode', () => {
-    let jwks: JsonWebKeySet
+    let jwks: JSONWebKeySet
     let validTokens: string[]
 
     beforeAll(async () => {
@@ -380,7 +382,7 @@ describe('verifyCredentials', () => {
   })
 
   describe('user mode with remote JWKS URL', () => {
-    let jwks: JsonWebKeySet
+    let jwks: JSONWebKeySet
     let validTokens: string[]
     let fetchMock: ReturnType<typeof vi.fn>
 
@@ -516,7 +518,7 @@ describe('verifyCredentials', () => {
       publicJwkB.alg = 'RS256'
       publicJwkB.use = 'sig'
       publicJwkB.kid = 'remote-key-b'
-      const jwksB: JsonWebKeySet = { keys: [publicJwkB] }
+      const jwksB: JSONWebKeySet = { keys: [publicJwkB] }
       const tokenB = await new SignJWT({
         sub: 'user-remote-b',
         role: 'authenticated',
@@ -628,7 +630,7 @@ describe('verifyCredentials', () => {
   })
 
   describe('invalid credential rejection (no silent fallthrough)', () => {
-    let jwks: JsonWebKeySet
+    let jwks: JSONWebKeySet
 
     beforeAll(async () => {
       const { publicKey } = await generateKeyPair('RS256')

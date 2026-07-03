@@ -15,7 +15,6 @@ import type {
   AuthModeWithKey,
   AuthResult,
   Credentials,
-  JsonWebKeySet,
   JWTClaims,
   SupabaseEnv,
   UserClaims,
@@ -111,7 +110,7 @@ let remoteJwksResolver: { url: string; resolver: JwksResolver } | undefined =
  *
  * @internal
  */
-function getJwksResolver(jwks: JsonWebKeySet | URL): JwksResolver {
+function getJwksResolver(jwks: JSONWebKeySet | URL): JwksResolver {
   if (jwks instanceof URL) {
     const url = jwks.toString()
     if (remoteJwksResolver?.url !== url) {

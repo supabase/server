@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveEnv } from './resolve-env.js'
 import { MissingSupabaseURLError } from '../errors.js'
-import type { JsonWebKeySet } from '../types.js'
+import type { JSONWebKeySet } from 'jose'
 
 describe('resolveEnv', () => {
   afterEach(() => {
@@ -244,7 +244,7 @@ describe('resolveEnv', () => {
       default: 'sb_secret_fake_default_key_val',
       internal: 'sb_secret_fake_internal_key',
     })
-    const jwks = result.data!.jwks as JsonWebKeySet
+    const jwks = result.data!.jwks as JSONWebKeySet
     expect(jwks.keys).toHaveLength(2)
     expect((jwks.keys[0] as Record<string, unknown>).kid).toBe(
       'cb770052-bdd3-4f5e-8d6f-8836046b7c93',
