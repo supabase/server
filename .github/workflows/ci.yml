@@ -29,5 +29,10 @@ jobs:
 
       - run: pnpm test
 
+      - run: pnpm build
+
+      - name: Check type exports (attw)
+        run: pnpm check-exports
+
       - name: Verify JSR packaging
         run: pnpm dlx jsr@0.14.3 publish --dry-run --allow-dirty
