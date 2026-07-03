@@ -5,6 +5,7 @@ import type {
   SupabaseClientOptions,
 } from '@supabase/supabase-js'
 
+/** @category Types */
 export type { JSONWebKeySet }
 
 /**

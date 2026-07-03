@@ -95,6 +95,10 @@ function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
 
 const INVALID = Symbol('invalid')
 
+/**
+ * A JWKS key resolver with an accessor for the cached key set.
+ * @category Primitives
+ */
 export type JwksResolver = JWTVerifyGetKey & {
   jwks: () => JSONWebKeySet | undefined
 }
