@@ -24,6 +24,8 @@ import { resolveEnv } from './resolve-env.js'
  * })
  * const { data } = await supabase.rpc('get_my_items')
  * ```
+ *
+ * @category Primitives
  */
 export function createContextClient<Database = unknown>(
   options?: CreateContextClientOptions,

@@ -4,6 +4,14 @@ import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { AuthError } from '../../errors.js'
 import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 
+/**
+ * Wraps an {@link AuthError} as an Elysia-compatible error.
+ *
+ * Discriminate in `onError` via `code === 'SupabaseError'`. The original
+ * `AuthError` is available as the typed `.cause`.
+ *
+ * @category Adapters
+ */
 export class SupabaseError extends Error {
   status: number
   declare cause: AuthError
@@ -55,6 +63,8 @@ export class SupabaseError extends Error {
  *
  * app.listen(3000)
  * ```
+ *
+ * @category Adapters
  */
 // The explicit return type below mirrors Elysia's own generic defaults, which use
 // `{}` literals — switching to `object` or `Record<string, never>` would not satisfy

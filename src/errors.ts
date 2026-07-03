@@ -16,6 +16,8 @@
  *   }
  * }
  * ```
+ *
+ * @category Errors
  */
 export class EnvError extends Error {
   /** Always `500` — environment errors are server-side issues. */
@@ -37,23 +39,41 @@ export class EnvError extends Error {
   }
 }
 
-/** Generic environment error code. */
+/**
+ * Generic environment error code.
+ * @category Errors
+ */
 export const EnvGenericError = 'ENV_ERROR'
 
-/** `SUPABASE_URL` is not set. */
+/**
+ * `SUPABASE_URL` is not set.
+ * @category Errors
+ */
 export const MissingSupabaseURLError = 'MISSING_SUPABASE_URL'
 
-/** Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS`. */
+/**
+ * Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS`.
+ * @category Errors
+ */
 export const MissingPublishableKeyError = 'MISSING_PUBLISHABLE_KEY'
 
-/** No default publishable key found. */
+/**
+ * No default publishable key found.
+ * @category Errors
+ */
 export const MissingDefaultPublishableKeyError =
   'MISSING_DEFAULT_PUBLISHABLE_KEY'
 
-/** Named secret key not found in `SUPABASE_SECRET_KEYS`. */
+/**
+ * Named secret key not found in `SUPABASE_SECRET_KEYS`.
+ * @category Errors
+ */
 export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
 
-/** No default secret key found. */
+/**
+ * No default secret key found.
+ * @category Errors
+ */
 export const MissingDefaultSecretKeyError = 'MISSING_DEFAULT_SECRET_KEY'
 
 const EnvErrorMap = {
@@ -104,6 +124,8 @@ const EnvErrorMap = {
  *   )
  * }
  * ```
+ *
+ * @category Errors
  */
 export class AuthError extends Error {
   /**
@@ -130,13 +152,22 @@ export class AuthError extends Error {
   }
 }
 
-/** Generic authentication error code. */
+/**
+ * Generic authentication error code.
+ * @category Errors
+ */
 export const AuthGenericError = 'AUTH_ERROR'
 
-/** No credential matched any allowed auth mode. */
+/**
+ * No credential matched any allowed auth mode.
+ * @category Errors
+ */
 export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
 
-/** Failed to create a Supabase client after auth succeeded. */
+/**
+ * Failed to create a Supabase client after auth succeeded.
+ * @category Errors
+ */
 export const CreateSupabaseClientError = 'CREATE_SUPABASE_CLIENT_ERROR'
 
 const AuthErrorMap = {
@@ -159,6 +190,8 @@ const AuthErrorMap = {
  * throw Errors[MissingSupabaseURLError]()
  * throw Errors[MissingPublishableKeyError]('mobile')
  * ```
+ *
+ * @category Errors
  */
 export const Errors = {
   ...EnvErrorMap,

@@ -81,6 +81,8 @@ function toWebRequest(req: NestRequestLike): Request {
  *   }
  * }
  * ```
+ *
+ * @category Adapters
  */
 export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,

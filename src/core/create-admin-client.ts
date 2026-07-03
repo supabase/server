@@ -21,6 +21,8 @@ import { resolveEnv } from './resolve-env.js'
  * const supabaseAdmin = createAdminClient()
  * const { data } = await supabaseAdmin.from('audit_log').insert({ action: 'user_login' })
  * ```
+ *
+ * @category Primitives
  */
 export function createAdminClient<Database = unknown>(
   options?: CreateAdminClientOptions,

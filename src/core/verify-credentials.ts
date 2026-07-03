@@ -300,6 +300,8 @@ async function tryMode(
  *   return Response.json({ message: error.message }, { status: error.status })
  * }
  * ```
+ *
+ * @category Primitives
  */
 export async function verifyCredentials(
   credentials: Credentials,

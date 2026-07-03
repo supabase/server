@@ -21,6 +21,8 @@ import type { Credentials } from '../types.js'
  * console.log(creds.token)  // "eyJhbGci..." or null
  * console.log(creds.apikey) // "sb-abc123-publishable-..." or null
  * ```
+ *
+ * @category Primitives
  */
 export function extractCredentials(request: Request): Credentials {
   const authHeader = request.headers.get('authorization')

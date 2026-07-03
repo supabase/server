@@ -42,6 +42,8 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  *   },
  * })
  * ```
+ *
+ * @category Adapters
  */
 export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,

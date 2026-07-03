@@ -55,6 +55,8 @@ interface VerifyAuthOptions {
  *
  * console.log(auth.userClaims!.id) // "d0f1a2b3-..."
  * ```
+ *
+ * @category Primitives
  */
 export async function verifyAuth(
   request: Request,
