@@ -42,7 +42,7 @@ export interface VerifyAuthOptions {
  *   - On success: `{ data: AuthResult, error: null }`
  *   - On failure: `{ data: null, error: AuthError }`
  *
- * @example
+ * @example User auth
  * ```ts
  * import { verifyAuth } from '@supabase/server/core'
  *

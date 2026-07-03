@@ -19,9 +19,9 @@ import type {
   SupabaseEnv,
   UserClaims,
 } from '../types.js'
+import { resolveEnv } from './resolve-env.js'
 import { resolveAuthOption } from './utils/deprecation.js'
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
-import { resolveEnv } from './resolve-env.js'
 
 /**
  * Options for {@link verifyCredentials}.
@@ -295,7 +295,7 @@ async function tryMode(
  * @param options - Allowed auth modes and optional env overrides.
  * @returns `{ data: AuthResult, error: null }` on success, `{ data: null, error: AuthError }` on failure.
  *
- * @example
+ * @example Multiple auth modes
  * ```ts
  * const credentials = extractCredentials(request)
  * const { data: auth, error } = await verifyCredentials(credentials, {

@@ -1,9 +1,8 @@
-import type { JSONWebKeySet } from 'jose'
-
 import type {
   SupabaseClient,
   SupabaseClientOptions,
 } from '@supabase/supabase-js'
+import type { JSONWebKeySet } from 'jose'
 
 /** @category Types */
 export type { JSONWebKeySet }
@@ -16,7 +15,7 @@ export type { JSONWebKeySet }
  * - `"secret"` — Requires a valid secret key in the `apikey` header (timing-safe comparison).
  * - `"user"` — Requires a valid JWT in the `Authorization: Bearer <token>` header.
  *
- * @example
+ * @example Single mode
  * ```ts
  * // Single mode
  * withSupabase({ auth: 'user' }, handler)
@@ -45,7 +44,7 @@ export type Allow = AuthMode
  * from the `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS` JSON object.
  * Use `"publishable:*"` or `"secret:*"` to accept any key in the set.
  *
- * @example
+ * @example Named key
  * ```ts
  * // Accept only the "mobile" publishable key
  * withSupabase({ auth: 'publishable:mobile' }, handler)
@@ -228,7 +227,7 @@ export interface UserClaims {
  *
  * Controls which auth modes are accepted, environment overrides, and CORS behavior.
  *
- * @example
+ * @example Basic usage
  * ```ts
  * // Require authenticated users, auto-CORS enabled (default)
  * const config: WithSupabaseConfig = { auth: 'user' }
@@ -288,7 +287,7 @@ export interface WithSupabaseConfig {
    * `accessToken` is stripped, and auth settings (`persistSession`, `autoRefreshToken`,
    * `detectSessionInUrl`) are force-overwritten to server-safe values.
    *
-   * @example
+   * @example Custom Supabase options
    * ```ts
    * withSupabase({
    *   auth: 'user',

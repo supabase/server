@@ -1,6 +1,6 @@
-import { EnvError, Errors, MissingSupabaseURLError } from '../errors.js'
 import type { JSONWebKeySet } from 'jose'
 
+import { EnvError, Errors, MissingSupabaseURLError } from '../errors.js'
 import type { SupabaseEnv } from '../types.js'
 
 /**
@@ -149,7 +149,7 @@ function resolveJwks(): JSONWebKeySet | URL | null {
  * @param overrides - Partial values that take precedence over env vars.
  * @returns `{ data: SupabaseEnv, error: null }` on success, `{ data: null, error: EnvError }` on failure.
  *
- * @example
+ * @example Reading and overriding env vars
  * ```ts
  * const { data: env, error } = resolveEnv()
  * if (error) throw error
