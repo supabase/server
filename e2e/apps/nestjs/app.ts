@@ -3,7 +3,15 @@
 // Unlike the supertest-driven integration tests, this listens on a real port.
 import 'reflect-metadata'
 
-import { Body, Controller, Get, Module, Post, UseGuards } from '@nestjs/common'
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Module,
+  Post,
+  UseGuards,
+} from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 
 import {
@@ -47,7 +55,8 @@ class AppController {
   @Post('notes')
   @UseGuards(UserGuard)
   create(@Body() dto: { body?: string }, @SupabaseCtx() ctx: SupabaseContext) {
-    return insertNote(ctx.supabaseAdmin, ctx.userClaims!.id, dto.body ?? '')
+    if (!dto?.body) throw new BadRequestException('body required')
+    return insertNote(ctx.supabaseAdmin, ctx.userClaims!.id, dto.body)
   }
 }
 

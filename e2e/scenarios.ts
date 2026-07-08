@@ -79,6 +79,15 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
       expect(created.body).toBe(noteBody)
     })
 
+    it('POST /notes without a body → 400', async () => {
+      const res = await fetch(`${baseUrl}/notes`, {
+        method: 'POST',
+        headers: { ...bearer(user1), 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      expect(res.status).toBe(400)
+    })
+
     it('GET /notes returns the created row', async () => {
       const res = await fetch(`${baseUrl}/notes`, { headers: bearer(user1) })
       expect(res.status).toBe(200)
