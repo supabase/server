@@ -109,12 +109,15 @@
     "dev": "tsdown --watch",
     "docs": "typedoc",
     "format": "prettier --write .",
+    "gen:env": "bash e2e/scripts/gen-env.sh",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "prepare": "simple-git-hooks",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs"
+    "test": "vitest run --project unit --project nestjs",
+    "test:e2e": "vitest run --project e2e",
+    "test:watch": "vitest --project unit --project nestjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs",
+    "typecheck:e2e": "tsc --noEmit -p e2e"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm pretty-quick --staged",
@@ -123,9 +126,9 @@
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@supabase/supabase-js": "^2.0.0",
+    "elysia": "^1.4.0",
     "h3": "^2.0.0",
-    "hono": "^4.0.0",
-    "elysia": "^1.4.0"
+    "hono": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
@@ -142,6 +145,7 @@
     }
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.4",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@nestjs/common": "^11.1.19",
@@ -151,9 +155,10 @@
     "@nestjs/testing": "^11.1.19",
     "@supabase/supabase-js": "^2.105.4",
     "@swc/core": "^1.15.33",
+    "@types/node": "^26.0.1",
     "@types/supertest": "^7.2.0",
-    "eslint": "^10.0.2",
     "elysia": "^1.4.0",
+    "eslint": "^10.0.2",
     "h3": "2.0.1-rc.20",
     "hono": "^4.12.5",
     "prettier": "3.8.1",
@@ -161,14 +166,14 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "simple-git-hooks": "^2.13.1",
+    "srvx": "^0.11.18",
     "supertest": "^7.2.2",
     "tsdown": "^0.20.3",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
     "unplugin-swc": "^1.5.9",
-    "vitest": "^4.1.0",
-    "@arethetypeswrong/cli": "^0.18.4"
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "jose": "^6.2.0"

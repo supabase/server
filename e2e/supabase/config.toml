@@ -1,0 +1,48 @@
+# Local Supabase stack for the E2E suite. Ports are offset from the CLI
+# defaults (54321…) so this stack can run alongside other local projects.
+project_id = "supabase-server-e2e"
+
+[api]
+enabled = true
+port = 54331
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54332
+shadow_port = 54330
+major_version = 17
+
+[db.seed]
+enabled = false
+
+# Only the API gateway, database, and auth are needed — everything else is
+# disabled to keep `supabase start` fast in CI.
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[auth]
+enabled = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Test users are created via signUp at test time; confirmations would require
+# an email round-trip.
+enable_confirmations = false
