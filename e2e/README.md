@@ -8,7 +8,12 @@ Unlike the unit/integration tests (mocked env, `jwks: null`), this suite:
 
 - imports the library from `dist/`, not `src/`, so packaging regressions fail here
 - reads config from `process.env` via `resolveEnv()` — no mocked env objects
-- verifies JWTs against the local stack's live JWKS endpoint
+- verifies JWTs against the local stack's live JWKS endpoint — including
+  rejecting a forged token (real `kid`, wrong signing key), so signature
+  verification itself is exercised, not just structure checks
+- covers both context clients: `supabaseAdmin` (app-layer scoping) and the
+  user-scoped `supabase` client, where the caller's JWT travels to PostgREST
+  and a Postgres RLS policy scopes the rows
 - runs each adapter app on a real HTTP server and asserts over `fetch`
 
 ## Running locally
@@ -27,7 +32,8 @@ Run a single adapter with `pnpm test:e2e h3`.
 - `supabase/` — local stack config + `notes` table migration
 - `apps/<adapter>/app.ts` — minimal app per adapter, identical route surface:
   `GET /health` (public), `GET /me` (user), `GET /me-optional` (user or none),
-  `GET|POST /notes` (user, admin client scoped by `userClaims.id`)
+  `GET|POST /notes` (user, admin client scoped by `userClaims.id`),
+  `GET /my-notes` (user, RLS-scoped client — no WHERE clause)
 - `scenarios.ts` — the single scenario set run against every adapter
 - `setup/global-setup.ts` — checks the stack is up, signs in two test users,
   provides their tokens to the tests

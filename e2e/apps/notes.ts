@@ -24,6 +24,21 @@ export async function insertNote(
   return data as NoteRow
 }
 
+/**
+ * Lists notes through the user-scoped client — no WHERE clause. The caller's
+ * JWT travels to PostgREST and the RLS policy alone scopes the rows.
+ */
+export async function listOwnNotes(
+  supabase: SupabaseClient,
+): Promise<NoteRow[]> {
+  const { data, error } = await supabase
+    .from('notes')
+    .select(COLUMNS)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(`list own notes failed: ${error.message}`)
+  return data as unknown as NoteRow[]
+}
+
 /** Lists only the calling user's notes. */
 export async function listNotes(
   supabaseAdmin: SupabaseClient,

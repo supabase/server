@@ -12,6 +12,13 @@ alter table public.notes enable row level security;
 
 -- Newer Supabase stacks make new tables private by default: the API roles
 -- (anon / authenticated / service_role) get no DML privileges, so access
--- must be granted explicitly. The e2e apps only touch this table through
--- the admin client (service_role).
+-- must be granted explicitly.
 grant select, insert on public.notes to service_role;
+
+-- User-scoped read path for the ctx.supabase (RLS) scenarios: authenticated
+-- callers may read only their own rows — enforced by Postgres, not the app.
+grant select on public.notes to authenticated;
+
+create policy "users can read their own notes"
+  on public.notes for select to authenticated
+  using ((select auth.uid()) = user_id);

@@ -4,7 +4,7 @@ import { H3, defineHandler } from 'h3'
 
 import { withSupabase } from '../../../dist/adapters/h3/index.mjs'
 import type { SupabaseContext } from '../../../dist/index.mjs'
-import { insertNote, listNotes } from '../notes.ts'
+import { insertNote, listNotes, listOwnNotes } from '../notes.ts'
 import { startFetchServer } from '../../setup/serve.ts'
 
 declare module 'h3' {
@@ -48,6 +48,15 @@ app.get(
       const { supabaseAdmin, userClaims } = event.context.supabaseContext
       return listNotes(supabaseAdmin, userClaims!.id)
     },
+  }),
+)
+
+// User-scoped client: RLS does the scoping, no WHERE clause.
+app.get(
+  '/my-notes',
+  defineHandler({
+    middleware: [requireUser],
+    handler: (event) => listOwnNotes(event.context.supabaseContext.supabase),
   }),
 )
 

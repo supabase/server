@@ -16,6 +16,7 @@ function bearer(user: TestUser): Record<string, string> {
 
 export function runAdapterScenarios(adapter: string, baseUrl: string): void {
   const { user1, user2 } = inject('e2eUsers')
+  const forgedToken = inject('forgedToken')
 
   describe(`${adapter}: auth`, () => {
     it('GET /health is public', async () => {
@@ -36,6 +37,15 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
       expect(res.status).toBe(401)
     })
 
+    it('GET /me with a well-formed JWT signed by the wrong key → 401', async () => {
+      // Same alg and kid as the live JWKS, wrong signing key — this must
+      // fail at signature verification, not at structure checks.
+      const res = await fetch(`${baseUrl}/me`, {
+        headers: { Authorization: `Bearer ${forgedToken}` },
+      })
+      expect(res.status).toBe(401)
+    })
+
     it('GET /me with a valid token → 200 with the caller identity', async () => {
       const res = await fetch(`${baseUrl}/me`, { headers: bearer(user1) })
       expect(res.status).toBe(200)
@@ -50,6 +60,15 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
       expect(res.status).toBe(200)
       const { userClaims } = (await res.json()) as ClaimsResponse
       expect(userClaims).toBeNull()
+    })
+
+    it('GET /me-optional with an invalid token → 401, not anonymous', async () => {
+      // A present-but-invalid token must be rejected, never silently
+      // downgraded to the 'none' mode.
+      const res = await fetch(`${baseUrl}/me-optional`, {
+        headers: { Authorization: 'Bearer not-a-real-jwt' },
+      })
+      expect(res.status).toBe(401)
     })
 
     it('GET /me-optional with a valid token → 200 with claims', async () => {
@@ -98,6 +117,22 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
 
     it('GET /notes as a different user cannot see them', async () => {
       const res = await fetch(`${baseUrl}/notes`, { headers: bearer(user2) })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual([])
+    })
+
+    it('GET /my-notes scopes rows via RLS through the user client', async () => {
+      // The route has no WHERE clause — the caller's JWT reaches PostgREST
+      // through ctx.supabase and the RLS policy alone scopes the rows.
+      const res = await fetch(`${baseUrl}/my-notes`, { headers: bearer(user1) })
+      expect(res.status).toBe(200)
+      const rows = (await res.json()) as NoteRow[]
+      expect(rows.some((row) => row.id === created.id)).toBe(true)
+      expect(rows.every((row) => row.user_id === user1.id)).toBe(true)
+    })
+
+    it('GET /my-notes as a different user is empty via RLS', async () => {
+      const res = await fetch(`${baseUrl}/my-notes`, { headers: bearer(user2) })
       expect(res.status).toBe(200)
       expect(await res.json()).toEqual([])
     })
