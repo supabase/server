@@ -101,6 +101,26 @@ app.get('/todos', async (c) => {
 })
 ```
 
+Alternatively, skip the `Env` type and thread `Database` through the `withSupabase<Database>()` generic when using chained declarations. Hono infers the `supabaseContext` variable type from the middleware, so `c.var.supabaseContext.supabase` is still a fully typed `SupabaseClient<Database>`. This plays a little nicer with hono [sub-application routes](https://hono.dev/docs/helpers/route#working-with-sub-applications).
+
+```ts
+import { Hono } from 'hono'
+import { withSupabase } from '@supabase/server/adapters/hono'
+import type { Database } from './database.types.ts'
+
+const app = new Hono()
+
+const todosApp = new Hono()
+  .use(withSupabase<Database>({ auth: 'user' }))
+  .get('/', async (c) => {
+    const { supabase } = c.var.supabaseContext
+    const { data } = await supabase.from('todos').select('id, title')
+    return c.json(data)
+  })
+
+app.route('/todos', todosApp)
+```
+
 ## Custom schema
 
 If your tables are in a schema other than `public`, pass it via `supabaseOptions`:

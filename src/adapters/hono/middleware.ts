@@ -40,11 +40,13 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  *
  * @category Adapters
  */
-export function withSupabase(
+export function withSupabase<Database = unknown>(
   config?: Omit<WithSupabaseConfig, 'cors'>,
-): MiddlewareHandler<{ Variables: { supabaseContext: SupabaseContext } }> {
+): MiddlewareHandler<{
+  Variables: { supabaseContext: SupabaseContext<Database> }
+}> {
   return createMiddleware<{
-    Variables: { supabaseContext: SupabaseContext }
+    Variables: { supabaseContext: SupabaseContext<Database> }
   }>(async (c, next) => {
     // Skip if a previous middleware already set the context.
     // This enables route-level overrides: a route can use withSupabase({ auth: 'secret' })
@@ -55,7 +57,10 @@ export function withSupabase(
       return
     }
 
-    const { data: ctx, error } = await createSupabaseContext(c.req.raw, config)
+    const { data: ctx, error } = await createSupabaseContext<Database>(
+      c.req.raw,
+      config,
+    )
     if (error) {
       throw new HTTPException(error.status as 401 | 500, {
         message: error.message,

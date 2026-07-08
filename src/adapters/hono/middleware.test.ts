@@ -69,6 +69,22 @@ describe('hono supabase middleware', () => {
     expect(res.status).toBe(200)
   })
 
+  it('uses the Hono adapter to type the Supabase context', async () => {
+    // match docs example in typescript-generics.md
+    const app = new Hono()
+    const rootApp = new Hono()
+      .use(withSupabase<Database>({ auth: 'none', env }))
+      .get('/', (c) => {
+        const ctx = c.var.supabaseContext
+        expectTypeOf(ctx).toEqualTypeOf<SupabaseContext<Database>>()
+        return c.json({ authMode: ctx.authMode })
+      })
+    app.route('/', rootApp)
+
+    const res = await app.request('/')
+    expect(res.status).toBe(200)
+  })
+
   it('throws HTTPException on auth failure', async () => {
     const app = new Hono()
     app.use('*', withSupabase({ auth: 'user', env }))
