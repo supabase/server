@@ -71,6 +71,11 @@ export interface WithPostgresConfig {
  * Standalone (no `withSupabase`), pair it with `withClaims` so `ctx.jwtClaims`
  * is present before it runs.
  *
+ * > **Table grants.** Queries run as `authenticated` or `anon`, so those
+ * > roles need explicit table privileges (e.g. `grant select, insert on
+ * > <table> to authenticated`) in addition to RLS policies. A missing grant
+ * > fails with `permission denied` (SQLSTATE 42501) before RLS is consulted.
+ *
  * > **Runtime note.** `pg` needs raw TCP, so this runs on Node/Deno (including
  * > the Supabase Edge runtime), **not** on Workers-style isolates.
  *
@@ -114,6 +119,10 @@ export const withPostgres = defineMiddleware<
           return res.rows as T[]
         } catch (e) {
           await client.query('rollback')
+          // 42501 insufficient_privilege: the role lacks table grants.
+          if (e instanceof Error && (e as { code?: string }).code === '42501') {
+            e.message += ` (RLS-scoped queries run as the caller's role '${role}' — grant that role the table privileges it needs, e.g. "grant select on <table> to ${role}")`
+          }
           throw e
         } finally {
           client.release()
