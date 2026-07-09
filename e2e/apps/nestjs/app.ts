@@ -19,7 +19,7 @@ import {
   withSupabase,
 } from '../../../dist/adapters/nestjs/index.mjs'
 import type { SupabaseContext } from '../../../dist/index.mjs'
-import { insertNote, listNotes, listOwnNotes } from '../notes.ts'
+import { insertNote, listAllNotes, listNotes, listOwnNotes } from '../notes.ts'
 
 const UserGuard = withSupabase({ auth: 'user' })
 const OptionalUserGuard = withSupabase({ auth: ['user', 'none'] })
@@ -56,6 +56,13 @@ class AppController {
   @UseGuards(UserGuard)
   listOwn(@SupabaseCtx() ctx: SupabaseContext) {
     return listOwnNotes(ctx.supabase)
+  }
+
+  // Admin client, no filter: sees every user's rows regardless of caller.
+  @Get('all-notes')
+  @UseGuards(UserGuard)
+  listAll(@SupabaseCtx() ctx: SupabaseContext) {
+    return listAllNotes(ctx.supabaseAdmin)
   }
 
   // Nest's default status for POST is already 201.

@@ -25,6 +25,21 @@ export async function insertNote(
 }
 
 /**
+ * Lists ALL notes through the admin client — every user's rows. Proves the
+ * admin client is not scoped to the caller's identity and bypasses RLS.
+ */
+export async function listAllNotes(
+  supabaseAdmin: SupabaseClient,
+): Promise<NoteRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from('notes')
+    .select(COLUMNS)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(`list all notes failed: ${error.message}`)
+  return data as unknown as NoteRow[]
+}
+
+/**
  * Lists notes through the user-scoped client — no WHERE clause. The caller's
  * JWT travels to PostgREST and the RLS policy alone scopes the rows.
  */

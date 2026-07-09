@@ -29,11 +29,9 @@ export async function signInTestUser(
     auth: { persistSession: false },
   })
 
-  let { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  if (error) {
+  let result = await supabase.auth.signInWithPassword({ email, password })
+  if (result.error) {
+    // First run: the user doesn't exist yet — create it, then sign in again.
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -43,12 +41,10 @@ export async function signInTestUser(
         `could not create test user ${email}: ${signUpError.message}`,
       )
     }
-    ;({ data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    }))
+    result = await supabase.auth.signInWithPassword({ email, password })
   }
 
+  const { data, error } = result
   if (error || !data.session || !data.user) {
     throw new Error(
       `could not sign in test user ${email}: ${error?.message ?? 'no session returned'}`,

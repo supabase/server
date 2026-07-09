@@ -121,6 +121,18 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
       expect(await res.json()).toEqual([])
     })
 
+    it('GET /all-notes via the admin client sees other users rows', async () => {
+      // user2's request reads through supabaseAdmin with no filter — user1's
+      // row must be visible, proving the admin client is not scoped to the
+      // caller's identity and bypasses RLS.
+      const res = await fetch(`${baseUrl}/all-notes`, {
+        headers: bearer(user2),
+      })
+      expect(res.status).toBe(200)
+      const rows = (await res.json()) as NoteRow[]
+      expect(rows.some((row) => row.id === created.id)).toBe(true)
+    })
+
     it('GET /my-notes scopes rows via RLS through the user client', async () => {
       // The route has no WHERE clause — the caller's JWT reaches PostgREST
       // through ctx.supabase and the RLS policy alone scopes the rows.

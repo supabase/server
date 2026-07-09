@@ -4,7 +4,7 @@ import { H3, defineHandler } from 'h3'
 
 import { withSupabase } from '../../../dist/adapters/h3/index.mjs'
 import type { SupabaseContext } from '../../../dist/index.mjs'
-import { insertNote, listNotes, listOwnNotes } from '../notes.ts'
+import { insertNote, listAllNotes, listNotes, listOwnNotes } from '../notes.ts'
 import { startFetchServer } from '../../setup/serve.ts'
 
 declare module 'h3' {
@@ -57,6 +57,16 @@ app.get(
   defineHandler({
     middleware: [requireUser],
     handler: (event) => listOwnNotes(event.context.supabaseContext.supabase),
+  }),
+)
+
+// Admin client, no filter: sees every user's rows regardless of caller.
+app.get(
+  '/all-notes',
+  defineHandler({
+    middleware: [requireUser],
+    handler: (event) =>
+      listAllNotes(event.context.supabaseContext.supabaseAdmin),
   }),
 )
 

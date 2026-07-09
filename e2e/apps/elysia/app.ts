@@ -6,7 +6,7 @@
 import { Elysia } from 'elysia'
 
 import { withSupabase } from '../../../dist/adapters/elysia/index.mjs'
-import { insertNote, listNotes, listOwnNotes } from '../notes.ts'
+import { insertNote, listAllNotes, listNotes, listOwnNotes } from '../notes.ts'
 import { startFetchServer } from '../../setup/serve.ts'
 
 const app = new Elysia()
@@ -31,6 +31,10 @@ const app = new Elysia()
       // User-scoped client: RLS does the scoping, no WHERE clause.
       .get('/my-notes', ({ supabaseContext }) =>
         listOwnNotes(supabaseContext.supabase),
+      )
+      // Admin client, no filter: sees every user's rows regardless of caller.
+      .get('/all-notes', ({ supabaseContext }) =>
+        listAllNotes(supabaseContext.supabaseAdmin),
       )
       .post('/notes', async ({ supabaseContext, body, set }) => {
         const { supabaseAdmin, userClaims } = supabaseContext

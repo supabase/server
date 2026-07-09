@@ -2,7 +2,8 @@
 
 End-to-end coverage for `@supabase/server`: real GoTrue-issued JWTs, real JWKS
 validation over HTTP, real Supabase client operations — across all four
-adapters (Hono, H3, Elysia, NestJS).
+adapters (Hono, H3, Elysia, NestJS) plus the core `withSupabase` fetch
+wrapper, the programming model Supabase Edge Functions use.
 
 Unlike the unit/integration tests (mocked env, `jwks: null`), this suite:
 
@@ -33,7 +34,12 @@ Run a single adapter with `pnpm test:e2e h3`.
 - `apps/<adapter>/app.ts` — minimal app per adapter, identical route surface:
   `GET /health` (public), `GET /me` (user), `GET /me-optional` (user or none),
   `GET|POST /notes` (user, admin client scoped by `userClaims.id`),
-  `GET /my-notes` (user, RLS-scoped client — no WHERE clause)
+  `GET /my-notes` (user, RLS-scoped client — no WHERE clause),
+  `GET /all-notes` (user, admin client with no filter — proves the admin
+  client is not scoped to the caller)
+- `apps/core/app.ts` — same surface on the core `withSupabase(config, handler)`
+  fetch wrapper (no adapter) — what an Edge Function deploys. A real Deno
+  `supabase functions serve` e2e is tracked as a follow-up issue.
 - `scenarios.ts` — the single scenario set run against every adapter
 - `setup/global-setup.ts` — checks the stack is up, signs in two test users,
   provides their tokens to the tests
