@@ -70,6 +70,30 @@ Format all code using Prettier:
 pnpm format
 ```
 
+## Testing
+
+Run the unit and integration tests (no external dependencies needed):
+
+```bash
+pnpm test
+```
+
+### End-to-end tests
+
+The E2E suite (`e2e/`) runs real JWT issuance, real JWKS validation, and real
+Supabase client operations against a local Supabase stack, across all four
+adapters. It imports the library from `dist/`, so build first:
+
+```bash
+pnpm build
+cd e2e && supabase start && cd ..   # requires Docker
+pnpm gen:env
+pnpm test:e2e
+```
+
+See [`e2e/README.md`](e2e/README.md) for details. CI runs this suite in a
+separate workflow (`.github/workflows/e2e.yml`).
+
 ## Submitting Changes
 
 ### Commit Messages
