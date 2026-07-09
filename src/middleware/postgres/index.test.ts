@@ -120,4 +120,45 @@ describe('withPostgres', () => {
     expect(h.issued).toContain('rollback')
     expect(h.release).toHaveBeenCalled()
   })
+
+  it('appends a grants hint to permission-denied (42501) errors', async () => {
+    // begin, set_config, set role succeed; the user query hits missing grants.
+    h.clientQuery
+      .mockImplementationOnce(async (t: string) => {
+        h.issued.push(t)
+        return { rows: [] }
+      })
+      .mockImplementationOnce(async (t: string) => {
+        h.issued.push(t)
+        return { rows: [] }
+      })
+      .mockImplementationOnce(async (t: string) => {
+        h.issued.push(t)
+        return { rows: [] }
+      })
+      .mockImplementationOnce(async () => {
+        const err = new Error('permission denied for table notes') as Error & {
+          code: string
+        }
+        err.code = '42501'
+        throw err
+      })
+
+    const handler = withPostgres(async (_req, ctx) => {
+      await ctx.postgres.query('select * from notes')
+      return Response.json({ ok: true })
+    })
+
+    await expect(
+      handler(new Request('http://localhost'), {
+        _runtime: runtime,
+        jwtClaims: { role: 'authenticated' },
+      }),
+    ).rejects.toThrow(
+      /permission denied for table notes \(RLS-scoped queries run as the caller's role 'authenticated'/,
+    )
+
+    expect(h.issued).toContain('rollback')
+    expect(h.release).toHaveBeenCalled()
+  })
 })
