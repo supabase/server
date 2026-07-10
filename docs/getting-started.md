@@ -136,10 +136,10 @@ withSupabase(
 )
 
 // Disable CORS (e.g., when a framework handles it)
-withSupabase({ auth: 'user', cors: 'none' }, handler)
+withSupabase({ auth: 'user', cors: 'disabled' }, handler)
 ```
 
-`cors` accepts `'default'` (standard supabase-js headers), `'none'` (disabled), or
+`cors` accepts `'default'` (standard supabase-js headers), `'disabled'`, or
 `{ headers }` for custom headers. The boolean (`true`/`false`) and bare
 `Record<string, string>` forms are deprecated but still accepted.
 

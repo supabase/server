@@ -15,8 +15,8 @@ describe('buildCorsHeaders', () => {
     expect(headers['Access-Control-Allow-Origin']).toBe('*')
   })
 
-  it("returns empty object when config is 'none'", () => {
-    expect(buildCorsHeaders('none')).toEqual({})
+  it("returns empty object when config is 'disabled'", () => {
+    expect(buildCorsHeaders('disabled')).toEqual({})
   })
 
   it('returns the inner headers from the { headers } shape', () => {
@@ -49,8 +49,8 @@ describe('buildCorsHeaders', () => {
 })
 
 describe('isCorsDisabled', () => {
-  it("is true for 'none' and the deprecated false", () => {
-    expect(isCorsDisabled('none')).toBe(true)
+  it("is true for 'disabled' and the deprecated false", () => {
+    expect(isCorsDisabled('disabled')).toBe(true)
     expect(isCorsDisabled(false)).toBe(true)
   })
 
@@ -70,9 +70,9 @@ describe('addCorsHeaders', () => {
     expect(result.headers.get('Access-Control-Allow-Origin')).toBe('*')
   })
 
-  it("returns response unchanged when config is 'none'", () => {
+  it("returns response unchanged when config is 'disabled'", () => {
     const response = new Response('ok')
-    const result = addCorsHeaders(response, 'none')
+    const result = addCorsHeaders(response, 'disabled')
     expect(result.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 

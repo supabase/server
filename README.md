@@ -236,14 +236,14 @@ interface SupabaseContext {
 withSupabase(
   {
     auth: 'user', // who can call this function
-    cors: 'none', // disable CORS (default: supabase-js CORS headers)
+    cors: 'disabled', // disable CORS (default: supabase-js CORS headers)
     env: { url: '...' }, // env overrides (optional)
   },
   handler,
 )
 ```
 
-`cors` accepts `'default'` (the standard [supabase-js CORS headers](https://supabase.com/docs/guides/functions/cors), also the default), `'none'` to disable CORS handling (e.g. when using a framework that handles CORS separately), or `{ headers }` to set custom headers. The boolean (`true`/`false`) and bare `Record<string, string>` forms are deprecated but still accepted.
+`cors` accepts `'default'` (the standard [supabase-js CORS headers](https://supabase.com/docs/guides/functions/cors), also the default), `'disabled'` to disable CORS handling (e.g. when using a framework that handles CORS separately), or `{ headers }` to set custom headers. The boolean (`true`/`false`) and bare `Record<string, string>` forms are deprecated but still accepted.
 
 ```ts
 withSupabase(

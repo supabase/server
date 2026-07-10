@@ -99,9 +99,9 @@ describe('withSupabase', () => {
   })
 
   describe('explicit cors shape', () => {
-    it("skips OPTIONS handling when cors is 'none'", async () => {
+    it("skips OPTIONS handling when cors is 'disabled'", async () => {
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, cors: 'none' },
+        { auth: 'none', env: baseEnv, cors: 'disabled' },
         async () => Response.json({ ok: true }),
       )
 
@@ -111,9 +111,9 @@ describe('withSupabase', () => {
       expect(res.status).toBe(200)
     })
 
-    it("does not add CORS headers when cors is 'none'", async () => {
+    it("does not add CORS headers when cors is 'disabled'", async () => {
       const handler = withSupabase(
-        { auth: 'none', env: baseEnv, cors: 'none' },
+        { auth: 'none', env: baseEnv, cors: 'disabled' },
         async () => Response.json({ ok: true }),
       )
 

@@ -4,7 +4,7 @@ import { corsHeaders as defaultCorsHeaders } from '@supabase/supabase-js/cors'
  * CORS configuration for {@link withSupabase}.
  *
  * - `'default'` — uses `@supabase/supabase-js` default CORS headers.
- * - `'none'` — disables CORS handling entirely.
+ * - `'disabled'` — disables CORS handling entirely.
  * - `{ headers }` — custom CORS headers to use.
  *
  * The boolean (`true`/`false`) and bare `Record<string, string>` forms are
@@ -14,9 +14,9 @@ import { corsHeaders as defaultCorsHeaders } from '@supabase/supabase-js/cors'
  */
 type CorsConfig =
   | 'default'
-  | 'none'
+  | 'disabled'
   | { headers: Record<string, string> }
-  /** @deprecated Use `'default'` | `'none'` | `{ headers }` instead. */
+  /** @deprecated Use `'default'` | `'disabled'` | `{ headers }` instead. */
   | boolean
   /** @deprecated Use `{ headers }` instead. */
   | Record<string, string>
@@ -25,12 +25,12 @@ type CorsConfig =
  * Whether the given CORS configuration disables CORS handling.
  *
  * @param config - The CORS configuration.
- * @returns `true` for `'none'` or the deprecated `false`, otherwise `false`.
+ * @returns `true` for `'disabled'` or the deprecated `false`, otherwise `false`.
  *
  * @internal
  */
 export function isCorsDisabled(config?: CorsConfig): boolean {
-  return config === false || config === 'none'
+  return config === false || config === 'disabled'
 }
 
 /**
@@ -57,7 +57,7 @@ export function buildCorsHeaders(config?: CorsConfig): Record<string, string> {
  * Returns a new `Response` with CORS headers appended.
  *
  * Creates a clone of the original response and sets each CORS header on it.
- * If CORS is disabled (`'none'` or the deprecated `false`), returns the original response unchanged.
+ * If CORS is disabled (`'disabled'` or the deprecated `false`), returns the original response unchanged.
  *
  * @param response - The original response to augment.
  * @param config - The CORS configuration.

@@ -239,7 +239,7 @@ export interface UserClaims {
  * }
  *
  * // No auth required, CORS disabled
- * const config: WithSupabaseConfig = { auth: 'none', cors: 'none' }
+ * const config: WithSupabaseConfig = { auth: 'none', cors: 'disabled' }
  * ```
  *
  * @category Types
@@ -271,7 +271,7 @@ export interface WithSupabaseConfig {
    * CORS configuration for the `withSupabase` wrapper.
    *
    * - `'default'` — uses `@supabase/supabase-js` default CORS headers.
-   * - `'none'` — disables CORS handling entirely.
+   * - `'disabled'` — disables CORS handling entirely.
    * - `{ headers }` — custom CORS headers.
    *
    * The boolean (`true`/`false`) and bare `Record<string, string>` forms are
@@ -285,9 +285,9 @@ export interface WithSupabaseConfig {
    */
   cors?:
     | 'default'
-    | 'none'
+    | 'disabled'
     | { headers: Record<string, string> }
-    /** @deprecated Use `'default'` | `'none'` | `{ headers }` instead. */
+    /** @deprecated Use `'default'` | `'disabled'` | `{ headers }` instead. */
     | boolean
     /** @deprecated Use `{ headers }` instead. */
     | Record<string, string>
