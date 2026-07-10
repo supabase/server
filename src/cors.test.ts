@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { addCorsHeaders, buildCorsHeaders } from './cors.js'
+import { addCorsHeaders, buildCorsHeaders, isCorsDisabled } from './cors.js'
 
 describe('buildCorsHeaders', () => {
-  it('returns supabase-js defaults when config is true', () => {
-    const headers = buildCorsHeaders(true)
+  it("returns supabase-js defaults when config is 'default'", () => {
+    const headers = buildCorsHeaders('default')
     expect(headers['Access-Control-Allow-Origin']).toBe('*')
     expect(headers['Access-Control-Allow-Methods']).toContain('GET')
     expect(headers['Access-Control-Allow-Headers']).toContain('authorization')
@@ -15,16 +15,51 @@ describe('buildCorsHeaders', () => {
     expect(headers['Access-Control-Allow-Origin']).toBe('*')
   })
 
-  it('returns empty object when config is false', () => {
+  it("returns empty object when config is 'none'", () => {
+    expect(buildCorsHeaders('none')).toEqual({})
+  })
+
+  it('returns the inner headers from the { headers } shape', () => {
+    const headers = {
+      'Access-Control-Allow-Origin': 'https://example.com',
+      'Access-Control-Allow-Headers': 'X-Custom',
+    }
+    expect(buildCorsHeaders({ headers })).toBe(headers)
+  })
+
+  // Deprecated forms — still supported for backward compatibility.
+  it('returns supabase-js defaults when config is true (deprecated)', () => {
+    const headers = buildCorsHeaders(true)
+    expect(headers['Access-Control-Allow-Origin']).toBe('*')
+    expect(headers['Access-Control-Allow-Methods']).toContain('GET')
+    expect(headers['Access-Control-Allow-Headers']).toContain('authorization')
+  })
+
+  it('returns empty object when config is false (deprecated)', () => {
     expect(buildCorsHeaders(false)).toEqual({})
   })
 
-  it('returns custom headers as-is', () => {
+  it('returns a bare custom headers record as-is (deprecated)', () => {
     const custom = {
       'Access-Control-Allow-Origin': 'https://example.com',
       'Access-Control-Allow-Headers': 'X-Custom',
     }
     expect(buildCorsHeaders(custom)).toBe(custom)
+  })
+})
+
+describe('isCorsDisabled', () => {
+  it("is true for 'none' and the deprecated false", () => {
+    expect(isCorsDisabled('none')).toBe(true)
+    expect(isCorsDisabled(false)).toBe(true)
+  })
+
+  it('is false for enabled configurations', () => {
+    expect(isCorsDisabled('default')).toBe(false)
+    expect(isCorsDisabled(true)).toBe(false)
+    expect(isCorsDisabled()).toBe(false)
+    expect(isCorsDisabled({ headers: { 'X-Custom': '1' } })).toBe(false)
+    expect(isCorsDisabled({ 'Access-Control-Allow-Origin': '*' })).toBe(false)
   })
 })
 
@@ -35,13 +70,29 @@ describe('addCorsHeaders', () => {
     expect(result.headers.get('Access-Control-Allow-Origin')).toBe('*')
   })
 
-  it('returns response unchanged when config is false', () => {
+  it("returns response unchanged when config is 'none'", () => {
+    const response = new Response('ok')
+    const result = addCorsHeaders(response, 'none')
+    expect(result.headers.get('Access-Control-Allow-Origin')).toBeNull()
+  })
+
+  it('returns response unchanged when config is false (deprecated)', () => {
     const response = new Response('ok')
     const result = addCorsHeaders(response, false)
     expect(result.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 
-  it('adds custom headers to response', () => {
+  it('adds custom headers from the { headers } shape to response', () => {
+    const response = new Response('ok')
+    const result = addCorsHeaders(response, {
+      headers: { 'Access-Control-Allow-Origin': 'https://example.com' },
+    })
+    expect(result.headers.get('Access-Control-Allow-Origin')).toBe(
+      'https://example.com',
+    )
+  })
+
+  it('adds a bare custom headers record to response (deprecated)', () => {
     const response = new Response('ok')
     const result = addCorsHeaders(response, {
       'Access-Control-Allow-Origin': 'https://example.com',
