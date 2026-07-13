@@ -239,7 +239,7 @@ export interface UserClaims {
  * }
  *
  * // No auth required, CORS disabled
- * const config: WithSupabaseConfig = { auth: 'none', cors: false }
+ * const config: WithSupabaseConfig = { auth: 'none', cors: 'disabled' }
  * ```
  *
  * @category Types
@@ -270,16 +270,27 @@ export interface WithSupabaseConfig {
   /**
    * CORS configuration for the `withSupabase` wrapper.
    *
-   * - `true` (default) — uses `@supabase/supabase-js` default CORS headers.
-   * - `false` — disables CORS handling entirely.
-   * - `Record<string, string>` — custom CORS headers.
+   * - `'default'` — uses `@supabase/supabase-js` default CORS headers.
+   * - `'disabled'` — disables CORS handling entirely.
+   * - `{ headers }` — custom CORS headers.
+   *
+   * The boolean (`true`/`false`) and bare `Record<string, string>` forms are
+   * deprecated but still accepted for backward compatibility.
    *
    * @remarks Only applies to the top-level {@link withSupabase} wrapper.
-   * The Hono adapter handles CORS separately via Hono's own middleware.
+   * The adapters (Hono, H3, Elysia, NestJS) handle CORS separately via each
+   * framework's own middleware.
    *
-   * @defaultValue `true`
+   * @defaultValue `'default'`
    */
-  cors?: boolean | Record<string, string>
+  cors?:
+    | 'default'
+    | 'disabled'
+    | { headers: Record<string, string> }
+    /** @deprecated Use `'default'` | `'disabled'` | `{ headers }` instead. */
+    | boolean
+    /** @deprecated Use `{ headers }` instead. */
+    | Record<string, string>
 
   /**
    * Options forwarded to both internal `createClient()` calls.

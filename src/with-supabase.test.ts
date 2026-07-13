@@ -98,6 +98,66 @@ describe('withSupabase', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 
+  describe('explicit cors shape', () => {
+    it("skips OPTIONS handling when cors is 'disabled'", async () => {
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, cors: 'disabled' },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost', { method: 'OPTIONS' })
+      const res = await handler(req)
+      // When CORS disabled, OPTIONS goes through normal flow
+      expect(res.status).toBe(200)
+    })
+
+    it("does not add CORS headers when cors is 'disabled'", async () => {
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, cors: 'disabled' },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      const res = await handler(req)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
+    })
+
+    it('applies custom { headers } to the success response', async () => {
+      const handler = withSupabase(
+        {
+          auth: 'none',
+          env: baseEnv,
+          cors: { headers: { 'Access-Control-Allow-Origin': 'https://a.com' } },
+        },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      const res = await handler(req)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(
+        'https://a.com',
+      )
+    })
+
+    it('applies custom { headers } to the error response', async () => {
+      const handler = withSupabase(
+        {
+          auth: 'user',
+          env: baseEnv,
+          cors: { headers: { 'Access-Control-Allow-Origin': 'https://a.com' } },
+        },
+        async () => Response.json({ ok: true }),
+      )
+
+      const req = new Request('http://localhost')
+      const res = await handler(req)
+      expect(res.status).toBe(401)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(
+        'https://a.com',
+      )
+    })
+  })
+
   describe('allow → auth deprecation', () => {
     beforeEach(() => {
       _resetAllowDeprecationWarned()

@@ -126,16 +126,22 @@ withSupabase(
   {
     auth: 'user',
     cors: {
-      'Access-Control-Allow-Origin': 'https://myapp.com',
-      'Access-Control-Allow-Headers': 'authorization, content-type',
+      headers: {
+        'Access-Control-Allow-Origin': 'https://myapp.com',
+        'Access-Control-Allow-Headers': 'authorization, content-type',
+      },
     },
   },
   handler,
 )
 
 // Disable CORS (e.g., when a framework handles it)
-withSupabase({ auth: 'user', cors: false }, handler)
+withSupabase({ auth: 'user', cors: 'disabled' }, handler)
 ```
+
+`cors` accepts `'default'` (standard supabase-js headers), `'disabled'`, or
+`{ headers }` for custom headers. The boolean (`true`/`false`) and bare
+`Record<string, string>` forms are deprecated but still accepted.
 
 ## Runtimes
 
