@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/supabase/server/compare/server-v1.3.1...server-v1.4.0) (2026-07-13)
+
+
+### Features
+
+* explicit cors config shape ('default' | 'disabled' | { headers }) ([#102](https://github.com/supabase/server/issues/102)) ([297925f](https://github.com/supabase/server/commit/297925fa1149a61d148306fdb6ba28e66bc0a737))
+
 ## [1.3.1](https://github.com/supabase/server/compare/server-v1.3.0...server-v1.3.1) (2026-07-03)
 
 ### Bug Fixes
