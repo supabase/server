@@ -8,12 +8,14 @@ Every request is validated against one or more auth modes before your handler ru
 
 > **Breaking — auth API renamed.** `'always'` is now `'none'` and `'public'` is now `'publishable'` (including the colon variants `'public:<name>'` → `'publishable:<name>'`). The field on `AuthResult` and `SupabaseContext` was also renamed from `authType` to `authMode` so it matches the `AuthMode` type. The old names no longer work — update the option values you pass in **and** any runtime checks on `ctx.authType` (now `ctx.authMode`).
 
-| Mode            | Credential required                          | Typical use case                       |
-| --------------- | -------------------------------------------- | -------------------------------------- |
-| `'user'`        | Valid JWT in `Authorization: Bearer <token>` | Authenticated user endpoints           |
-| `'publishable'` | Valid publishable key in `apikey` header     | Client-facing, key-validated endpoints |
-| `'secret'`      | Valid secret key in `apikey` header          | Server-to-server, internal calls       |
-| `'none'`        | None                                         | Open endpoints, custom auth wrappers   |
+| Mode            | Credential required                                | Typical use case                       |
+| --------------- | -------------------------------------------------- | -------------------------------------- |
+| `'user'`        | Valid JWT in `Authorization: Bearer <token>`       | Authenticated user endpoints           |
+| `'publishable'` | Valid `default` publishable key in `apikey` header | Client-facing, key-validated endpoints |
+| `'secret'`      | Valid `default` secret key in `apikey` header      | Server-to-server, internal calls       |
+| `'none'`        | None                                               | Open endpoints, custom auth wrappers   |
+
+> **Bare `'publishable'` / `'secret'` match only the `default` key** in `SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`. Use `secret:<name>` for a specific key or `secret:*` to accept any key in the set — see [Named key syntax](#named-key-syntax).
 
 > **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request same as `'user'`.
 > If your function uses `'publishable'`, `'secret'` or `'none'`, disable the platform-level JWT check in `supabase/config.toml`:
@@ -102,6 +104,8 @@ The caller must send:
 ```
 apikey: sb_secret_xyz789...
 ```
+
+By default, `secret` mode validates against the `"default"` key in `SUPABASE_SECRET_KEYS`. Use named key syntax to target a specific key or `secret:*` to accept any key (see below).
 
 ## None mode
 

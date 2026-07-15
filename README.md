@@ -193,16 +193,16 @@ await fetch(refreshEndpoint, {
 
 ## Auth Modes
 
-| Mode               | Credential            | Use case                                            |
-| ------------------ | --------------------- | --------------------------------------------------- |
-| `"user"` (default) | Valid JWT             | Authenticated user endpoints                        |
-| `"publishable"`    | Valid publishable key | Client-facing, key-validated endpoints              |
-| `"secret"`         | Valid secret key      | Server-to-server, internal calls                    |
-| `"none"`           | None                  | Open endpoints, wrappers that handle their own auth |
+| Mode               | Credential                      | Use case                                            |
+| ------------------ | ------------------------------- | --------------------------------------------------- |
+| `"user"` (default) | Valid JWT                       | Authenticated user endpoints                        |
+| `"publishable"`    | Valid `default` publishable key | Client-facing, key-validated endpoints              |
+| `"secret"`         | Valid `default` secret key      | Server-to-server, internal calls                    |
+| `"none"`           | None                            | Open endpoints, wrappers that handle their own auth |
 
-Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). See [`docs/auth-modes.md`](docs/auth-modes.md).
+Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade).
 
-Named key validation: `auth: "publishable:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`.
+Named key validation: `auth: "publishable:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`. Bare `auth: "secret"` (or `"publishable"`) matches only the `default` key; use the wildcard `auth: "secret:*"` to accept any key in the set. See [`docs/auth-modes.md`](docs/auth-modes.md).
 
 > **Supabase Edge Functions:** By default, the platform requires a valid JWT on every request. If your function uses `auth: 'publishable'`, `auth: 'secret'`, or `auth: 'none'`, disable the platform-level JWT check in `supabase/config.toml`:
 >

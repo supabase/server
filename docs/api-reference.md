@@ -180,7 +180,7 @@ type AuthMode = 'none' | 'publishable' | 'secret' | 'user'
 type AuthModeWithKey = AuthMode | `publishable:${string}` | `secret:${string}`
 ```
 
-Extended auth mode with named key support. Examples: `'publishable:web'`, `'secret:*'`, `'secret:internal'`.
+Extended auth mode with named key support. Examples: `'publishable:web'`, `'secret:*'`, `'secret:internal'`. The bare form (`'publishable'` / `'secret'`) matches only the `default` key; `:*` accepts any key in the set.
 
 ### Allow / AllowWithKey (deprecated aliases)
 

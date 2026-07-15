@@ -192,7 +192,7 @@ await fetch('https://<project>.supabase.co/functions/v1/my-function', {
 })
 ```
 
-Use `auth: 'secret'` to accept any secret key, or `auth: 'secret:name'` to require a specific named key.
+Bare `auth: 'secret'` matches only the `default` key. Use `auth: 'secret:name'` to require a specific named key, or `auth: 'secret:*'` to accept any secret key in the set.
 
 ## When to use `auth: 'none'`
 
