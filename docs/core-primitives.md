@@ -151,6 +151,8 @@ The client is configured with:
 - The user's JWT as the `Authorization: Bearer` header (if token is provided)
 - Server-safe auth settings: `persistSession: false`, `autoRefreshToken: false`, `detectSessionInUrl: false`
 
+**Which key is used.** With `auth.keyName` set, that named key from `SUPABASE_PUBLISHABLE_KEYS` is used (and it throws if the key doesn't exist). With `keyName` omitted, the `default` key is used, falling back to the first key in the set when no `default` exists. Note this differs from the `'publishable'` auth mode, which matches the `default` key only and never falls back.
+
 This function throws `EnvError` if `SUPABASE_URL` or the required publishable key is missing. Wrap in try/catch when using directly.
 
 ## createAdminClient
@@ -169,6 +171,8 @@ const supabaseAdminInternal = createAdminClient({
   auth: { keyName: 'internal' },
 })
 ```
+
+**Which key is used.** With `auth.keyName` set, that named key from `SUPABASE_SECRET_KEYS` is used (and it throws if the key doesn't exist). With `keyName` omitted, the `default` key is used, falling back to the first key in the set when no `default` exists. Note this differs from the `'secret'` auth mode, which matches the `default` key only and never falls back.
 
 Same server-safe settings as `createContextClient`. Throws `EnvError` if the secret key is missing.
 

@@ -81,7 +81,7 @@ The caller must send:
 apikey: sb_publishable_abc123...
 ```
 
-By default, `publishable` mode validates against the `"default"` key in `SUPABASE_PUBLISHABLE_KEYS`. Use named key syntax to target a specific key (see below).
+By default, `publishable` mode validates against the `"default"` key in `SUPABASE_PUBLISHABLE_KEYS`. Use named key syntax to target a specific key or `publishable:*` to accept any key (see below).
 
 ## Secret mode
 

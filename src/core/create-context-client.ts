@@ -14,6 +14,16 @@ import { resolveEnv } from './resolve-env.js'
  * Configured with a publishable key and (optionally) the caller's JWT,
  * so Row-Level Security policies apply. Stateless — one client per request.
  *
+ * ## Which key is used
+ *
+ * With `auth.keyName` set, that named key from `SUPABASE_PUBLISHABLE_KEYS` is
+ * used — and it throws if the key doesn't exist. With `keyName` omitted, the
+ * `default` key is used, falling back to the first key in the set when no
+ * `default` exists.
+ *
+ * Note this differs from the `"publishable"` auth mode, which matches the
+ * `default` key only and never falls back — see {@link index.AuthModeWithKey}.
+ *
  * @throws {@link index.EnvError} If `SUPABASE_URL` is missing or the specified publishable key is not found.
  *
  * @example With verified auth
