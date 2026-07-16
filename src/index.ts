@@ -22,9 +22,12 @@
  * | Mode | Credential | Use case |
  * |------|-----------|----------|
  * | `"user"` | Valid JWT | Authenticated user endpoints |
- * | `"publishable"` | Publishable key | Client-facing, key-validated endpoints |
- * | `"secret"` | Secret key | Server-to-server, internal calls |
+ * | `"publishable"` | `default` publishable key | Client-facing, key-validated endpoints |
+ * | `"secret"` | `default` secret key | Server-to-server, internal calls |
  * | `"none"` | None | Open endpoints |
+ *
+ * Bare `"publishable"` / `"secret"` match only the `default` key; use
+ * `"secret:<name>"` for a specific key or `"secret:*"` to accept any key.
  *
  * Array syntax tries modes in order — first match wins:
  * ```ts

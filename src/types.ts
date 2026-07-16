@@ -11,9 +11,13 @@ export type { JSONWebKeySet }
  * Authentication mode that determines what credentials a request must provide.
  *
  * - `"none"` — No credentials required. Every request is accepted.
- * - `"publishable"` — Requires a valid publishable key in the `apikey` header.
- * - `"secret"` — Requires a valid secret key in the `apikey` header (timing-safe comparison).
+ * - `"publishable"` — Requires a valid publishable key in the `apikey` header. Matches only the `default` key.
+ * - `"secret"` — Requires a valid secret key in the `apikey` header (timing-safe comparison). Matches only the `default` key.
  * - `"user"` — Requires a valid JWT in the `Authorization: Bearer <token>` header.
+ *
+ * Bare `"publishable"` / `"secret"` resolve the `default` key from
+ * `SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`. To target another key or
+ * accept any key, see {@link AuthModeWithKey}.
  *
  * @example Single mode
  * ```ts
@@ -42,7 +46,8 @@ export type Allow = AuthMode
  *
  * Use the colon syntax (`"publishable:web_app"`) to require a specific named key
  * from the `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS` JSON object.
- * Use `"publishable:*"` or `"secret:*"` to accept any key in the set.
+ * Use `"publishable:*"` or `"secret:*"` to accept any key in the set. The bare
+ * form without a colon (`"publishable"` / `"secret"`) matches only the `default` key.
  *
  * @example Named key
  * ```ts

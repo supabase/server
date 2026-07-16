@@ -14,12 +14,27 @@ import { resolveEnv } from './resolve-env.js'
  * Uses a secret key for authentication, giving full access to all data.
  * Stateless — one client per request.
  *
+ * ## Which key is used
+ *
+ * With `auth.keyName` set, that named key from `SUPABASE_SECRET_KEYS` is used —
+ * and it throws if the key doesn't exist. With `keyName` omitted, the `default`
+ * key is used, falling back to the first key in the set when no `default` exists.
+ *
+ * Note this differs from the `"secret"` auth mode, which matches the `default`
+ * key only and never falls back — see {@link index.AuthModeWithKey}.
+ *
  * @throws {@link index.EnvError} If `SUPABASE_URL` is missing or the specified secret key is not found.
  *
  * @example Basic usage
  * ```ts
+ * // Uses the `default` secret key (or the first key if no `default` exists)
  * const supabaseAdmin = createAdminClient()
  * const { data } = await supabaseAdmin.from('audit_log').insert({ action: 'user_login' })
+ * ```
+ *
+ * @example Specific named key
+ * ```ts
+ * const supabaseAdmin = createAdminClient({ auth: { keyName: 'internal' } })
  * ```
  *
  * @category Primitives

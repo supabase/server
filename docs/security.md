@@ -21,29 +21,34 @@ See `src/core/utils/timing-safe-equal.ts` for the implementation.
 
 Each auth mode provides a different level of trust:
 
-| Mode          | What it verifies                    | Who the caller is        | `supabase` client  | `supabaseAdmin` client |
-| ------------- | ----------------------------------- | ------------------------ | ------------------ | ---------------------- |
-| `user`        | JWT signature against JWKS          | An authenticated user    | Row-Level Security | Full access            |
-| `publishable` | Publishable API key (timing-safe)   | A known client app       | Row-Level Security | Full access            |
-| `secret`      | Secret API key (timing-safe)        | A trusted server/service | Full access        | Full access            |
-| `none`        | Nothing — all requests are accepted | Unknown                  | Row-Level Security | Full access            |
+| Mode          | What it verifies                        | Who the caller is        | `supabase` client  | `supabaseAdmin` client |
+| ------------- | --------------------------------------- | ------------------------ | ------------------ | ---------------------- |
+| `user`        | JWT signature against JWKS              | An authenticated user    | Row-Level Security | Full access            |
+| `publishable` | `default` publishable key (timing-safe) | A known client app       | Row-Level Security | Full access            |
+| `secret`      | `default` secret key (timing-safe)      | A trusted server/service | Full access        | Full access            |
+| `none`        | Nothing — all requests are accepted     | Unknown                  | Row-Level Security | Full access            |
+
+For `publishable` and `secret`, the bare mode matches only the `default` key; use `publishable:<name>` / `secret:<name>` for a specific key or `publishable:*` / `secret:*` to accept any key in the set.
 
 Key implications:
 
 - **`user` mode** verifies the JWT using a local JWKS (JSON Web Key Set). The token must contain a `sub` claim. Verification uses the `jose` library's `jwtVerify` with a local key set — no network calls to an auth server.
-- **`publishable` and `secret` modes** compare the `apikey` header against known keys. The comparison is timing-safe. If you use named keys (`auth: 'secret:automations'`), only that specific key is accepted — this follows the principle of least privilege.
+- **`publishable` and `secret` modes** compare the `apikey` header against known keys. The comparison is timing-safe. Bare `auth: 'publishable'` / `auth: 'secret'` match only the `default` key; use named keys (`auth: 'secret:automations'`) to accept only that specific key — this follows the principle of least privilege — or the wildcard (`auth: 'secret:*'`) to accept any key in the set.
 - **`none` mode** performs zero authentication. The handler runs for every request. The `supabaseAdmin` client is still available, so a compromised `none` endpoint with write operations is a security risk. Only use it for truly public endpoints or when you implement your own auth (e.g., webhook signature verification).
 
 ## Named key isolation
 
-Instead of accepting any valid API key, you can restrict an endpoint to a specific named key:
+Bare `auth: 'secret'` matches only the `default` key. You can restrict an endpoint to a specific named key, or accept any key in the set with the wildcard:
 
 ```ts
-// Accepts any secret key
+// Matches only the "default" secret key
 withSupabase({ auth: 'secret' }, handler)
 
 // Only accepts the "automations" secret key
 withSupabase({ auth: 'secret:automations' }, handler)
+
+// Accepts any secret key in the set
+withSupabase({ auth: 'secret:*' }, handler)
 ```
 
 This limits the blast radius if a key is compromised. An attacker with the `web` publishable key cannot access an endpoint that requires `secret:automations`. Named keys also make it easier to rotate or revoke access for a specific consumer without affecting others.
