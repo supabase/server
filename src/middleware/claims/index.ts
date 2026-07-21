@@ -1,4 +1,5 @@
 import { defineMiddleware } from '@supabase/middleware'
+import type { Middleware } from '@supabase/middleware'
 
 /**
  * Loosely-typed JWT claims contributed by {@link withClaims}.
@@ -42,16 +43,18 @@ function decodeJwtPayload(token: string): JwtClaims | null {
  *
  * @category Middleware
  */
-export const withClaims = defineMiddleware<
+export const withClaims: Middleware<
   'jwtClaims',
   void,
   Record<never, never>,
   JwtClaims | null
->({
-  key: 'jwtClaims',
-  run: () => async (req) => {
-    const auth = req.headers.get('Authorization')
-    const token = auth?.replace(/^Bearer\s+/i, '')
-    return { jwtClaims: token ? decodeJwtPayload(token) : null }
+> = defineMiddleware<'jwtClaims', void, Record<never, never>, JwtClaims | null>(
+  {
+    key: 'jwtClaims',
+    run: () => async (req) => {
+      const auth = req.headers.get('Authorization')
+      const token = auth?.replace(/^Bearer\s+/i, '')
+      return { jwtClaims: token ? decodeJwtPayload(token) : null }
+    },
   },
-})
+)

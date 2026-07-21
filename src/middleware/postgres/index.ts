@@ -1,4 +1,5 @@
 import { defineMiddleware, getEnv } from '@supabase/middleware'
+import type { Middleware } from '@supabase/middleware'
 import pg from 'pg'
 
 const { Pool } = pg
@@ -81,7 +82,12 @@ export interface WithPostgresConfig {
  *
  * @category Middleware
  */
-export const withPostgres = defineMiddleware<
+export const withPostgres: Middleware<
+  'postgres',
+  WithPostgresConfig | void,
+  { jwtClaims: RequestClaims | null },
+  PostgresApi
+> = defineMiddleware<
   'postgres',
   WithPostgresConfig | void,
   { jwtClaims: RequestClaims | null },
