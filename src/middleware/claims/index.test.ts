@@ -14,8 +14,6 @@ function tokenFor(claims: Record<string, unknown>): string {
   return `header.${base64url(claims)}.sig`
 }
 
-const runtime = { name: 'node' as const, getEnv: () => undefined }
-
 describe('withClaims', () => {
   it('decodes the Bearer token payload into ctx.jwtClaims', async () => {
     let seen: unknown
@@ -24,13 +22,13 @@ describe('withClaims', () => {
       return Response.json({ ok: true })
     })
 
+    // Called bare, the way a runtime invokes a fetch entry — no prerequisites.
     await handler(
       new Request('http://localhost', {
         headers: {
           Authorization: `Bearer ${tokenFor({ sub: 'u1', role: 'authenticated' })}`,
         },
       }),
-      { _runtime: runtime },
     )
 
     expect(seen).toEqual({ sub: 'u1', role: 'authenticated' })
@@ -43,7 +41,7 @@ describe('withClaims', () => {
       return Response.json({ ok: true })
     })
 
-    await handler(new Request('http://localhost'), { _runtime: runtime })
+    await handler(new Request('http://localhost'))
 
     expect(seen).toBeNull()
   })
@@ -59,7 +57,6 @@ describe('withClaims', () => {
       new Request('http://localhost', {
         headers: { Authorization: 'Bearer not-a-jwt' },
       }),
-      { _runtime: runtime },
     )
 
     expect(seen).toBeNull()

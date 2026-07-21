@@ -1,7 +1,8 @@
 import { addCorsHeaders, buildCorsHeaders, isCorsDisabled } from './cors.js'
 import { createSupabaseContext } from './create-supabase-context.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
-import type { Entry } from '@supabase/web-middleware'
+import { seedContext } from '@supabase/middleware'
+import type { Entry } from '@supabase/middleware'
 
 type AnyEntry = Entry<string, object, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -9,8 +10,8 @@ type AnyHandler = (req: Request, ctx: any) => Promise<Response>
 
 /**
  * Accumulate the ctx contributions of a middleware tuple — same logic as
- * `pipeline`'s internal `Accumulate`, seeded from `object` (no `BaseContext`
- * or `_runtime` in the visible ctx type; see implementation note below).
+ * `pipeline`'s internal `Accumulate`, seeded from `object` (the engine reserves
+ * no ctx keys; see implementation note below).
  */
 type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
   Entries extends readonly [
@@ -55,7 +56,7 @@ export function withSupabase<Database = unknown>(
 
 /**
  * Variant that accepts a `middleware` array — each `withFoo(config)` call
- * returns an `Entry` from `@supabase/web-middleware`. Middleware run **after**
+ * returns an `Entry` from `@supabase/middleware`. Middleware run **after**
  * the Supabase context is established; they receive `ctx.supabase`,
  * `ctx.userClaims`, etc. already present and contribute their own typed keys
  * on top. (This is the server leg of a Plugin: the package's middleware goes
@@ -86,7 +87,7 @@ export function withSupabase<Database = unknown>(
  * (the Supabase context is merged before the middleware run) but not at the
  * type level — a full implementation would widen the prerequisite-validation
  * seed to include `SupabaseContext`. Ordering and collision checks within the
- * middleware array work normally via `web-middleware`'s runtime chain.
+ * middleware array work normally via `@supabase/middleware`'s runtime chain.
  */
 export function withSupabase<
   Database = unknown,
@@ -135,19 +136,10 @@ export function withSupabase<Database = unknown>(
       const composed = (
         config.middleware as readonly AnyEntry[]
       ).reduceRight<AnyHandler>((h, entry) => entry(h), handler)
-      // Seed _runtime so web-middleware entries recognise this as an upstream
-      // context (isContext() checks for _runtime.getEnv). Falls through to
-      // process.env; a full implementation would bridge to SupabaseEnv.
-      const g = globalThis as {
-        process?: { env?: Record<string, string | undefined> }
-      }
-      response = await composed(req, {
-        ...ctx,
-        _runtime: {
-          name: 'unknown' as const,
-          getEnv: (key: string): string | undefined => g.process?.env?.[key],
-        },
-      })
+      // seedContext() stamps the engine's context marker so middleware entries
+      // recognise this as an upstream context. Env access happens through the
+      // engine's importable getEnv — no per-ctx facet to bridge.
+      response = await composed(req, { ...seedContext(), ...ctx })
     } else {
       response = await handler(req, ctx as object)
     }

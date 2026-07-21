@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineMiddleware } from '@supabase/web-middleware'
+import { defineMiddleware } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { withSupabase } from './with-supabase.js'

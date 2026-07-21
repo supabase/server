@@ -1,4 +1,4 @@
-import { defineMiddleware } from '@supabase/web-middleware'
+import { defineMiddleware } from '@supabase/middleware'
 
 /**
  * Loosely-typed JWT claims contributed by {@link withClaims}.

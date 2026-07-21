@@ -11,9 +11,9 @@ importers:
 
   .:
     dependencies:
-      '@supabase/web-middleware':
-        specifier: https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9
-        version: https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9
+      '@supabase/middleware':
+        specifier: https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674
+        version: https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674
       jose:
         specifier: ^6.2.0
         version: 6.2.0
@@ -853,6 +853,11 @@ packages:
     resolution: {integrity: sha512-ADIkJYH5w7HbnGVAAlCbyKoLF5QdfyezBLfYXpUqhxZOacK6YepOvnP/8p4p+50bhTPWp6VhDxu19KO7e/qU2g==}
     engines: {node: '>=20.0.0'}
 
+  '@supabase/middleware@https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674':
+    resolution: {integrity: sha512-BVlmrVAJRzvMuwe1l4ldxHmBo5L1C4fWq1OSv8FtlzYRDVnIW2nZC0qxo9okk5Y4z5Cc5PW1veKvMjJMhobm3w==, tarball: https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674}
+    version: 0.1.0
+    engines: {node: '>=20'}
+
   '@supabase/phoenix@0.4.2':
     resolution: {integrity: sha512-YSAGnmDAfuleFCVt3CeurQZAhxRfXWeZIIkwp7NhYzQ1UwW6ePSnzsFAiUm/mbCkfoCf70QQHKW/K6RKh52a4A==}
 
@@ -871,11 +876,6 @@ packages:
   '@supabase/supabase-js@2.106.0':
     resolution: {integrity: sha512-OOoo3sLj9iVXNp6b+fkyOfFeQrvvNy7nQbaONNf72dOaictUeS39hFDS9argIRTag6M3ZxIypNWcrDAwLgUihQ==}
     engines: {node: '>=20.0.0'}
-
-  '@supabase/web-middleware@https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9':
-    resolution: {tarball: https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9}
-    version: 0.1.0
-    engines: {node: '>=20'}
 
   '@swc/core-darwin-arm64@1.15.33':
     resolution: {integrity: sha512-N+L0uXhuO7FIfzqwgxmzv0zIpV0qEp8wPX3QQs2p4atjMoywup2JTeDlXPw+z9pWJGCae3JjM+tZ6myclI+2gA==}
@@ -1015,6 +1015,7 @@ packages:
 
   '@types/node@26.0.1':
     resolution: {integrity: sha512-fc3KiUoBt6kie0N9bIW3E47vZsuaMf0PM2AaUpLCLT0s/LvX1nxAim6Fc049cNxODPpGm6qRAuUOB86SkRuPQw==}
+
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
 
@@ -2413,6 +2414,9 @@ packages:
   std-env@4.1.0:
     resolution: {integrity: sha512-Rq7ybcX2RuC55r9oaPVEW7/xu3tj8u4GeBYHBWCychFtzMIr86A7e3PPEBPT37sHStKX3+TiX/Fr/ACmJLVlLQ==}
 
+  std-env@4.2.0:
+    resolution: {integrity: sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==}
+
   streamsearch@1.1.0:
     resolution: {integrity: sha512-Mcc5wHehp9aXz1ax6bZUyY5afg9u2rv5cqQI3mRrYkGC8rW2hM02jWuwjtL++LS5qinSyhj2QfLyNsuc+VsExg==}
     engines: {node: '>=10.0.0'}
@@ -3392,6 +3396,10 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  '@supabase/middleware@https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674':
+    dependencies:
+      std-env: 4.2.0
+
   '@supabase/phoenix@0.4.2': {}
 
   '@supabase/postgrest-js@2.106.0':
@@ -3415,8 +3423,6 @@ snapshots:
       '@supabase/postgrest-js': 2.106.0
       '@supabase/realtime-js': 2.106.0
       '@supabase/storage-js': 2.106.0
-
-  '@supabase/web-middleware@https://pkg.pr.new/supabase/web-middleware/@supabase/web-middleware@9': {}
 
   '@swc/core-darwin-arm64@1.15.33':
     optional: true
@@ -3524,6 +3530,7 @@ snapshots:
   '@types/node@26.0.1':
     dependencies:
       undici-types: 8.3.0
+
   '@types/pg@8.20.0':
     dependencies:
       '@types/node': 25.3.0
@@ -4961,6 +4968,8 @@ snapshots:
   statuses@2.0.2: {}
 
   std-env@4.1.0: {}
+
+  std-env@4.2.0: {}
 
   streamsearch@1.1.0: {}
 

@@ -19,12 +19,7 @@ vi.mock('pg', () => {
   return { default: { Pool }, Pool }
 })
 
-const runtime = {
-  name: 'node' as const,
-  getEnv: (k: string) =>
-    k === 'SUPABASE_DB_URL' ? 'postgres://localhost/test' : undefined,
-}
-
+const { seedContext } = await import('@supabase/middleware')
 const { withPostgres } = await import('./index.js')
 
 describe('withPostgres', () => {
@@ -33,16 +28,23 @@ describe('withPostgres', () => {
     h.clientQuery.mockClear()
     h.connect.mockClear()
     h.release.mockClear()
+    // The connection-string default reads the importable getEnv, which falls
+    // back to the host env in tests.
+    vi.stubEnv('SUPABASE_DB_URL', 'postgres://localhost/test')
   })
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
 
   it('returns 500 when no connection string is available', async () => {
+    vi.stubEnv('SUPABASE_DB_URL', undefined)
     const handler = withPostgres({ connectionString: undefined }, async () =>
       Response.json({ ok: true }),
     )
 
     const res = await handler(new Request('http://localhost'), {
-      _runtime: { name: 'node', getEnv: () => undefined },
+      ...seedContext(),
       jwtClaims: null,
     })
 
@@ -57,7 +59,7 @@ describe('withPostgres', () => {
     })
 
     await handler(new Request('http://localhost'), {
-      _runtime: runtime,
+      ...seedContext(),
       jwtClaims: { sub: 'u1', role: 'authenticated' },
     })
 
@@ -78,7 +80,7 @@ describe('withPostgres', () => {
     })
 
     await handler(new Request('http://localhost'), {
-      _runtime: runtime,
+      ...seedContext(),
       jwtClaims: { sub: 'attacker', role: 'service_role' },
     })
 
@@ -112,7 +114,7 @@ describe('withPostgres', () => {
 
     await expect(
       handler(new Request('http://localhost'), {
-        _runtime: runtime,
+        ...seedContext(),
         jwtClaims: { role: 'authenticated' },
       }),
     ).rejects.toThrow('boom')
@@ -151,7 +153,7 @@ describe('withPostgres', () => {
 
     await expect(
       handler(new Request('http://localhost'), {
-        _runtime: runtime,
+        ...seedContext(),
         jwtClaims: { role: 'authenticated' },
       }),
     ).rejects.toThrow(
