@@ -7,7 +7,7 @@ minimumReleaseAgeExclude:
   - '@esbuild/*'
 blockExoticSubdeps: true
 allowBuilds:
-  '@supabase/web-middleware': true
+  '@supabase/middleware': true
   '@nestjs/core': false
   '@swc/core': false
   esbuild: false
