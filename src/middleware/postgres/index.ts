@@ -1,4 +1,4 @@
-import { defineMiddleware } from '@supabase/web-middleware'
+import { defineMiddleware, getEnv } from '@supabase/middleware'
 import pg from 'pg'
 
 const { Pool } = pg
@@ -41,7 +41,7 @@ export interface PostgresApi {
  * @category Middleware
  */
 export interface WithPostgresConfig {
-  /** Defaults to `ctx._runtime.getEnv('SUPABASE_DB_URL')`. */
+  /** Defaults to `getEnv('SUPABASE_DB_URL')` (from `@supabase/middleware`). */
   connectionString?: string
 }
 
@@ -90,7 +90,7 @@ export const withPostgres = defineMiddleware<
   key: 'postgres',
   run: (config) => async (_req, ctx) => {
     const connectionString =
-      config?.connectionString ?? ctx._runtime.getEnv('SUPABASE_DB_URL')
+      config?.connectionString ?? getEnv('SUPABASE_DB_URL')
     if (!connectionString) {
       return Response.json({ error: 'no SUPABASE_DB_URL' }, { status: 500 })
     }
