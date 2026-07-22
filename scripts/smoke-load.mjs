@@ -27,6 +27,13 @@ for (const [subpath, entry] of Object.entries(pkg.exports ?? {})) {
   if (cjs) targets.push({ subpath, format: 'cjs', file: resolve(root, cjs) })
 }
 
+if (targets.length === 0) {
+  console.error(
+    'No entrypoints found in package.json exports — smoke test is testing nothing.',
+  )
+  process.exit(1)
+}
+
 const failures = []
 for (const { subpath, format, file } of targets) {
   try {
