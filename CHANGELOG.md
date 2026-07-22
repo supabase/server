@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.1](https://github.com/supabase/server/compare/server-v1.4.0...server-v1.4.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* add Database type override to elysia adapter ([#106](https://github.com/supabase/server/issues/106)) ([8d5c781](https://github.com/supabase/server/commit/8d5c781b3bf279f4c19b8414b975f5cddb49f970))
+* add hono adapter Database type override ([#100](https://github.com/supabase/server/issues/100)) ([ca53801](https://github.com/supabase/server/commit/ca53801cb56d8224ef81aa98c4d15a7e49941a0a))
+* apply Injectable programmatically so NestJS adapter loads in raw Node ([#107](https://github.com/supabase/server/issues/107)) ([9e45b42](https://github.com/supabase/server/commit/9e45b42a49e42c2cf0cc2c49f0aec11ae5a2ae31))
+
 ## [1.4.0](https://github.com/supabase/server/compare/server-v1.3.1...server-v1.4.0) (2026-07-13)
 
 ### Features
