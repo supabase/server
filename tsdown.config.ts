@@ -9,8 +9,17 @@ export default defineConfig({
     'src/adapters/h3/index.ts',
     'src/adapters/elysia/index.ts',
     'src/adapters/nestjs/index.ts',
+    'src/middleware/postgres/index.ts',
+    'src/middleware/claims/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
-  external: ['@supabase/supabase-js', 'hono', 'h3', 'elysia', '@nestjs/common'],
+  external: [
+    '@supabase/supabase-js',
+    'hono',
+    'h3',
+    'elysia',
+    '@nestjs/common',
+    'pg',
+  ],
 })

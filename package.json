@@ -89,6 +89,26 @@
         "default": "./dist/adapters/nestjs/index.cjs"
       }
     },
+    "./middleware/postgres": {
+      "import": {
+        "types": "./dist/middleware/postgres/index.d.mts",
+        "default": "./dist/middleware/postgres/index.mjs"
+      },
+      "require": {
+        "types": "./dist/middleware/postgres/index.d.cts",
+        "default": "./dist/middleware/postgres/index.cjs"
+      }
+    },
+    "./middleware/claims": {
+      "import": {
+        "types": "./dist/middleware/claims/index.d.mts",
+        "default": "./dist/middleware/claims/index.mjs"
+      },
+      "require": {
+        "types": "./dist/middleware/claims/index.d.cts",
+        "default": "./dist/middleware/claims/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -129,7 +149,8 @@
     "@supabase/supabase-js": "^2.0.0",
     "elysia": "^1.4.0",
     "h3": "^2.0.0",
-    "hono": "^4.0.0"
+    "hono": "^4.0.0",
+    "pg": "^8.0.0"
   },
   "peerDependenciesMeta": {
     "@nestjs/common": {
@@ -142,6 +163,9 @@
       "optional": true
     },
     "elysia": {
+      "optional": true
+    },
+    "pg": {
       "optional": true
     }
   },
@@ -157,6 +181,7 @@
     "@supabase/supabase-js": "^2.105.4",
     "@swc/core": "^1.15.33",
     "@types/node": "^26.0.1",
+    "@types/pg": "^8.11.0",
     "@types/supertest": "^7.2.0",
     "elysia": "^1.4.0",
     "eslint": "^10.0.2",
@@ -177,6 +202,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
+    "@supabase/middleware": "https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674",
     "jose": "^6.2.0"
   }
 }
