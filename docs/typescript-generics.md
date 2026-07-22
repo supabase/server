@@ -121,6 +121,25 @@ const todosApp = new Hono()
 app.route('/todos', todosApp)
 ```
 
+The elysia adapter works the same way: thread `Database` through the `withSupabase<Database>()` generic and elysia infers the `supabaseContext` type, so `supabaseContext.supabase` is a fully typed `SupabaseClient<Database>` in every handler.
+
+```ts
+import { Elysia } from 'elysia'
+import { withSupabase } from '@supabase/server/adapters/elysia'
+import type { Database } from './database.types.ts'
+
+const app = new Elysia()
+  .use(withSupabase<Database>({ auth: 'user' }))
+  .get('/todos', async ({ supabaseContext }) => {
+    const { data } = await supabaseContext.supabase
+      .from('todos')
+      .select('id, title')
+    return data
+  })
+
+app.listen(3000)
+```
+
 ## Custom schema
 
 If your tables are in a schema other than `public`, pass it via `supabaseOptions`:
