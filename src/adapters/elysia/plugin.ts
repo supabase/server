@@ -70,7 +70,9 @@ export class SupabaseError extends Error {
 // `{}` literals — switching to `object` or `Record<string, never>` would not satisfy
 // the corresponding generic constraints.
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
+export function withSupabase<Database = unknown>(
+  config?: Omit<WithSupabaseConfig, 'cors'>,
+): Elysia<
   '',
   { decorator: {}; store: {}; derive: {}; resolve: {} },
   { typebox: {}; error: { readonly SupabaseError: SupabaseError } },
@@ -85,10 +87,12 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
   {},
   {
     derive: {}
-    resolve: { supabaseContext: SupabaseContext }
+    resolve: { supabaseContext: SupabaseContext<Database> }
     schema: {}
     standaloneSchema: {}
-    response: ExtractErrorFromHandle<{ supabaseContext: SupabaseContext }>
+    response: ExtractErrorFromHandle<{
+      supabaseContext: SupabaseContext<Database>
+    }>
   },
   {
     derive: {}
@@ -101,15 +105,21 @@ export function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia<
   /* eslint-enable @typescript-eslint/no-empty-object-type */
   return new Elysia()
     .error({ SupabaseError })
-    .resolve(async (ctx): Promise<{ supabaseContext: SupabaseContext }> => {
-      const existing = (ctx as { supabaseContext?: SupabaseContext })
-        .supabaseContext
-      if (existing) return { supabaseContext: existing }
+    .resolve(
+      async (ctx): Promise<{ supabaseContext: SupabaseContext<Database> }> => {
+        const existing = (
+          ctx as { supabaseContext?: SupabaseContext<Database> }
+        ).supabaseContext
+        if (existing) return { supabaseContext: existing }
 
-      const { data, error } = await createSupabaseContext(ctx.request, config)
-      if (error) throw new SupabaseError(error)
+        const { data, error } = await createSupabaseContext<Database>(
+          ctx.request,
+          config,
+        )
+        if (error) throw new SupabaseError(error)
 
-      return { supabaseContext: data }
-    })
+        return { supabaseContext: data }
+      },
+    )
     .as('scoped')
 }

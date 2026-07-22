@@ -1,7 +1,21 @@
 import { Elysia } from 'elysia'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 
+import type { SupabaseContext } from '../../types.js'
 import { withSupabase } from './plugin.js'
+
+type Database = {
+  public: {
+    Tables: {
+      todos: {
+        Row: { id: number; title: string }
+        Insert: { id?: number; title: string }
+        Update: { id?: number; title?: string }
+        Relationships: []
+      }
+    }
+  }
+}
 
 describe('elysia supabase plugin', () => {
   const env = {
@@ -26,6 +40,18 @@ describe('elysia supabase plugin', () => {
     expect(body.authMode).toBe('none')
     expect(body.hasSupabase).toBe(true)
     expect(body.hasAdmin).toBe(true)
+  })
+
+  it('threads the Database generic into the Supabase context', async () => {
+    const app = new Elysia()
+      .use(withSupabase<Database>({ auth: 'none', env }))
+      .get('/', ({ supabaseContext }) => {
+        expectTypeOf(supabaseContext).toEqualTypeOf<SupabaseContext<Database>>()
+        return { authMode: supabaseContext.authMode }
+      })
+
+    const res = await app.handle(new Request('http://localhost/'))
+    expect(res.status).toBe(200)
   })
 
   it('throws error on auth failure', async () => {
