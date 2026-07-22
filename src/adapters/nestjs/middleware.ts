@@ -87,7 +87,11 @@ function toWebRequest(req: NestRequestLike): Request {
 export function withSupabase(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): Type<CanActivate> {
-  @Injectable()
+  // Applied programmatically rather than as an `@Injectable()` decorator:
+  // the build tool (tsdown/oxc) does not lower legacy `experimentalDecorators`,
+  // so decorator syntax here would ship verbatim to `dist` and fail to parse
+  // under plain Node (CJS/ESM) at load time. Calling the decorator factory on
+  // the class produces identical DI metadata. See issue #87.
   class SupabaseAuthGuard implements CanActivate {
     async canActivate(executionContext: ExecutionContext): Promise<boolean> {
       // Fail loudly on non-HTTP transports rather than silently allowing them
@@ -123,5 +127,6 @@ export function withSupabase(
     }
   }
 
+  Injectable()(SupabaseAuthGuard)
   return SupabaseAuthGuard
 }
