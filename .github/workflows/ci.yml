@@ -31,6 +31,9 @@ jobs:
 
       - run: pnpm build
 
+      - name: Smoke-test built entrypoints load in raw Node
+        run: pnpm smoke
+
       - name: Check type exports (attw)
         run: pnpm check-exports
 

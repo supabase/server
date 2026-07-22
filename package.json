@@ -113,6 +113,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "prepare": "simple-git-hooks",
+    "smoke": "node scripts/smoke-load.mjs",
     "test": "vitest run --project unit --project nestjs",
     "test:e2e": "vitest run --project e2e",
     "test:watch": "vitest --project unit --project nestjs",
