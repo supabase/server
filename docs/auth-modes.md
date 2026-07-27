@@ -81,7 +81,7 @@ The caller must send:
 apikey: sb_publishable_abc123...
 ```
 
-By default, `publishable` mode validates against the `"default"` key in `SUPABASE_PUBLISHABLE_KEYS`. Use named key syntax to target a specific key or `publishable:*` to accept any key (see below).
+> **Bare `publishable` matches only the `default` key.** `auth: 'publishable'` validates **only** against the key named `default` in `SUPABASE_PUBLISHABLE_KEYS`. It does **not** fall back to your named keys, so if every key in the set is named, bare `publishable` never matches. Use `publishable:<name>` to target a named key, or `publishable:*` to accept any key in the set — see [Named key syntax](#named-key-syntax).
 
 ## Secret mode
 
@@ -105,7 +105,7 @@ The caller must send:
 apikey: sb_secret_xyz789...
 ```
 
-By default, `secret` mode validates against the `"default"` key in `SUPABASE_SECRET_KEYS`. Use named key syntax to target a specific key or `secret:*` to accept any key (see below).
+> **Bare `secret` matches only the `default` key.** `auth: 'secret'` validates **only** against the key named `default` in `SUPABASE_SECRET_KEYS`. It does **not** fall back to your named keys, so if every key in the set is named, bare `secret` never matches. Use `secret:<name>` to target a named key, or `secret:*` to accept any key in the set — see [Named key syntax](#named-key-syntax).
 
 ## None mode
 

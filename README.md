@@ -89,7 +89,7 @@ export default {
 
 ```ts
 // The mobile app browses the game catalog before the user signs in.
-// auth: 'publishable' validates the apikey header against a publishable key —
+// auth: 'publishable' validates the apikey header against the 'default' publishable key —
 // gating the endpoint to your own clients while staying anonymous to the DB.
 export default {
   fetch: withSupabase({ auth: 'publishable' }, async (_req, ctx) => {
@@ -119,7 +119,8 @@ await fetch(catalogEndpoint, { headers: { apikey: publishableKey } })
 
 ```ts
 // An admin dashboard fetches the list of featured games to curate.
-// Secret key auth (not a user JWT) — supabaseAdmin bypasses RLS.
+// auth: 'secret' validates the apikey header against the 'default' secret key
+// (not a user JWT) — supabaseAdmin bypasses RLS.
 export default {
   fetch: withSupabase({ auth: 'secret' }, async (_req, ctx) => {
     const { data: featuredGames } = await ctx.supabaseAdmin
