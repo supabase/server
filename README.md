@@ -89,7 +89,7 @@ export default {
 
 ```ts
 // The mobile app browses the game catalog before the user signs in.
-// auth: 'publishable' validates the apikey header against a publishable key —
+// auth: 'publishable' validates the apikey header against the 'default' publishable key —
 // gating the endpoint to your own clients while staying anonymous to the DB.
 export default {
   fetch: withSupabase({ auth: 'publishable' }, async (_req, ctx) => {
