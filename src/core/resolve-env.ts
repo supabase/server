@@ -126,7 +126,7 @@ function parseJwksUrl(raw: string | undefined): URL | null {
  *
  * @internal
  */
-function resolveJwks(): JSONWebKeySet | URL | null {
+export function resolveJwks(): JSONWebKeySet | URL | null {
   const rawJwks = getEnvVar('SUPABASE_JWKS')
   if (rawJwks && rawJwks.trim()) {
     return parseJwks(rawJwks)
