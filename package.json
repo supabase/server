@@ -202,7 +202,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@supabase/middleware": "https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674",
+    "@supabase/middleware": "^0.3.0",
     "jose": "^6.2.0"
   }
 }

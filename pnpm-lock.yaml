@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@supabase/middleware':
-        specifier: https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674
-        version: https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674
+        specifier: ^0.3.0
+        version: 0.3.0
       jose:
         specifier: ^6.2.0
         version: 6.2.0
@@ -860,10 +860,9 @@ packages:
     resolution: {integrity: sha512-ADIkJYH5w7HbnGVAAlCbyKoLF5QdfyezBLfYXpUqhxZOacK6YepOvnP/8p4p+50bhTPWp6VhDxu19KO7e/qU2g==}
     engines: {node: '>=20.0.0'}
 
-  '@supabase/middleware@https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674':
-    resolution: {integrity: sha512-BVlmrVAJRzvMuwe1l4ldxHmBo5L1C4fWq1OSv8FtlzYRDVnIW2nZC0qxo9okk5Y4z5Cc5PW1veKvMjJMhobm3w==, tarball: https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674}
-    version: 0.1.0
-    engines: {node: '>=20'}
+  '@supabase/middleware@0.3.0':
+    resolution: {integrity: sha512-JN+dUr7Fyx96jfCUEXpzPEIpmkkogxHfII+fx7wWIiAUFI8C0lObDlzKIqrSVEKiFEK6CMsHWcqRarBQ8azCtw==}
+    engines: {node: '>=22'}
 
   '@supabase/phoenix@0.4.2':
     resolution: {integrity: sha512-YSAGnmDAfuleFCVt3CeurQZAhxRfXWeZIIkwp7NhYzQ1UwW6ePSnzsFAiUm/mbCkfoCf70QQHKW/K6RKh52a4A==}
@@ -2020,8 +2019,8 @@ packages:
   mz@2.7.0:
     resolution: {integrity: sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q==}
 
-  nanoid@3.3.18:
-    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
+  nanoid@3.3.17:
+    resolution: {integrity: sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
@@ -2163,8 +2162,8 @@ packages:
     resolution: {integrity: sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==}
     hasBin: true
 
-  postcss@8.5.26:
-    resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
+  postcss@8.5.25:
+    resolution: {integrity: sha512-DTPx3RWSSnWyzLxQnlH0rJP+EW5ekl16ZU4/psbIhA0e53kJfdgaN5vKM+xP7yJtXVu+nfdVFmlgFDEKAe4Pyw==}
     engines: {node: ^10 || ^12 || >=14}
 
   postgres-array@2.0.0:
@@ -3410,7 +3409,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@supabase/middleware@https://pkg.pr.new/supabase/middleware/@supabase/middleware@0641674':
+  '@supabase/middleware@0.3.0':
     dependencies:
       std-env: 4.2.0
 
@@ -4571,7 +4570,7 @@ snapshots:
       object-assign: 4.1.1
       thenify-all: 1.6.0
 
-  nanoid@3.3.18: {}
+  nanoid@3.3.17: {}
 
   natural-compare@1.4.0: {}
 
@@ -4709,9 +4708,9 @@ snapshots:
       sonic-boom: 4.2.1
       thread-stream: 4.2.0
 
-  postcss@8.5.26:
+  postcss@8.5.25:
     dependencies:
-      nanoid: 3.3.18
+      nanoid: 3.3.17
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -5221,7 +5220,7 @@ snapshots:
       esbuild: 0.28.2
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.26
+      postcss: 8.5.25
       rollup: 4.62.4
       tinyglobby: 0.2.17
     optionalDependencies:
