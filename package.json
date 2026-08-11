@@ -89,6 +89,26 @@
         "default": "./dist/adapters/nestjs/index.cjs"
       }
     },
+    "./middleware/client": {
+      "import": {
+        "types": "./dist/middleware/client/index.d.mts",
+        "default": "./dist/middleware/client/index.mjs"
+      },
+      "require": {
+        "types": "./dist/middleware/client/index.d.cts",
+        "default": "./dist/middleware/client/index.cjs"
+      }
+    },
+    "./middleware/admin-client": {
+      "import": {
+        "types": "./dist/middleware/admin-client/index.d.mts",
+        "default": "./dist/middleware/admin-client/index.mjs"
+      },
+      "require": {
+        "types": "./dist/middleware/admin-client/index.d.cts",
+        "default": "./dist/middleware/admin-client/index.cjs"
+      }
+    },
     "./middleware/postgres": {
       "import": {
         "types": "./dist/middleware/postgres/index.d.mts",

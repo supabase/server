@@ -11,6 +11,8 @@ export default defineConfig({
     'src/adapters/nestjs/index.ts',
     'src/middleware/postgres/index.ts',
     'src/middleware/claims/index.ts',
+    'src/middleware/client/index.ts',
+    'src/middleware/admin-client/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
