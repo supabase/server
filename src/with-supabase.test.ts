@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineMiddleware } from '@supabase/middleware'
+import { defineMiddleware, getEnv } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
+import { EnvError } from './errors.js'
 import { withSupabase } from './with-supabase.js'
 
 const baseEnv = {
@@ -259,6 +260,31 @@ describe('withSupabase', () => {
       expect(await res.json()).toEqual({ a: true, b: true })
     })
 
+    it("forwards the host's second fetch argument to getEnv as platform env", async () => {
+      const withReadEnv = defineMiddleware<
+        'bindingValue',
+        void,
+        Record<never, never>,
+        string | undefined
+      >({
+        key: 'bindingValue',
+        run: () => async () => ({
+          bindingValue: getEnv('WITH_SUPABASE_TEST_BINDING'),
+        }),
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withReadEnv()] },
+        async (_req, ctx) => Response.json({ bindingValue: ctx.bindingValue }),
+      )
+
+      // Simulate a Workers-style invocation: fetch(request, env).
+      const res = await handler(new Request('http://localhost'), {
+        WITH_SUPABASE_TEST_BINDING: 'from-platform',
+      })
+      expect(await res.json()).toEqual({ bindingValue: 'from-platform' })
+    })
+
     it('CORS headers still apply when middleware are present', async () => {
       const withNoop = defineMiddleware<
         'noop',
@@ -277,6 +303,33 @@ describe('withSupabase', () => {
 
       const res = await handler(new Request('http://localhost'))
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+  })
+
+  describe('client construction errors', () => {
+    it('maps client-construction EnvError to a 500 JSON response', async () => {
+      const handler = withSupabase(
+        {
+          auth: 'none',
+          env: { ...baseEnv, publishableKeys: {} },
+        },
+        async () => Response.json({ ok: true }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.status).toBe(500)
+      const body = await res.json()
+      expect(body.code).toBe('MISSING_DEFAULT_PUBLISHABLE_KEY')
+    })
+
+    it('lets EnvError thrown by the handler propagate instead of mapping it', async () => {
+      const handler = withSupabase({ auth: 'none', env: baseEnv }, async () => {
+        throw new EnvError('handler-level env failure')
+      })
+
+      await expect(handler(new Request('http://localhost'))).rejects.toThrow(
+        'handler-level env failure',
+      )
     })
   })
 

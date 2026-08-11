@@ -1,5 +1,8 @@
 import { addCorsHeaders, buildCorsHeaders, isCorsDisabled } from './cors.js'
-import { createSupabaseContext } from './create-supabase-context.js'
+import { verifyAuth } from './core/verify-auth.js'
+import { AuthError, CreateSupabaseClientError, EnvError } from './errors.js'
+import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
+import { withSupabaseClient } from './middleware/client/index.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 import { seedContext } from '@supabase/middleware'
 import type { Entry } from '@supabase/middleware'
@@ -32,7 +35,10 @@ type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
  *
  * @param config - Auth modes, CORS, and environment overrides. See {@link WithSupabaseConfig}.
  * @param handler - Receives the `Request` and a fully-initialized {@link SupabaseContext}.
- * @returns A `(req: Request) => Promise<Response>` fetch handler.
+ * @returns A fetch handler. The optional second parameter is the host's
+ * platform argument (a Workers `env`, a Deno `ServeHandlerInfo`) — when the
+ * runtime supplies one, it is captured as the platform env behind
+ * `@supabase/middleware`'s `getEnv` for any composed middleware.
  *
  * @category Middleware
  *
@@ -52,7 +58,7 @@ type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
 export function withSupabase<Database = unknown>(
   config: WithSupabaseConfig & { middleware?: never },
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
-): (req: Request) => Promise<Response>
+): (req: Request, platformArg?: unknown) => Promise<Response>
 
 /**
  * Variant that accepts a `middleware` array — each `withFoo(config)` call
@@ -98,13 +104,37 @@ export function withSupabase<
     req: Request,
     ctx: SupabaseContext<Database> & MiddlewareCtx<Entries>,
   ) => Promise<Response>,
-): (req: Request) => Promise<Response>
+): (req: Request, platformArg?: unknown) => Promise<Response>
 
 export function withSupabase<Database = unknown>(
   config: WithSupabaseConfig & { middleware?: readonly AnyEntry[] },
   handler: AnyHandler,
-): (req: Request) => Promise<Response> {
-  return async (req: Request) => {
+): (req: Request, platformArg?: unknown) => Promise<Response> {
+  // withSupabase runs on the engine: the context clients are the same public
+  // middleware anyone can compose (`./middleware/client`,
+  // `./middleware/admin-client`), folded around the user's middleware and
+  // handler — the same fold as pipeline's reduceRight, but without calling
+  // pipeline() so we supply the seeded ctx ourselves.
+  const clientEntries: readonly AnyEntry[] = [
+    withSupabaseClient<Database>({
+      env: config.env,
+      supabaseOptions: config.supabaseOptions,
+    }) as AnyEntry,
+    withSupabaseAdminClient<Database>({
+      env: config.env,
+      supabaseOptions: config.supabaseOptions,
+    }) as AnyEntry,
+  ]
+  // The user's middleware and handler fold once at wrap time.
+  const userComposed = (config.middleware ?? []).reduceRight<AnyHandler>(
+    (h, entry) => entry(h),
+    handler,
+  )
+
+  return async (req: Request, platformArg?: unknown) => {
+    const corsHeaders = () =>
+      !isCorsDisabled(config.cors) ? buildCorsHeaders(config.cors) : {}
+
     if (!isCorsDisabled(config.cors) && req.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -112,36 +142,65 @@ export function withSupabase<Database = unknown>(
       })
     }
 
-    const { data: ctx, error } = await createSupabaseContext<Database>(
-      req,
-      config,
-    )
+    const { data: auth, error } = await verifyAuth(req, {
+      auth: config.auth,
+      allow: config.allow,
+      env: config.env,
+    })
     if (error) {
       return Response.json(
         { message: error.message, code: error.code },
-        {
-          status: error.status,
-          headers: !isCorsDisabled(config.cors)
-            ? buildCorsHeaders(config.cors)
-            : {},
-        },
+        { status: error.status, headers: corsHeaders() },
       )
     }
 
+    // Track whether the request has moved past client construction: only
+    // failures from the two client entries map to the historical JSON error
+    // responses — user middleware and handler throws propagate unchanged,
+    // exactly as before the rewrite.
+    let inClientPhase = true
+    const markUserPhase: AnyHandler = (r, ctx) => {
+      inClientPhase = false
+      return userComposed(r, ctx)
+    }
+    const composed = clientEntries.reduceRight<AnyHandler>(
+      (h, entry) => entry(h),
+      markUserPhase,
+    )
+
     let response: Response
-    if (config.middleware?.length) {
-      // Compose the middleware around the handler — same fold as pipeline's
-      // reduceRight, but without calling pipeline() so we supply the seeded
-      // ctx ourselves.
-      const composed = (
-        config.middleware as readonly AnyEntry[]
-      ).reduceRight<AnyHandler>((h, entry) => entry(h), handler)
+    try {
       // seedContext() stamps the engine's context marker so middleware entries
-      // recognise this as an upstream context. Env access happens through the
-      // engine's importable getEnv — no per-ctx facet to bridge.
-      response = await composed(req, { ...seedContext(), ...ctx })
-    } else {
-      response = await handler(req, ctx as object)
+      // recognise this as an upstream context, and captures the host's second
+      // fetch argument (a Workers `env`, a Deno `ServeHandlerInfo`) as the
+      // platform env behind the engine's importable getEnv — without the
+      // forward, Workers bindings would be invisible to middleware. The
+      // verified auth identity is seeded alongside it; the client middleware
+      // read `authMode` / `authKeyName` to mirror the verified credentials.
+      response = await composed(req, {
+        ...seedContext(platformArg),
+        userClaims: auth.userClaims,
+        jwtClaims: auth.jwtClaims,
+        authMode: auth.authMode,
+        authKeyName: auth.keyName ?? undefined,
+      })
+    } catch (e) {
+      // Client construction failures keep their historical response shape:
+      // EnvError (missing URL / keys) and the client middleware's
+      // CreateSupabaseClientError map to the same JSON errors
+      // createSupabaseContext produced.
+      const mapped = !inClientPhase
+        ? null
+        : e instanceof EnvError
+          ? new AuthError(e.message, e.code, 500)
+          : e instanceof AuthError && e.code === CreateSupabaseClientError
+            ? e
+            : null
+      if (!mapped) throw e
+      return Response.json(
+        { message: mapped.message, code: mapped.code },
+        { status: mapped.status, headers: corsHeaders() },
+      )
     }
 
     if (!isCorsDisabled(config.cors)) {
