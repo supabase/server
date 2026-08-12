@@ -21,4 +21,16 @@ tarball="$(pnpm --dir "$repo_root" pack --pack-destination "$vendor_dir" | tail 
 tar -xzf "$tarball" -C "$vendor_dir"
 rm "$tarball"
 
+# Workaround for a Supabase CLI regression (JS rewrite, >= 2.110): its
+# functions import scanner also picks specifiers out of JSDoc @example
+# comments, resolves subpaths by concatenating onto the bare import-map key
+# ('@supabase/server' + '/core' -> .../index.mjs/core), and aborts
+# `supabase start` on the resulting ENOTDIR. Neutralize subpath specifiers
+# on comment lines only (dist code imports use double quotes; JSDoc
+# examples use single quotes) — runtime code is untouched. Remove once the
+# CLI treats comment text / not-found paths correctly.
+find "$vendor_dir/package/dist" -type f \( -name '*.mjs' -o -name '*.cjs' -o -name '*.mts' -o -name '*.cts' \) \
+  -exec sed -i.bak "/^[[:space:]]*\*/ s|'@supabase/server/[^']*'|'@supabase/server'|g" {} + \
+  && find "$vendor_dir/package/dist" -name '*.bak' -delete
+
 echo "Vendored $(basename "$tarball") -> ${vendor_dir#"$repo_root/"}/package"
