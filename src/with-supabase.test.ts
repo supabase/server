@@ -263,6 +263,49 @@ describe('withSupabase', () => {
       expect(body).toEqual({ a: true, b: true })
     })
 
+    it('middleware run in array order with shared ctx dependency', async () => {
+      const withFirst = defineMiddleware<
+        'a',
+        void,
+        Record<never, never>,
+        string
+      >({
+        key: 'a',
+        run: () => async () => ({ a: 'http://localhost' as const }),
+      })
+      const withSecond = defineMiddleware<'b', void, { a: string }, URL>({
+        key: 'b',
+        run: () => async (_req, ctx) => {
+          const url = URL.parse(ctx.a)
+          url!.pathname = '/supabase'
+
+          return { b: url! }
+        },
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withFirst(), withSecond()] },
+        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(body).toEqual({
+        a: 'http://localhost',
+        b: 'http://localhost/supabase',
+      })
+
+      // Check reverse order must breaks dependency chain
+      const handlerReverse = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withSecond(), withFirst()] },
+        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+      )
+
+      expect(handlerReverse(new Request('http://localhost'))).rejects.toThrow(
+        "Cannot set properties of null (setting 'pathname')",
+      )
+    })
+
     it("forwards the host's second fetch argument to getEnv as platform env", async () => {
       const withReadEnv = defineMiddleware<
         'bindingValue',
