@@ -191,21 +191,23 @@ describe('withSupabase', () => {
         'captured',
         void,
         Record<never, never>,
-        true
+        boolean
       >({
         key: 'captured',
         run: () => async (_req, ctx) => {
           capturedHasSupabase = !!(ctx as { supabase?: unknown }).supabase
-          return { captured: true as const }
+          return { captured: capturedHasSupabase }
         },
       })
 
       const handler = withSupabase(
         { auth: 'none', env: baseEnv, middleware: [withCapture()] },
-        async () => Response.json({ ok: true }),
+        async (_, ctx) => Response.json({ captured: ctx.captured }),
       )
 
-      await handler(new Request('http://localhost'))
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(body.captured).toBe(capturedHasSupabase)
       expect(capturedHasSupabase).toBe(true)
     })
 
