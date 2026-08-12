@@ -3,7 +3,8 @@
 End-to-end coverage for `@supabase/server`: real GoTrue-issued JWTs, real JWKS
 validation over HTTP, real Supabase client operations — across all four
 adapters (Hono, H3, Elysia, NestJS) plus the core `withSupabase` fetch
-wrapper, the programming model Supabase Edge Functions use.
+wrapper on Node and on the real Deno edge runtime, the programming model
+Supabase Edge Functions use.
 
 Unlike the unit/integration tests (mocked env, `jwks: null`), this suite:
 
@@ -21,6 +22,7 @@ Unlike the unit/integration tests (mocked env, `jwks: null`), this suite:
 
 ```sh
 pnpm build                  # e2e imports from dist/
+pnpm vendor:e2e             # packs dist/ for the edge function's import map
 cd e2e && supabase start    # local stack (Docker) on ports 5433x
 cd .. && pnpm gen:env       # writes e2e/.env from `supabase status`
 pnpm test:e2e
@@ -38,8 +40,17 @@ Run a single adapter with `pnpm test:e2e h3`.
   `GET /all-notes` (user, admin client with no filter — proves the admin
   client is not scoped to the caller)
 - `apps/core/app.ts` — same surface on the core `withSupabase(config, handler)`
-  fetch wrapper (no adapter) — what an Edge Function deploys. A real Deno
-  `supabase functions serve` e2e is tracked as a follow-up issue.
+  fetch wrapper (no adapter) — what an Edge Function deploys, running on Node.
+- `supabase/functions/server-e2e/` — the same surface again, but on the real
+  Deno edge runtime, served by `supabase start` through the Kong gateway and
+  covered by `edge.e2e.ts`. Imports the library from a vendored `pnpm pack`
+  artifact (`pnpm vendor:e2e` → `functions/_vendor/`, gitignored) — the exact
+  bytes `npm publish` ships. `verify_jwt = false` in `supabase/config.toml`
+  keeps the gateway's JWT pre-check out of the way so the middleware's own
+  401 behavior is what the scenarios exercise. Needs Supabase CLI ≥ 2.109 —
+  older local edge runtimes don't inject the new-key env
+  (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS` / `SUPABASE_JWKS`)
+  the library reads.
 - `scenarios.ts` — the single scenario set run against every adapter
 - `setup/global-setup.ts` — checks the stack is up, signs in two test users,
   provides their tokens to the tests

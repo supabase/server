@@ -37,6 +37,10 @@ jobs:
       - name: Typecheck E2E suite
         run: pnpm typecheck:e2e
 
+      # The edge function imports the packed library artifact — vendor it
+      # into supabase/functions before the stack starts (see e2e/README.md).
+      - run: pnpm vendor:e2e
+
       - name: Start local Supabase stack
         run: supabase start
         working-directory: e2e

@@ -12,5 +12,6 @@
     "emitDecoratorMetadata": true,
     "types": ["node"]
   },
-  "include": ["."]
+  "include": ["."],
+  "exclude": ["supabase/functions"]
 }

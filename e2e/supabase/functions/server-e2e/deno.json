@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "@supabase/server": "../_vendor/package/dist/index.mjs",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "@supabase/supabase-js/cors": "npm:@supabase/supabase-js@2/cors",
+    "@supabase/middleware": "npm:@supabase/middleware@0.3.0",
+    "jose": "npm:jose@6"
+  }
+}

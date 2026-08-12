@@ -1,8 +1,8 @@
 // Minimal app on the CORE withSupabase(config, handler) fetch wrapper — no
 // framework adapter. This is the exact programming model Supabase Edge
 // Functions use (`Deno.serve(withSupabase(...))`); here the same handler runs
-// behind node:http. A real Deno `supabase functions serve` e2e is tracked
-// separately.
+// behind node:http. The same surface runs on the real Deno edge runtime in
+// e2e/supabase/functions/server-e2e/ — keep the two in sync.
 //
 // The core wrapper has no router, so routes are dispatched on pathname and
 // each auth mode gets its own wrapped handler.
