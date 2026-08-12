@@ -258,8 +258,9 @@ describe('withSupabase', () => {
       )
 
       const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
       expect(order).toEqual(['a', 'b'])
-      expect(await res.json()).toEqual({ a: true, b: true })
+      expect(body).toEqual({ a: true, b: true })
     })
 
     it("forwards the host's second fetch argument to getEnv as platform env", async () => {
@@ -284,7 +285,8 @@ describe('withSupabase', () => {
       const res = await handler(new Request('http://localhost'), {
         WITH_SUPABASE_TEST_BINDING: 'from-platform',
       })
-      expect(await res.json()).toEqual({ bindingValue: 'from-platform' })
+      const body = await res.json()
+      expect(body).toEqual({ bindingValue: 'from-platform' })
     })
 
     it('CORS headers still apply when middleware are present', async () => {
