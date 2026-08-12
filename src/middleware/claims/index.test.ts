@@ -100,16 +100,27 @@ describe('withClaims', () => {
     expect(seen).toBeNull()
   })
 
-  it('contributes null for an sb_* secret in the Authorization header', async () => {
+  it('contributes null for an sb_* apikey in the Authorization header', async () => {
     let seen: unknown = 'unset'
     const handler = withClaims({ jwks }, async (_req, ctx) => {
       seen = ctx.jwtClaims
       return Response.json({ ok: true })
     })
 
-    const res = await handler(requestWithToken('sb_secret_xyz'))
-    expect(res.status).toBe(200)
-    expect(seen).toBeNull()
+    const apikeys = [
+      'sb_publishable_xyz',
+      'sb_secret_xyz',
+      'sb_temp_xyz',
+      'sb_something',
+    ]
+
+    for (const apikey of apikeys) {
+      seen = 'unset'
+
+      const res = await handler(requestWithToken(apikey))
+      expect(res.status).toBe(200)
+      expect(seen).toBeNull()
+    }
   })
 
   afterEach(() => {
