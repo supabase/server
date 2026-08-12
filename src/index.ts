@@ -53,6 +53,25 @@
  * import { verifyAuth, createContextClient, createAdminClient } from '@supabase/server/core'
  * ```
  *
+ * ## OAuth 2.1 Protected Resource
+ *
+ * `withOAuthProtectedResource` adds RFC 9728 OAuth Protected Resource Metadata
+ * and `WWW-Authenticate` discovery around any handler — useful for building
+ * OAuth-protected APIs (e.g. an MCP server) on Supabase Edge Functions:
+ *
+ * ```ts
+ * import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
+ *
+ * Deno.serve(
+ *   withOAuthProtectedResource(
+ *     withSupabase({ auth: 'user' }, async (_req, { supabase }) => {
+ *       const { data } = await supabase.from('items').select('*')
+ *       return Response.json(data)
+ *     }),
+ *   ),
+ * )
+ * ```
+ *
  * ## Installation
  *
  * ```sh
@@ -67,6 +86,16 @@
 
 export { withSupabase } from './with-supabase.js'
 export { createSupabaseContext } from './create-supabase-context.js'
+
+export { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
+export {
+  resourceMetadataResponse,
+  unauthorizedResponse,
+} from './oauth-protected-resource/responses.js'
+export type {
+  ResourceMetadataOptions,
+  UnauthorizedResponseOptions,
+} from './oauth-protected-resource/types.js'
 
 export type {
   Allow,
