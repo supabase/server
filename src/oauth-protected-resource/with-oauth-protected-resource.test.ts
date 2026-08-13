@@ -123,6 +123,36 @@ describe('withOAuthProtectedResource - 401 enrichment', () => {
     const body = await res.json()
     expect(body.error).toBe('Unauthorized')
   })
+
+  it('does not clobber a WWW-Authenticate the handler already set', async () => {
+    const custom =
+      'Bearer error="invalid_token", error_description="expired", resource_metadata="https://tenant.example.com/functions/v1/my-fn/oauth-protected-resource"'
+    const handler = async () =>
+      new Response(null, {
+        status: 401,
+        headers: { 'WWW-Authenticate': custom },
+      })
+    const res = await withOAuthProtectedResource(handler)(req('POST', '/my-fn'))
+    expect(res.headers.get('WWW-Authenticate')).toBe(custom)
+  })
+})
+
+describe('withOAuthProtectedResource - metadata CORS', () => {
+  it('serves metadata with a permissive CORS header (public discovery data)', async () => {
+    const res = await withOAuthProtectedResource(passthrough)(
+      req('GET', '/my-fn/oauth-protected-resource'),
+    )
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
+
+  it('answers OPTIONS preflight on the metadata path', async () => {
+    const res = await withOAuthProtectedResource(passthrough)(
+      req('OPTIONS', '/my-fn/oauth-protected-resource'),
+    )
+    expect(res.status).toBe(204)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('GET')
+  })
 })
 
 describe('resourceMetadataResponse', () => {

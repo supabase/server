@@ -50,7 +50,11 @@ export function resourceMetadataResponse(
     }),
     {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Public discovery document — browser clients read it cross-origin.
+        'Access-Control-Allow-Origin': '*',
+      },
     },
   )
 }

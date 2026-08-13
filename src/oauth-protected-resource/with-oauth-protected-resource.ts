@@ -6,7 +6,9 @@ import { getResourceMetadataUrl, inferFunctionName } from './url.js'
  * for Supabase Edge Functions.
  *
  * - Serves OAuth Protected Resource Metadata at `GET /{fn}/oauth-protected-resource`
- * - Enriches any `401` from the inner handler with `WWW-Authenticate: Bearer resource_metadata="..."`
+ *   (with permissive CORS, including the `OPTIONS` preflight, so browser-based clients can read it)
+ * - Enriches a `401` from the inner handler with `WWW-Authenticate: Bearer resource_metadata="..."`,
+ *   unless the handler already set a `WWW-Authenticate` header (its value wins)
  * - Returns `404` for any other path (Edge Functions are single-endpoint - the inner handler owns `/{fn}` only)
  *
  * The returned handler's optional second parameter is the host's platform
@@ -47,14 +49,32 @@ export function withOAuthProtectedResource(
       return resourceMetadataResponse(req)
     }
 
+    // CORS preflight for the metadata route — browser-based clients (e.g.
+    // MCP Inspector) fetch the discovery document cross-origin.
+    if (
+      req.method === 'OPTIONS' &&
+      url.pathname === `${basePath}/oauth-protected-resource`
+    ) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'content-type, mcp-protocol-version',
+        },
+      })
+    }
+
     if (url.pathname !== basePath) {
       return new Response('Not Found', { status: 404 })
     }
 
     const response = await handler(req, platformArg)
 
-    // Enrich any 401 with WWW-Authenticate so clients can discover the auth server
-    if (response.status === 401) {
+    // Enrich a 401 with WWW-Authenticate so clients can discover the auth
+    // server — unless the handler already set one (its value wins, e.g. an
+    // RFC 6750 error or a custom resource_metadata override).
+    if (response.status === 401 && !response.headers.has('WWW-Authenticate')) {
       const headers = new Headers(response.headers)
       headers.set(
         'WWW-Authenticate',
