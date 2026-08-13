@@ -7,3 +7,4 @@ api-docs
 !.env.example
 .DS_Store
 .idea
+e2e/supabase/functions/_vendor

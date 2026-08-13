@@ -158,7 +158,8 @@
     "test:e2e": "vitest run --project e2e",
     "test:watch": "vitest --project unit --project nestjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs",
-    "typecheck:e2e": "tsc --noEmit -p e2e"
+    "typecheck:e2e": "tsc --noEmit -p e2e",
+    "vendor:e2e": "bash e2e/scripts/vendor-pack.sh"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm pretty-quick --staged",

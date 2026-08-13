@@ -34,8 +34,15 @@ enabled = false
 [analytics]
 enabled = false
 
+# Enabled for the server-e2e function (SDK-1280). Everything else above
+# stays disabled to keep `supabase start` fast in CI.
 [edge_runtime]
-enabled = false
+enabled = true
+
+# The middleware's own 401 behavior is under test — the gateway's JWT
+# pre-check must not answer first.
+[functions.server-e2e]
+verify_jwt = false
 
 [auth]
 enabled = true
