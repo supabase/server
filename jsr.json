@@ -8,17 +8,14 @@
     "./adapters/hono": "./src/adapters/hono/index.ts",
     "./adapters/h3": "./src/adapters/h3/index.ts",
     "./adapters/elysia": "./src/adapters/elysia/index.ts",
-    "./adapters/nestjs": "./src/adapters/nestjs/index.ts"
+    "./adapters/nestjs": "./src/adapters/nestjs/index.ts",
+    "./middleware/client": "./src/middleware/client/index.ts",
+    "./middleware/admin-client": "./src/middleware/admin-client/index.ts",
+    "./middleware/postgres": "./src/middleware/postgres/index.ts",
+    "./middleware/claims": "./src/middleware/claims/index.ts"
   },
   "publish": {
-    "include": [
-      "src/**/*.ts",
-      "README.md",
-      "LICENSE"
-    ],
-    "exclude": [
-      "src/**/*.test.ts",
-      "src/**/*.spec.ts"
-    ]
+    "include": ["src/**/*.ts", "README.md", "LICENSE"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
   }
 }

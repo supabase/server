@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineMiddleware, getEnv } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
+import { EnvError } from './errors.js'
 import { withSupabase } from './with-supabase.js'
 
 const baseEnv = {
@@ -154,6 +156,226 @@ describe('withSupabase', () => {
       expect(res.status).toBe(401)
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(
         'https://a.com',
+      )
+    })
+  })
+
+  describe('middleware', () => {
+    it('composes middleware after the Supabase context is established', async () => {
+      const withFlag = defineMiddleware<
+        'flag',
+        void,
+        Record<never, never>,
+        boolean
+      >({
+        key: 'flag',
+        run: () => async () => ({ flag: true }),
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withFlag()] },
+        async (_req, ctx) =>
+          Response.json({ authMode: ctx.authMode, flag: ctx.flag }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(body.authMode).toBe('none')
+      expect(body.flag).toBe(true)
+    })
+
+    it('middleware receives the Supabase context at runtime', async () => {
+      let capturedHasSupabase = false
+
+      const withCapture = defineMiddleware<
+        'captured',
+        void,
+        Record<never, never>,
+        boolean
+      >({
+        key: 'captured',
+        run: () => async (_req, ctx) => {
+          capturedHasSupabase = !!(ctx as { supabase?: unknown }).supabase
+          return { captured: capturedHasSupabase }
+        },
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withCapture()] },
+        async (_, ctx) => Response.json({ captured: ctx.captured }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(body.captured).toBe(capturedHasSupabase)
+      expect(capturedHasSupabase).toBe(true)
+    })
+
+    it('middleware can short-circuit before the handler', async () => {
+      const withBlock = defineMiddleware<
+        'blocked',
+        void,
+        Record<never, never>,
+        true
+      >({
+        key: 'blocked',
+        run: () => async () => new Response('blocked', { status: 403 }),
+      })
+
+      const innerHandler = vi.fn(async () => Response.json({ ok: true }))
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withBlock()] },
+        innerHandler,
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.status).toBe(403)
+      expect(innerHandler).not.toHaveBeenCalled()
+    })
+
+    it('middleware run in array order (first = outermost, runs first on request)', async () => {
+      const order: string[] = []
+
+      const withA = defineMiddleware<'a', void, Record<never, never>, true>({
+        key: 'a',
+        run: () => async () => {
+          order.push('a')
+          return { a: true as const }
+        },
+      })
+      const withB = defineMiddleware<'b', void, Record<never, never>, true>({
+        key: 'b',
+        run: () => async () => {
+          order.push('b')
+          return { b: true as const }
+        },
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withA(), withB()] },
+        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(order).toEqual(['a', 'b'])
+      expect(body).toEqual({ a: true, b: true })
+    })
+
+    it('middleware run in array order with shared ctx dependency', async () => {
+      const withFirst = defineMiddleware<
+        'a',
+        void,
+        Record<never, never>,
+        string
+      >({
+        key: 'a',
+        run: () => async () => ({ a: 'http://localhost' as const }),
+      })
+      const withSecond = defineMiddleware<'b', void, { a: string }, URL>({
+        key: 'b',
+        run: () => async (_req, ctx) => {
+          const url = URL.parse(ctx.a)
+          url!.pathname = '/supabase'
+
+          return { b: url! }
+        },
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withFirst(), withSecond()] },
+        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      const body = await res.json()
+      expect(body).toEqual({
+        a: 'http://localhost',
+        b: 'http://localhost/supabase',
+      })
+
+      // Check reverse order must breaks dependency chain
+      const handlerReverse = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withSecond(), withFirst()] },
+        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+      )
+
+      expect(handlerReverse(new Request('http://localhost'))).rejects.toThrow(
+        "Cannot set properties of null (setting 'pathname')",
+      )
+    })
+
+    it("forwards the host's second fetch argument to getEnv as platform env", async () => {
+      const withReadEnv = defineMiddleware<
+        'bindingValue',
+        void,
+        Record<never, never>,
+        string | undefined
+      >({
+        key: 'bindingValue',
+        run: () => async () => ({
+          bindingValue: getEnv('WITH_SUPABASE_TEST_BINDING'),
+        }),
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withReadEnv()] },
+        async (_req, ctx) => Response.json({ bindingValue: ctx.bindingValue }),
+      )
+
+      // Simulate a Workers-style invocation: fetch(request, env).
+      const res = await handler(new Request('http://localhost'), {
+        WITH_SUPABASE_TEST_BINDING: 'from-platform',
+      })
+      const body = await res.json()
+      expect(body).toEqual({ bindingValue: 'from-platform' })
+    })
+
+    it('CORS headers still apply when middleware are present', async () => {
+      const withNoop = defineMiddleware<
+        'noop',
+        void,
+        Record<never, never>,
+        true
+      >({
+        key: 'noop',
+        run: () => async () => ({ noop: true as const }),
+      })
+
+      const handler = withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withNoop()] },
+        async () => Response.json({ ok: true }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+  })
+
+  describe('client construction errors', () => {
+    it('maps client-construction EnvError to a 500 JSON response', async () => {
+      const handler = withSupabase(
+        {
+          auth: 'none',
+          env: { ...baseEnv, publishableKeys: {} },
+        },
+        async () => Response.json({ ok: true }),
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.status).toBe(500)
+      const body = await res.json()
+      expect(body.code).toBe('MISSING_DEFAULT_PUBLISHABLE_KEY')
+    })
+
+    it('lets EnvError thrown by the handler propagate instead of mapping it', async () => {
+      const handler = withSupabase({ auth: 'none', env: baseEnv }, async () => {
+        throw new EnvError('handler-level env failure')
+      })
+
+      await expect(handler(new Request('http://localhost'))).rejects.toThrow(
+        'handler-level env failure',
       )
     })
   })
