@@ -171,3 +171,16 @@ describe('unauthorizedResponse', () => {
     )
   })
 })
+
+describe('withOAuthProtectedResource - platform argument', () => {
+  it('forwards the platform second argument to the inner handler', async () => {
+    let seen: unknown
+    const handler = async (_req: Request, platformArg?: unknown) => {
+      seen = platformArg
+      return new Response('ok')
+    }
+    const env = { MY_BINDING: 'value' }
+    await withOAuthProtectedResource(handler)(req('POST', '/my-fn'), env)
+    expect(seen).toBe(env)
+  })
+})

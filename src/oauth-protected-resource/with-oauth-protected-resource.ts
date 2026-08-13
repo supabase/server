@@ -9,6 +9,10 @@ import { getResourceMetadataUrl, inferFunctionName } from './url.js'
  * - Enriches any `401` from the inner handler with `WWW-Authenticate: Bearer resource_metadata="..."`
  * - Returns `404` for any other path (Edge Functions are single-endpoint - the inner handler owns `/{fn}` only)
  *
+ * The returned handler's optional second parameter is the host's platform
+ * argument (a Workers `env`, a Deno `ServeHandlerInfo`) and is forwarded to
+ * the inner handler unchanged — required for `withSupabase` to capture it.
+ *
  * @category Middleware
  *
  * @example
@@ -27,9 +31,9 @@ import { getResourceMetadataUrl, inferFunctionName } from './url.js'
  * ```
  */
 export function withOAuthProtectedResource(
-  handler: (req: Request) => Promise<Response>,
-): (req: Request) => Promise<Response> {
-  return async (req: Request): Promise<Response> => {
+  handler: (req: Request, platformArg?: unknown) => Promise<Response>,
+): (req: Request, platformArg?: unknown) => Promise<Response> {
+  return async (req: Request, platformArg?: unknown): Promise<Response> => {
     const url = new URL(req.url)
     const fn = inferFunctionName(req)
     if (!fn) return new Response('Not Found', { status: 404 })
@@ -47,7 +51,7 @@ export function withOAuthProtectedResource(
       return new Response('Not Found', { status: 404 })
     }
 
-    const response = await handler(req)
+    const response = await handler(req, platformArg)
 
     // Enrich any 401 with WWW-Authenticate so clients can discover the auth server
     if (response.status === 401) {

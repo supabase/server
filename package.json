@@ -129,6 +129,16 @@
         "default": "./dist/middleware/claims/index.cjs"
       }
     },
+    "./oauth-protected-resource": {
+      "import": {
+        "types": "./dist/oauth-protected-resource/index.d.mts",
+        "default": "./dist/oauth-protected-resource/index.mjs"
+      },
+      "require": {
+        "types": "./dist/oauth-protected-resource/index.d.cts",
+        "default": "./dist/oauth-protected-resource/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

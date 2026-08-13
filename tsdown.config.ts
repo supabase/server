@@ -13,6 +13,7 @@ export default defineConfig({
     'src/middleware/claims/index.ts',
     'src/middleware/client/index.ts',
     'src/middleware/admin-client/index.ts',
+    'src/oauth-protected-resource/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
