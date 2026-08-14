@@ -12,7 +12,8 @@
     "./middleware/client": "./src/middleware/client/index.ts",
     "./middleware/admin-client": "./src/middleware/admin-client/index.ts",
     "./middleware/postgres": "./src/middleware/postgres/index.ts",
-    "./middleware/claims": "./src/middleware/claims/index.ts"
+    "./middleware/claims": "./src/middleware/claims/index.ts",
+    "./oauth-protected-resource": "./src/oauth-protected-resource/index.ts"
   },
   "publish": {
     "include": ["src/**/*.ts", "README.md", "LICENSE"],
