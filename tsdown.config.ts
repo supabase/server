@@ -10,6 +10,7 @@ export default defineConfig({
     'src/adapters/elysia/index.ts',
     'src/adapters/nestjs/index.ts',
     'src/middleware/postgres/index.ts',
+    'src/middleware/postgres-admin/index.ts',
     'src/middleware/claims/index.ts',
     'src/middleware/client/index.ts',
     'src/middleware/admin-client/index.ts',
