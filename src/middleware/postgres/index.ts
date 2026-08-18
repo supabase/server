@@ -108,6 +108,9 @@ export const withPostgresClient: Middleware<
         params?: unknown[],
       ) {
         const client = await p.connect()
+        // Set when the transaction could not be unwound, so the connection is
+        // discarded rather than pooled — see the catch below.
+        let poisoned = false
         try {
           await client.query('begin')
           await client.query(
@@ -124,7 +127,13 @@ export const withPostgresClient: Middleware<
           try {
             await client.query('rollback')
           } catch {
-            // ignored — the original error wins
+            // The original error wins — but we can no longer assume the
+            // session is clean. The transaction may still be open with the
+            // caller's role set, and this pool is shared with
+            // withPostgresAdminClient, which begins no transaction and would
+            // inherit that state on the next checkout. Discard the connection
+            // instead of pooling it.
+            poisoned = true
           }
           // 42501 insufficient_privilege: the role lacks table grants.
           if (e instanceof Error && (e as { code?: string }).code === '42501') {
@@ -132,7 +141,9 @@ export const withPostgresClient: Middleware<
           }
           throw e
         } finally {
-          client.release()
+          // pg-pool removes the client instead of reusing it when release()
+          // gets a truthy argument.
+          client.release(poisoned)
         }
       },
     }

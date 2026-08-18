@@ -256,7 +256,11 @@ describe('withPostgresClient', () => {
       // 'boom' — not 'connection terminated'.
     ).rejects.toThrow('boom')
 
-    expect(h.release).toHaveBeenCalled()
+    // The connection may still be inside the caller's transaction with their
+    // role set. Returning it to the pool would leak that onto the next
+    // checkout — including withPostgresAdminClient, which shares this pool and
+    // sets up no session state of its own. release(truthy) discards it.
+    expect(h.release).toHaveBeenCalledWith(true)
   })
 
   it('appends a grants hint to permission-denied (42501) errors', async () => {
