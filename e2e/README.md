@@ -41,6 +41,10 @@ Run a single adapter with `pnpm test:e2e h3`.
   client is not scoped to the caller)
 - `apps/core/app.ts` — same surface on the core `withSupabase(config, handler)`
   fetch wrapper (no adapter) — what an Edge Function deploys, running on Node.
+  Plus `GET /my-notes-pg` (user, `middleware: [withPostgresClient()]` — a real `pg`
+  connection, same unfiltered query, rows scoped by RLS alone). Only the core
+  and edge apps carry this route: `pg` needs raw TCP, which is precisely the
+  runtime claim under test.
 - `supabase/functions/server-e2e/` — the same surface again, but on the real
   Deno edge runtime, served by `supabase start` through the Kong gateway and
   covered by `edge.e2e.ts`. Imports the library from a vendored `pnpm pack`
@@ -52,6 +56,8 @@ Run a single adapter with `pnpm test:e2e h3`.
   (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS` / `SUPABASE_JWKS`)
   the library reads.
 - `scenarios.ts` — the single scenario set run against every adapter
+  (`runAdapterScenarios`), plus `runPostgresScenarios` for the `ctx.postgres`
+  route, run only by `core.e2e.ts` and `edge.e2e.ts`
 - `setup/global-setup.ts` — checks the stack is up, signs in two test users,
   provides their tokens to the tests
 - `scripts/gen-env.sh` — writes `.env` (gitignored) from the running stack

@@ -1,9 +1,12 @@
 {
   "imports": {
     "@supabase/server": "../_vendor/package/dist/index.mjs",
+    "@supabase/server/middleware/postgres": "../_vendor/package/dist/middleware/postgres/index.mjs",
+    "@supabase/server/middleware/postgres-admin": "../_vendor/package/dist/middleware/postgres-admin/index.mjs",
     "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
     "@supabase/supabase-js/cors": "npm:@supabase/supabase-js@2/cors",
     "@supabase/middleware": "npm:@supabase/middleware@0.3.0",
-    "jose": "npm:jose@6"
+    "jose": "npm:jose@6",
+    "pg": "npm:pg@8"
   }
 }

@@ -1,9 +1,10 @@
 import { afterAll, beforeAll } from 'vitest'
 
 import { start } from './apps/core/app.ts'
-import { runAdapterScenarios } from './scenarios.ts'
+import { runAdapterScenarios, runPostgresScenarios } from './scenarios.ts'
 
 const PORT = 8795
+const baseUrl = `http://localhost:${PORT}`
 
 let close: () => Promise<void>
 
@@ -13,4 +14,5 @@ beforeAll(async () => {
 
 afterAll(() => close())
 
-runAdapterScenarios('core', `http://localhost:${PORT}`)
+runAdapterScenarios('core', baseUrl)
+runPostgresScenarios('core', baseUrl)
