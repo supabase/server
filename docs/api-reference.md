@@ -166,6 +166,98 @@ Defaults to `auth: 'user'` when config is omitted.
 
 ---
 
+## @supabase/server/middleware/postgres
+
+### withPostgresClient
+
+```ts
+const withPostgresClient: Middleware<
+  'postgres',
+  WithPostgresClientConfig | void,
+  { jwtClaims: RequestClaims | null },
+  PostgresApi
+>
+```
+
+Contributes `ctx.postgres` — a `pg` client scoped to the caller by RLS. Each query runs in its own transaction that sets `request.jwt.claims` and drops to the caller's role (`authenticated` or `anon`, clamped) before the statement, so `auth.uid()` resolves and policies enforce.
+
+Requires `ctx.jwtClaims` upstream — supplied by `withSupabase` or by `withClaims` in a standalone `pipeline`. Composing it without one is a compile-time error.
+
+Short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }` when no connection string is available.
+
+Needs raw TCP: Node, Deno, Bun, and the Supabase Edge runtime, not Workers-style isolates. `pg` is an optional peer dependency.
+
+See [`docs/postgres.md`](postgres.md).
+
+### PostgresApi
+
+```ts
+interface PostgresApi {
+  query<T = Record<string, unknown>>(
+    text: string,
+    params?: unknown[],
+  ): Promise<T[]>
+}
+```
+
+The value at `ctx.postgres`. `query` returns the result rows directly (not a `pg` `Result`). Use `params` for placeholders (`$1`, `$2`, …) rather than interpolating values into `text`.
+
+### WithPostgresClientConfig
+
+```ts
+interface WithPostgresClientConfig {
+  connectionString?: string
+}
+```
+
+Defaults to the `SUPABASE_DB_URL` environment variable. Pools are created lazily, one per connection string per process.
+
+### RequestClaims
+
+```ts
+interface RequestClaims {
+  role?: string
+  [key: string]: unknown
+}
+```
+
+The minimal claims shape `withPostgresClient` requires upstream at `ctx.jwtClaims`. Satisfied by `withSupabase`'s JWKS-verified claims and by `withClaims`. Only `role` is read; the whole object is serialized into `request.jwt.claims`.
+
+---
+
+## @supabase/server/middleware/postgres-admin
+
+### withPostgresAdminClient
+
+```ts
+const withPostgresAdminClient: Middleware<
+  'postgresAdmin',
+  WithPostgresAdminClientConfig | void,
+  Record<never, never>,
+  PostgresApi
+>
+```
+
+Contributes `ctx.postgresAdmin` — a `pg` client that **bypasses RLS**. Queries run as-is, as the role in the connection string: no claim injection, no role switching, no wrapping transaction.
+
+Declares no upstream prerequisite, so it composes in any auth mode including `'secret'` and `'none'`. Shares the pool cache with `withPostgresClient` — same connection string, one pool.
+
+Short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }` when no connection string is available.
+
+Authorization is the caller's responsibility: RLS is not consulted, so per-user scoping must be an explicit `where` clause.
+
+### WithPostgresAdminClientConfig
+
+```ts
+interface WithPostgresAdminClientConfig {
+  connectionString?: string
+}
+```
+
+Defaults to the `SUPABASE_DB_URL` environment variable.
+
+---
+
 ## Types
 
 ### AuthMode

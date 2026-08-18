@@ -438,6 +438,45 @@ export default {
 }
 ```
 
+## Postgres (RLS-scoped queries)
+
+When PostgREST isn't the right tool — joins, CTEs, window functions — `withPostgresClient` puts a direct Postgres connection on `ctx.postgres`, scoped to the caller by RLS:
+
+```ts
+import { withSupabase } from '@supabase/server'
+import { withPostgresClient } from '@supabase/server/middleware/postgres'
+
+export default {
+  fetch: withSupabase(
+    { auth: 'user', middleware: [withPostgresClient()] },
+    async (_req, ctx) => {
+      // No WHERE clause — RLS scopes the rows to the caller.
+      const notes = await ctx.postgres.query('select id, body from notes')
+      return Response.json(notes)
+    },
+  ),
+}
+```
+
+Each query runs in its own transaction that injects the caller's claims and drops to their role, exactly like PostgREST — so `auth.uid()` resolves and your policies enforce. The role is clamped to `authenticated` or `anon`, so a forged `service_role` claim can't bypass RLS.
+
+When a handler legitimately needs to cross user boundaries, `withPostgresAdminClient` is the explicit opt-out — it contributes `ctx.postgresAdmin`, which bypasses RLS and needs no caller identity, so it works under `auth: 'secret'` and `auth: 'none'` too:
+
+```ts
+import { withPostgresAdminClient } from '@supabase/server/middleware/postgres-admin'
+
+withSupabase(
+  { auth: 'secret', middleware: [withPostgresAdminClient()] },
+  handler,
+)
+```
+
+The pair mirrors `ctx.supabase` / `ctx.supabaseAdmin`, and they share one connection pool. Keeping them as two middleware is deliberate: bypassing RLS stays visible at the composition site, so you can grep for every handler that can do it.
+
+Needs `pg` installed (optional peer dependency) and a raw TCP socket: Node, Deno, Bun, and the Supabase Edge runtime — **not** Workers-style isolates. Reads `SUPABASE_DB_URL` by default. Remember that `authenticated` also needs table grants, not just policies.
+
+See [`docs/postgres.md`](docs/postgres.md) for standalone composition with `withClaims`, the grants requirement, and current limits.
+
 ## Environment Variables
 
 Automatically available in Supabase Edge Functions:
@@ -456,6 +495,7 @@ Also supported (for local dev, self-hosted, or other runtimes):
 | `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Single publishable key                                    |
 | `SUPABASE_SECRET_KEY`      | `sb_secret_...`      | Single secret key                                         |
 | `SUPABASE_JWKS_URL`        | `https://...`        | Remote JWKS endpoint (used when `SUPABASE_JWKS` is unset) |
+| `SUPABASE_DB_URL`          | `postgresql://...`   | Postgres connection string, read by `withPostgresClient`  |
 
 When both singular and plural forms are set, plural takes priority.
 
@@ -481,14 +521,16 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                             | What's in it                                                                                                      |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                 | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`            | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`   | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`     | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/adapters/elysia` | `withSupabase` (Elysia plugin)                                                                                    |
-| `@supabase/server/adapters/nestjs` | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
+| Export                                       | What's in it                                                                                                      |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                           | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`                      | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`             | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`               | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/elysia`           | `withSupabase` (Elysia plugin)                                                                                    |
+| `@supabase/server/adapters/nestjs`           | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
+| `@supabase/server/middleware/postgres`       | `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                           |
+| `@supabase/server/middleware/postgres-admin` | `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                     |
 
 ## Documentation
 
@@ -505,6 +547,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md) |
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
 | How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
+| How do I run raw SQL scoped to the caller by RLS?                   | [`docs/postgres.md`](docs/postgres.md)                           |
 | How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
 | What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                 |
 

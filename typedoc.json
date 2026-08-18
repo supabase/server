@@ -5,7 +5,9 @@
     "src/core/index.ts",
     "src/adapters/hono/index.ts",
     "src/adapters/h3/index.ts",
-    "src/adapters/elysia/index.ts"
+    "src/adapters/elysia/index.ts",
+    "src/middleware/postgres/index.ts",
+    "src/middleware/postgres-admin/index.ts"
   ],
   "out": "api-docs",
   "json": "api-docs/spec.json",
@@ -27,6 +29,7 @@
     "docs/error-handling.md",
     "docs/security.md",
     "docs/ssr-frameworks.md",
+    "docs/postgres.md",
     "docs/typescript-generics.md"
   ],
   "highlightLanguages": [
@@ -36,7 +39,8 @@
     "bash",
     "sh",
     "toml",
-    "json"
+    "json",
+    "sql"
   ],
   "sort": ["source-order"],
   "kindSortOrder": ["Function", "Class", "Interface", "TypeAlias", "Enum"],
