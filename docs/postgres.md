@@ -43,7 +43,27 @@ commit;
 
 Both `set_config`'s third argument and `set local` are transaction-local, so nothing leaks onto the pooled connection when it goes back to the pool.
 
-The role is **clamped** to `authenticated` or `anon`. A token claiming `role: "service_role"` still runs as `anon` — a caller can never talk their way into an RLS-bypassing role. For deliberate service-role access, use a separate admin path.
+## Which roles are assumed
+
+Only `authenticated` and `anon`. A verified token naming any other role is **refused** — a 500 with `code: 'UNSUPPORTED_ROLE'` and a message naming the role — rather than quietly downgraded:
+
+| `role` claim                 | Result                                         |
+| ---------------------------- | ---------------------------------------------- |
+| absent, or no token at all   | `anon`                                         |
+| `anon`                       | `anon`                                         |
+| `authenticated`              | `authenticated`                                |
+| `service_role`               | Refused, pointing at `withPostgresAdminClient` |
+| anything else (custom roles) | Refused, naming the role                       |
+
+Refusing rather than downgrading is deliberate. Running someone's query under the wrong identity returns **zero rows instead of an error**, which is close to undebuggable — you see an empty array and no indication that the role was the problem.
+
+### Custom roles are not supported yet
+
+Supabase lets you [define custom Postgres roles](https://supabase.com/docs/guides/storage/schema/custom-roles) and put them in the `role` claim, with RLS policies written `to manager`. That is a legitimate pattern and RLS still applies — custom roles are a dimension of RLS, not a way around it.
+
+They are not supported here yet, and the reason is worth knowing. PostgREST connects as the unprivileged `authenticator` role, so `grant manager to authenticator` _is_ the authorization — Postgres itself decides which roles are reachable. This middleware connects with `SUPABASE_DB_URL`, which on Supabase is `postgres`: a role that already bypasses RLS and can `SET ROLE` into almost anything. With no equivalent boundary to lean on, v1 assumes a fixed pair of roles instead of trusting the claim.
+
+Until custom-role support lands, issue tokens with `authenticated` or `anon`, or use `withPostgresAdminClient` and do the scoping in your own `where` clause.
 
 ### Write policies with the `auth.*` helpers
 

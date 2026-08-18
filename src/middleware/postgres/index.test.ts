@@ -30,6 +30,7 @@ vi.mock('pg', () => {
 const { pipeline, seedContext } = await import('@supabase/middleware')
 const { withClaims } = await import('../claims/index.js')
 const { withPostgresClient } = await import('./index.js')
+type PostgresApi = import('./index.js').PostgresApi
 
 /**
  * Compile-time coverage for the `withClaims` prerequisite. Never called — the
@@ -175,19 +176,94 @@ describe('withPostgresClient', () => {
     expect(h.release).toHaveBeenCalled()
   })
 
-  it('clamps any non-authenticated role (incl. a forged service_role) to anon', async () => {
+  it('treats claims with no role at all as anon', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
       await ctx.postgres.query('select 1')
       return Response.json({ ok: true })
     })
 
-    await handler(new Request('http://localhost'), {
+    const res = await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { sub: 'u1' },
+    })
+
+    expect(res.status).toBe(200)
+    expect(h.issued).toContain('set local role anon')
+  })
+
+  it('honours an explicit anon role', async () => {
+    const handler = withPostgresClient(async (_req, ctx) => {
+      await ctx.postgres.query('select 1')
+      return Response.json({ ok: true })
+    })
+
+    const res = await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { sub: 'u1', role: 'anon' },
+    })
+
+    expect(res.status).toBe(200)
+    expect(h.issued).toContain('set local role anon')
+  })
+
+  it('refuses a service_role token and points at withPostgresAdminClient', async () => {
+    const handler = withPostgresClient(async (_req, ctx) => {
+      await ctx.postgres.query('select 1')
+      return Response.json({ ok: true })
+    })
+
+    const res = await handler(new Request('http://localhost'), {
       ...seedContext(),
       jwtClaims: { sub: 'attacker', role: 'service_role' },
     })
 
-    expect(h.issued).toContain('set local role anon')
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { message: string; code: string }
+    expect(body.code).toBe('UNSUPPORTED_ROLE')
+    expect(body.message).toContain('withPostgresAdminClient')
+    // Never silently downgraded to anon, and never actually used.
+    expect(h.issued).not.toContain('set local role anon')
     expect(h.issued).not.toContain('set local role service_role')
+  })
+
+  it('refuses an unsupported custom role by name instead of downgrading', async () => {
+    const handler = withPostgresClient(async (_req, ctx) => {
+      await ctx.postgres.query('select 1')
+      return Response.json({ ok: true })
+    })
+
+    const res = await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { sub: 'u1', role: 'manager' },
+    })
+
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { message: string; code: string }
+    expect(body.code).toBe('UNSUPPORTED_ROLE')
+    // Naming the role is the whole point — the old behaviour returned zero
+    // rows as anon and left the caller with nothing to debug.
+    expect(body.message).toContain('manager')
+  })
+
+  it('short-circuits before the handler runs when the role is refused', async () => {
+    const inner = vi.fn(
+      async (_req: Request, ctx: { postgres: PostgresApi }) => {
+        await ctx.postgres.query('select 1')
+        return Response.json({ ok: true })
+      },
+    )
+    const handler = withPostgresClient(inner)
+
+    await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { sub: 'u1', role: 'manager' },
+    })
+
+    // The refusal happens in run(), so the handler never executes and no
+    // connection is checked out of the pool.
+    expect(inner).not.toHaveBeenCalled()
+    expect(h.connect).not.toHaveBeenCalled()
+    expect(h.issued).toEqual([])
   })
 
   it('rolls back when the query throws', async () => {

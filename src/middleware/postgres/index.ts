@@ -7,8 +7,43 @@ import {
   resolveConnectionString,
 } from '../../core/postgres-pool.js'
 import type { PostgresApi } from '../../core/postgres-pool.js'
+import { UnsupportedRoleError } from '../../errors.js'
 
 export type { PostgresApi }
+
+/**
+ * Roles this middleware will drop into. Deliberately not a denylist: we
+ * connect with `SUPABASE_DB_URL`, which on Supabase is `postgres` — a role
+ * with `BYPASSRLS` that can `SET ROLE` into almost anything. PostgREST needs
+ * no such list because it connects as the unprivileged `authenticator`, where
+ * `grant <role> to authenticator` *is* the authorization.
+ *
+ * Custom roles are legitimate on Supabase and RLS still applies to them, so
+ * this list is a v1 limitation rather than a security boundary — see the
+ * refusal message below.
+ */
+const SUPPORTED_ROLES = new Set(['authenticated', 'anon'])
+
+/**
+ * Resolve the role to assume, or a short-circuit `Response` explaining why we
+ * will not. Never silently downgrades a role the caller explicitly asked for:
+ * that returns zero rows and leaves nothing to debug.
+ */
+function resolveRole(claims: RequestClaims | null): string | Response {
+  const requested = typeof claims?.role === 'string' ? claims.role : undefined
+
+  // No verified caller, or a token that names no role at all — anonymous is
+  // the expected outcome, not a downgrade.
+  if (!requested) return 'anon'
+  if (SUPPORTED_ROLES.has(requested)) return requested
+
+  const message =
+    requested === 'service_role'
+      ? "The caller's token carries the 'service_role' role. withPostgresClient will not assume it — that role bypasses RLS, which is the guarantee this middleware exists to provide. If bypassing RLS is intended, compose withPostgresAdminClient from '@supabase/server/middleware/postgres-admin'."
+      : `The caller's token carries the role '${requested}', which withPostgresClient does not support yet — it assumes 'authenticated' or 'anon' only. Custom roles are on the roadmap; until then, issue tokens with one of the supported roles.`
+
+  return Response.json({ message, code: UnsupportedRoleError }, { status: 500 })
+}
 
 /**
  * Minimal claims shape {@link withPostgresClient} needs on the upstream context.
@@ -53,10 +88,16 @@ export interface WithPostgresClientConfig {
  *
  * Everything is transaction-local, so nothing leaks onto the pooled connection.
  *
- * The role is clamped to `authenticated` or `anon` — a token claiming
- * `role: "service_role"` still runs as `anon`, so a caller can never talk their
- * way into an RLS-bypassing role. Bypassing RLS is a separate, explicit opt-in:
- * compose `withPostgresAdminClient`.
+ * Only `authenticated` and `anon` are assumed. A token naming any other role —
+ * including `service_role` — is **refused** with a 500 and
+ * `code: 'UNSUPPORTED_ROLE'`, never silently downgraded to `anon`: running the
+ * query as the wrong identity would return zero rows and leave nothing to
+ * debug. Bypassing RLS is a separate, explicit opt-in: compose
+ * `withPostgresAdminClient`.
+ *
+ * > **Custom roles.** Supabase supports custom Postgres roles via the `role`
+ * > claim, and RLS still applies to them. They are not supported here yet, so
+ * > such a token is refused rather than downgraded.
  *
  * Reads the caller's claims from `ctx.jwtClaims`, which `withSupabase` already
  * populates (JWKS-verified) — so inside `withSupabase` you compose it directly:
@@ -96,11 +137,14 @@ export const withPostgresClient: Middleware<
       return missingConnectionStringResponse('withPostgresClient')
     }
 
-    const p = getPool(connectionString)
     const claims = ctx.jwtClaims
-    // Clamp the role — a token can never flip the client into an RLS-bypassing
-    // role. service_role is deliberately not reachable here.
-    const role = claims?.role === 'authenticated' ? 'authenticated' : 'anon'
+    const role = resolveRole(claims)
+    // Refused before the handler runs and before a connection is checked out.
+    if (role instanceof Response) return role
+
+    const p = getPool(connectionString)
+    // Fixed for the request, so serialize once rather than per query.
+    const claimsJson = JSON.stringify(claims ?? {})
 
     const api: PostgresApi = {
       async query<T = Record<string, unknown>>(
@@ -115,9 +159,10 @@ export const withPostgresClient: Middleware<
           await client.query('begin')
           await client.query(
             `select set_config('request.jwt.claims', $1, true)`,
-            [JSON.stringify(claims ?? {})],
+            [claimsJson],
           )
-          await client.query(`set local role ${role}`) // role is a clamped literal
+          // `role` is one of SUPPORTED_ROLES — never caller-supplied text.
+          await client.query(`set local role ${role}`)
           const res = await client.query(text, params)
           await client.query('commit')
           return res.rows as T[]

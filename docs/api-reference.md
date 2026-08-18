@@ -179,7 +179,9 @@ const withPostgresClient: Middleware<
 >
 ```
 
-Contributes `ctx.postgres` — a `pg` client scoped to the caller by RLS. Each query runs in its own transaction that sets `request.jwt.claims` and drops to the caller's role (`authenticated` or `anon`, clamped) before the statement, so `auth.uid()` resolves and policies enforce.
+Contributes `ctx.postgres` — a `pg` client scoped to the caller by RLS. Each query runs in its own transaction that sets `request.jwt.claims` and drops to the caller's role before the statement, so `auth.uid()` resolves and policies enforce.
+
+Only `authenticated` and `anon` are assumed. A verified token naming any other role — `service_role` or a custom role — short-circuits with a 500 and `{ message, code: 'UNSUPPORTED_ROLE' }` naming the role, rather than being downgraded to `anon`. A missing or absent `role` claim is `anon`.
 
 Requires `ctx.jwtClaims` upstream — supplied by `withSupabase` or by `withClaims` in a standalone `pipeline`. Composing it without one is a compile-time error.
 
@@ -445,17 +447,18 @@ class AuthError extends Error {
 
 ## Error Code Constants
 
-| Constant                            | Value                               | Class       | Meaning                                           |
-| ----------------------------------- | ----------------------------------- | ----------- | ------------------------------------------------- |
-| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                         |
-| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                            |
-| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                   |
-| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                        |
-| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                        |
-| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                             |
-| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                                |
-| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched, or JWT failed verification |
-| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth                 |
+| Constant                            | Value                               | Class       | Meaning                                                        |
+| ----------------------------------- | ----------------------------------- | ----------- | -------------------------------------------------------------- |
+| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                                      |
+| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                                         |
+| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                                |
+| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                                     |
+| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                                     |
+| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                                          |
+| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                                             |
+| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched, or JWT failed verification              |
+| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth                              |
+| `UnsupportedRoleError`              | `'UNSUPPORTED_ROLE'`                | —           | `withPostgresClient` will not assume the caller's `role` claim |
 
 ---
 

@@ -458,7 +458,7 @@ export default {
 }
 ```
 
-Each query runs in its own transaction that injects the caller's claims and drops to their role, exactly like PostgREST — so `auth.uid()` resolves and your policies enforce. The role is clamped to `authenticated` or `anon`, so a forged `service_role` claim can't bypass RLS.
+Each query runs in its own transaction that injects the caller's claims and drops to their role, exactly like PostgREST — so `auth.uid()` resolves and your policies enforce. Only `authenticated` and `anon` are assumed; a token naming any other role (including `service_role`, and custom roles) is refused with `code: 'UNSUPPORTED_ROLE'` rather than silently downgraded to `anon`.
 
 When a handler legitimately needs to cross user boundaries, `withPostgresAdminClient` is the explicit opt-out — it contributes `ctx.postgresAdmin`, which bypasses RLS and needs no caller identity, so it works under `auth: 'secret'` and `auth: 'none'` too:
 
