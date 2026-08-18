@@ -1,56 +1,47 @@
-import { defineMiddleware, getEnv } from '@supabase/middleware'
+import { defineMiddleware } from '@supabase/middleware'
 import type { Middleware } from '@supabase/middleware'
-import pg from 'pg'
 
-const { Pool } = pg
+import {
+  getPool,
+  missingConnectionStringResponse,
+  resolveConnectionString,
+} from '../../core/postgres-pool.js'
+import type { PostgresApi } from '../../core/postgres-pool.js'
 
-// One pool per process, lazily created (config or SUPABASE_DB_URL).
-let pool: pg.Pool | undefined
-function getPool(connectionString: string): pg.Pool {
-  if (!pool) pool = new Pool({ connectionString, max: 4 })
-  return pool
-}
+export type { PostgresApi }
 
 /**
- * Minimal claims shape {@link withPostgres} needs on the upstream context.
+ * Minimal claims shape {@link withPostgresClient} needs on the upstream context.
  *
  * Satisfied both by `withSupabase`'s JWKS-verified `ctx.jwtClaims` and by the
- * standalone `withClaims` middleware — `withPostgres` only reads `role` and
- * serializes the whole object into `request.jwt.claims`.
+ * standalone `withClaims` middleware — `withPostgresClient` only reads `role`
+ * and serializes the whole object into `request.jwt.claims`.
+ *
+ * @category Middleware
  */
-interface RequestClaims {
+export interface RequestClaims {
   role?: string
   [key: string]: unknown
 }
 
 /**
- * The `ctx.postgres` client contributed by {@link withPostgres}.
+ * Configuration for {@link withPostgresClient}.
  *
  * @category Middleware
  */
-export interface PostgresApi {
-  /** Run a query inside the caller's RLS-scoped transaction. */
-  query<T = Record<string, unknown>>(
-    text: string,
-    params?: unknown[],
-  ): Promise<T[]>
-}
-
-/**
- * Configuration for {@link withPostgres}.
- *
- * @category Middleware
- */
-export interface WithPostgresConfig {
+export interface WithPostgresClientConfig {
   /** Defaults to `getEnv('SUPABASE_DB_URL')` (from `@supabase/middleware`). */
   connectionString?: string
 }
 
 /**
  * Contributes `ctx.postgres` — an RLS-scoped `pg` client, the safe version of
- * "authenticate, then query as the user". Every query runs in its own short
- * transaction that injects the caller's claims and drops to their role, exactly
- * like PostgREST:
+ * "authenticate, then query as the user". This is the direct-connection
+ * counterpart to `withSupabaseClient`, and its service-role companion is
+ * `withPostgresAdminClient` (`@supabase/server/middleware/postgres-admin`).
+ *
+ * Every query runs in its own short transaction that injects the caller's
+ * claims and drops to their role, exactly like PostgREST:
  *
  * ```sql
  * begin;
@@ -62,11 +53,16 @@ export interface WithPostgresConfig {
  *
  * Everything is transaction-local, so nothing leaks onto the pooled connection.
  *
+ * The role is clamped to `authenticated` or `anon` — a token claiming
+ * `role: "service_role"` still runs as `anon`, so a caller can never talk their
+ * way into an RLS-bypassing role. Bypassing RLS is a separate, explicit opt-in:
+ * compose `withPostgresAdminClient`.
+ *
  * Reads the caller's claims from `ctx.jwtClaims`, which `withSupabase` already
  * populates (JWKS-verified) — so inside `withSupabase` you compose it directly:
  *
  * ```ts
- * withSupabase({ auth: 'user', middleware: [withPostgres()] }, handler)
+ * withSupabase({ auth: 'user', middleware: [withPostgresClient()] }, handler)
  * ```
  *
  * Standalone (no `withSupabase`), pair it with `withClaims` so `ctx.jwtClaims`
@@ -82,23 +78,22 @@ export interface WithPostgresConfig {
  *
  * @category Middleware
  */
-export const withPostgres: Middleware<
+export const withPostgresClient: Middleware<
   'postgres',
-  WithPostgresConfig | void,
+  WithPostgresClientConfig | void,
   { jwtClaims: RequestClaims | null },
   PostgresApi
 > = defineMiddleware<
   'postgres',
-  WithPostgresConfig | void,
+  WithPostgresClientConfig | void,
   { jwtClaims: RequestClaims | null },
   PostgresApi
 >({
   key: 'postgres',
   run: (config) => async (_req, ctx) => {
-    const connectionString =
-      config?.connectionString ?? getEnv('SUPABASE_DB_URL')
+    const connectionString = resolveConnectionString(config?.connectionString)
     if (!connectionString) {
-      return Response.json({ error: 'no SUPABASE_DB_URL' }, { status: 500 })
+      return missingConnectionStringResponse('withPostgresClient')
     }
 
     const p = getPool(connectionString)
@@ -124,7 +119,13 @@ export const withPostgres: Middleware<
           await client.query('commit')
           return res.rows as T[]
         } catch (e) {
-          await client.query('rollback')
+          // A broken connection makes the rollback throw too; that failure
+          // must not replace the error the caller actually needs to see.
+          try {
+            await client.query('rollback')
+          } catch {
+            // ignored — the original error wins
+          }
           // 42501 insufficient_privilege: the role lacks table grants.
           if (e instanceof Error && (e as { code?: string }).code === '42501') {
             e.message += ` (RLS-scoped queries run as the caller's role '${role}' — grant that role the table privileges it needs, e.g. "grant select on <table> to ${role}")`

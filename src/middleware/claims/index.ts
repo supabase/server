@@ -30,7 +30,7 @@ export interface WithClaimsConfig {
  * Use this when composing a standalone `pipeline([...], handler)` that is
  * **not** wrapped by `withSupabase` — for example a Supabase-agnostic Edge
  * Function that still wants the caller's verified claims available to a
- * downstream middleware such as `withPostgres`. Inside `withSupabase`, the
+ * downstream middleware such as `withPostgresClient`. Inside `withSupabase`, the
  * context already carries `jwtClaims`, so `withClaims` is unnecessary.
  *
  * Behavior:
@@ -45,10 +45,10 @@ export interface WithClaimsConfig {
  * ```ts
  * import { pipeline } from '@supabase/middleware'
  * import { withClaims } from '@supabase/server/middleware/claims'
- * import { withPostgres } from '@supabase/server/middleware/postgres'
+ * import { withPostgresClient } from '@supabase/server/middleware/postgres'
  *
  * export default {
- *   fetch: pipeline([withClaims(), withPostgres()], async (req, ctx) => {
+ *   fetch: pipeline([withClaims(), withPostgresClient()], async (req, ctx) => {
  *     const rows = await ctx.postgres.query('select id, title from posts')
  *     return Response.json({ rows, caller: ctx.jwtClaims?.sub ?? 'anon' })
  *   }),
