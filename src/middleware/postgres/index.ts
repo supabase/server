@@ -7,9 +7,13 @@ import {
   resolveConnectionString,
 } from '../../core/postgres-pool.js'
 import type { PostgresApi } from '../../core/postgres-pool.js'
+import { compileTemplate, ident } from '../../core/sql.js'
 import { UnsupportedRoleError } from '../../errors.js'
 
 export type { PostgresApi }
+// `ident` is exported here rather than only from core: it is the companion
+// to `queryRaw`, so it belongs on the subpath a caller already imports.
+export { ident }
 
 /**
  * Roles this middleware will drop into. Deliberately not a denylist: we
@@ -81,7 +85,7 @@ export interface WithPostgresClientConfig {
  * ```sql
  * begin;
  * select set_config('request.jwt.claims', $claims, true);  -- auth.uid() resolves
- * set local role authenticated;                            -- RLS now enforces
+ * set local role "authenticated";                          -- RLS now enforces
  * <your query>
  * commit;
  * ```
@@ -147,7 +151,14 @@ export const withPostgresClient: Middleware<
     const claimsJson = JSON.stringify(claims ?? {})
 
     const api: PostgresApi = {
-      async query<T = Record<string, unknown>>(
+      query<T = Record<string, unknown>>(
+        strings: TemplateStringsArray,
+        ...values: unknown[]
+      ) {
+        const compiled = compileTemplate(strings, values)
+        return api.queryRaw<T>(compiled.text, compiled.values)
+      },
+      async queryRaw<T = Record<string, unknown>>(
         text: string,
         params?: unknown[],
       ) {
@@ -161,8 +172,10 @@ export const withPostgresClient: Middleware<
             `select set_config('request.jwt.claims', $1, true)`,
             [claimsJson],
           )
-          // `role` is one of SUPPORTED_ROLES — never caller-supplied text.
-          await client.query(`set local role ${role}`)
+          // `role` is one of SUPPORTED_ROLES, so this interpolation is already
+          // safe; quoting it keeps that true if the allowlist ever widens to
+          // the custom roles the docstring promises.
+          await client.query(`set local role ${ident(role)}`)
           const res = await client.query(text, params)
           await client.query('commit')
           return res.rows as T[]

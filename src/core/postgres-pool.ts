@@ -16,8 +16,57 @@ const { Pool } = pg
  * @category Middleware
  */
 export interface PostgresApi {
-  /** Run a query and return its rows. */
+  /**
+   * Run a query written as a tagged template, and return its rows.
+   *
+   * Every interpolation becomes a bind parameter, so an interpolated value is
+   * never SQL text and cannot change the statement's shape:
+   *
+   * ```ts
+   * const rows = await ctx.postgres.query`select * from notes where id = ${id}`
+   * // -> select * from notes where id = $1   with values [id]
+   * ```
+   *
+   * Tagged templates cannot carry type arguments, so annotate the binding
+   * rather than writing `query<NoteRow>`:
+   *
+   * ```ts
+   * const rows: NoteRow[] = await ctx.postgres.query`select id, body from notes`
+   * ```
+   *
+   * Identifiers — table, column, `order by` direction — cannot be bind
+   * parameters in Postgres. Check them against a set you control and quote
+   * them with {@link ident}, then use {@link PostgresApi.queryRaw}.
+   *
+   * Passing a plain string throws, naming `queryRaw`. That is deliberate: the
+   * two calls differ only in their brackets, so a silent reinterpretation
+   * would be very hard to spot.
+   */
   query<T = Record<string, unknown>>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<T[]>
+
+  /**
+   * Run a query from SQL text you supply, and return its rows.
+   *
+   * Safe when every caller-supplied value travels in `params` — that is
+   * exactly what {@link PostgresApi.query} compiles to. Reach for this when
+   * the text cannot be a literal: a query builder or codegen emitting
+   * `{ sql, parameters }`, or SQL that has to interpolate an identifier
+   * (quote it with {@link ident} first).
+   *
+   * ```ts
+   * const rows = await ctx.postgres.queryRaw(
+   *   'select * from notes where id = $1',
+   *   [id],
+   * )
+   * ```
+   *
+   * Unlike `query`, this cannot stop you concatenating a value into `text`.
+   * The name is the warning, and it greps.
+   */
+  queryRaw<T = Record<string, unknown>>(
     text: string,
     params?: unknown[],
   ): Promise<T[]>

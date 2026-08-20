@@ -7,8 +7,12 @@ import {
   resolveConnectionString,
 } from '../../core/postgres-pool.js'
 import type { PostgresApi } from '../../core/postgres-pool.js'
+import { compileTemplate, ident } from '../../core/sql.js'
 
 export type { PostgresApi }
+// `ident` is exported here rather than only from core: it is the companion
+// to `queryRaw`, so it belongs on the subpath a caller already imports.
+export { ident }
 
 /**
  * Configuration for {@link withPostgresAdminClient}.
@@ -42,9 +46,7 @@ export interface WithPostgresAdminClientConfig {
  *   fetch: withSupabase(
  *     { auth: 'secret', middleware: [withPostgresAdminClient()] },
  *     async (_req, ctx) => {
- *       const rows = await ctx.postgresAdmin.query(
- *         'select user_id, count(*) from notes group by user_id',
- *       )
+ *       const rows = await ctx.postgresAdmin.query`select user_id, count(*) from notes group by user_id`
  *       return Response.json(rows)
  *     },
  *   ),
@@ -89,7 +91,14 @@ export const withPostgresAdminClient: Middleware<
     const p = getPool(connectionString)
 
     const api: PostgresApi = {
-      async query<T = Record<string, unknown>>(
+      query<T = Record<string, unknown>>(
+        strings: TemplateStringsArray,
+        ...values: unknown[]
+      ) {
+        const compiled = compileTemplate(strings, values)
+        return api.queryRaw<T>(compiled.text, compiled.values)
+      },
+      async queryRaw<T = Record<string, unknown>>(
         text: string,
         params?: unknown[],
       ) {

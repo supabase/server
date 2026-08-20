@@ -451,7 +451,7 @@ export default {
     { auth: 'user', middleware: [withPostgresClient()] },
     async (_req, ctx) => {
       // No WHERE clause — RLS scopes the rows to the caller.
-      const notes = await ctx.postgres.query('select id, body from notes')
+      const notes = await ctx.postgres.query`select id, body from notes`
       return Response.json(notes)
     },
   ),

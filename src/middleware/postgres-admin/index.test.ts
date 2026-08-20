@@ -60,7 +60,7 @@ describe('withPostgresAdminClient', () => {
 
   it('runs the query as-is — no transaction, no claims, no role switch', async () => {
     const handler = withPostgresAdminClient(async (_req, ctx) => {
-      await ctx.postgresAdmin.query('select * from notes')
+      await ctx.postgresAdmin.query`select * from notes`
       return Response.json({ ok: true })
     })
 
@@ -75,9 +75,10 @@ describe('withPostgresAdminClient', () => {
 
   it('passes query parameters through', async () => {
     const handler = withPostgresAdminClient(async (_req, ctx) => {
-      await ctx.postgresAdmin.query('select * from notes where user_id = $1', [
-        'u1',
-      ])
+      await ctx.postgresAdmin.queryRaw(
+        'select * from notes where user_id = $1',
+        ['u1'],
+      )
       return Response.json({ ok: true })
     })
 
@@ -90,7 +91,7 @@ describe('withPostgresAdminClient', () => {
     // The scoped half requires ctx.jwtClaims; this one must not, so it can be
     // used under auth: 'secret' / 'none' where there is no caller identity.
     const handler = withPostgresAdminClient(async (_req, ctx) => {
-      const rows = await ctx.postgresAdmin.query('select 1')
+      const rows = await ctx.postgresAdmin.query`select 1`
       return Response.json({ rows })
     })
 
@@ -108,7 +109,7 @@ describe('withPostgresAdminClient', () => {
     const admin = withPostgresAdminClient(
       { connectionString: 'postgres://localhost/shared' },
       async (_req, ctx) => {
-        await ctx.postgresAdmin.query('select 1')
+        await ctx.postgresAdmin.query`select 1`
         return Response.json({ ok: true })
       },
     )

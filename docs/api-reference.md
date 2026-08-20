@@ -196,13 +196,48 @@ See [`docs/postgres.md`](postgres.md).
 ```ts
 interface PostgresApi {
   query<T = Record<string, unknown>>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<T[]>
+
+  queryRaw<T = Record<string, unknown>>(
     text: string,
     params?: unknown[],
   ): Promise<T[]>
 }
 ```
 
-The value at `ctx.postgres`. `query` returns the result rows directly (not a `pg` `Result`). Use `params` for placeholders (`$1`, `$2`, …) rather than interpolating values into `text`.
+The value at `ctx.postgres`. Both methods return the result rows directly (not a `pg` `Result`).
+
+`query` is a **tagged template**, so every interpolation becomes a bind parameter and can never alter the statement:
+
+```ts
+const rows = await ctx.postgres
+  .query`select id, body from notes where id = ${id}`
+// -> select id, body from notes where id = $1   with values [id]
+```
+
+Tagged templates cannot carry type arguments, so annotate the binding instead of writing `query<NoteRow>`:
+
+```ts
+const rows: NoteRow[] = await ctx.postgres.query`select id, body from notes`
+```
+
+Passing a plain string to `query` throws — the two calls differ only in their brackets, so it refuses rather than silently reinterpreting.
+
+`queryRaw` takes SQL text plus `params`, for text that cannot be a literal: a query builder emitting `{ sql, parameters }`, or SQL that must interpolate an identifier. Identifiers can never be bind parameters, so check them against a set you control and quote them with `ident`:
+
+```ts
+import { ident } from '@supabase/server/middleware/postgres'
+
+const SORTABLE = new Set(['created_at', 'title'])
+if (!SORTABLE.has(column)) throw new Error('unsupported sort column')
+const rows = await ctx.postgres.queryRaw(
+  `select id, title from posts order by ${ident(column)} desc`,
+)
+```
+
+`ident` quotes and escapes, but does not authorize — it stops injection, not a caller reading a column they should not see. The allowlist is what does that.
 
 ### WithPostgresClientConfig
 

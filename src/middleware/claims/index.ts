@@ -49,7 +49,7 @@ export interface WithClaimsConfig {
  *
  * export default {
  *   fetch: pipeline([withClaims(), withPostgresClient()], async (req, ctx) => {
- *     const rows = await ctx.postgres.query('select id, title from posts')
+ *     const rows = await ctx.postgres.query`select id, title from posts`
  *     return Response.json({ rows, caller: ctx.jwtClaims?.sub ?? 'anon' })
  *   }),
  * }

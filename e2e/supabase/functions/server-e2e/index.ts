@@ -87,6 +87,10 @@ const optionalHandler = withSupabase(
 // app covers the SUPABASE_DB_URL default path.
 const connectionString = Deno.env.get('E2E_DB_URL')
 const pgConfig = connectionString ? { connectionString } : {}
+// COLUMNS is an identifier list, which can never be a bind parameter — as a
+// `query` tag this would compile to `select $1 from notes` and return the
+// literal string for every row. It is a module constant, not caller input,
+// so interpolating it here and sending the text via `queryRaw` is correct.
 const PG_QUERY = `select ${COLUMNS} from notes order by created_at`
 
 // Both halves composed together, running the identical query: /my-notes-pg is
@@ -102,9 +106,9 @@ const postgresHandler = withSupabase(
   },
   async (req, ctx) => {
     if (route(req) === '/all-notes-pg') {
-      return Response.json(await ctx.postgresAdmin.query(PG_QUERY))
+      return Response.json(await ctx.postgresAdmin.queryRaw(PG_QUERY))
     }
-    return Response.json(await ctx.postgres.query(PG_QUERY))
+    return Response.json(await ctx.postgres.queryRaw(PG_QUERY))
   },
 )
 

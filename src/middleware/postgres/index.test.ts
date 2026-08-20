@@ -42,20 +42,20 @@ type PostgresApi = import('./index.js').PostgresApi
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _prerequisiteIsCompileTimeChecked() {
   pipeline([withClaims(), withPostgresClient()], async (_req, ctx) =>
-    Response.json({ rows: await ctx.postgres.query('') }),
+    Response.json({ rows: await ctx.postgres.query`` }),
   )
 
   pipeline(
     [withPostgresClient()],
     // @ts-expect-error withPostgresClient requires an upstream `jwtClaims`
-    async (_req, ctx) => Response.json({ rows: await ctx.postgres.query('') }),
+    async (_req, ctx) => Response.json({ rows: await ctx.postgres.query`` }),
   )
 
   // Ordering matters too: withClaims must run before withPostgresClient.
   pipeline(
     [withPostgresClient(), withClaims()],
     // @ts-expect-error `jwtClaims` is not on the context yet at this point
-    async (_req, ctx) => Response.json({ rows: await ctx.postgres.query('') }),
+    async (_req, ctx) => Response.json({ rows: await ctx.postgres.query`` }),
   )
 }
 
@@ -98,7 +98,7 @@ describe('withPostgresClient', () => {
     const handler = withPostgresClient(
       { connectionString: 'postgres://localhost/from-config' },
       async (_req, ctx) => {
-        await ctx.postgres.query('select 1')
+        await ctx.postgres.query`select 1`
         return Response.json({ ok: true })
       },
     )
@@ -117,7 +117,7 @@ describe('withPostgresClient', () => {
       const handler = withPostgresClient(
         { connectionString },
         async (_req, ctx) => {
-          await ctx.postgres.query('select 1')
+          await ctx.postgres.query`select 1`
           return Response.json({ ok: true })
         },
       )
@@ -141,7 +141,7 @@ describe('withPostgresClient', () => {
 
   it('falls back to anon with empty claims when there is no caller', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.query`select 1`
       return Response.json({ ok: true })
     })
 
@@ -150,14 +150,14 @@ describe('withPostgresClient', () => {
       jwtClaims: null,
     })
 
-    expect(h.issued).toContain('set local role anon')
+    expect(h.issued).toContain('set local role "anon"')
     // The set_config parameter is the second query issued.
     expect(h.params[1]).toEqual(['{}'])
   })
 
   it('injects the caller claims and drops to the authenticated role', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.query`select 1`
       return Response.json({ ok: true })
     })
 
@@ -169,7 +169,7 @@ describe('withPostgresClient', () => {
     expect(h.issued).toEqual([
       'begin',
       `select set_config('request.jwt.claims', $1, true)`,
-      'set local role authenticated',
+      'set local role "authenticated"',
       'select 1',
       'commit',
     ])
@@ -178,7 +178,7 @@ describe('withPostgresClient', () => {
 
   it('treats claims with no role at all as anon', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.query`select 1`
       return Response.json({ ok: true })
     })
 
@@ -188,12 +188,12 @@ describe('withPostgresClient', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(h.issued).toContain('set local role anon')
+    expect(h.issued).toContain('set local role "anon"')
   })
 
   it('honours an explicit anon role', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.query`select 1`
       return Response.json({ ok: true })
     })
 
@@ -203,12 +203,12 @@ describe('withPostgresClient', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(h.issued).toContain('set local role anon')
+    expect(h.issued).toContain('set local role "anon"')
   })
 
   it('refuses a service_role token and points at withPostgresAdminClient', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.query`select 1`
       return Response.json({ ok: true })
     })
 
@@ -222,13 +222,13 @@ describe('withPostgresClient', () => {
     expect(body.code).toBe('UNSUPPORTED_ROLE')
     expect(body.message).toContain('withPostgresAdminClient')
     // Never silently downgraded to anon, and never actually used.
-    expect(h.issued).not.toContain('set local role anon')
-    expect(h.issued).not.toContain('set local role service_role')
+    expect(h.issued).not.toContain('set local role "anon"')
+    expect(h.issued).not.toContain('set local role "service_role"')
   })
 
   it('refuses an unsupported custom role by name instead of downgrading', async () => {
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select 1')
+      await ctx.postgres.query`select 1`
       return Response.json({ ok: true })
     })
 
@@ -248,7 +248,7 @@ describe('withPostgresClient', () => {
   it('short-circuits before the handler runs when the role is refused', async () => {
     const inner = vi.fn(
       async (_req: Request, ctx: { postgres: PostgresApi }) => {
-        await ctx.postgres.query('select 1')
+        await ctx.postgres.query`select 1`
         return Response.json({ ok: true })
       },
     )
@@ -286,7 +286,7 @@ describe('withPostgresClient', () => {
       })
 
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select bad')
+      await ctx.postgres.query`select bad`
       return Response.json({ ok: true })
     })
 
@@ -320,7 +320,7 @@ describe('withPostgresClient', () => {
       })
 
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select bad')
+      await ctx.postgres.query`select bad`
       return Response.json({ ok: true })
     })
 
@@ -363,7 +363,7 @@ describe('withPostgresClient', () => {
       })
 
     const handler = withPostgresClient(async (_req, ctx) => {
-      await ctx.postgres.query('select * from notes')
+      await ctx.postgres.query`select * from notes`
       return Response.json({ ok: true })
     })
 
@@ -378,5 +378,67 @@ describe('withPostgresClient', () => {
 
     expect(h.issued).toContain('rollback')
     expect(h.release).toHaveBeenCalled()
+  })
+
+  const runQuery = async (
+    body: (ctx: { postgres: PostgresApi }) => Promise<void>,
+  ) => {
+    const handler = withPostgresClient(async (_req, ctx) => {
+      await body(ctx)
+      return Response.json({ ok: true })
+    })
+    await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { role: 'authenticated' },
+    })
+  }
+
+  it('compiles a tagged query into parameterized SQL', async () => {
+    await runQuery(async (ctx) => {
+      await ctx.postgres.query`select * from notes where id = ${7}`
+    })
+
+    expect(h.issued).toContain('select * from notes where id = $1')
+    expect(h.params).toContainEqual([7])
+  })
+
+  it('keeps an interpolated value out of the SQL text entirely', async () => {
+    const evil = "'; drop table notes; --"
+    await runQuery(async (ctx) => {
+      await ctx.postgres.query`select * from notes where body = ${evil}`
+    })
+
+    expect(h.issued).toContain('select * from notes where body = $1')
+    expect(h.issued.join(' ')).not.toContain('drop table')
+    expect(h.params).toContainEqual([evil])
+  })
+
+  it('passes queryRaw text and params through untouched', async () => {
+    await runQuery(async (ctx) => {
+      await ctx.postgres.queryRaw('select * from notes where id = $1', [3])
+    })
+
+    expect(h.issued).toContain('select * from notes where id = $1')
+    expect(h.params).toContainEqual([3])
+  })
+
+  it('refuses a plain string passed to query, naming queryRaw', async () => {
+    await expect(
+      runQuery(async (ctx) => {
+        // Callers on the old string API land here rather than silently
+        // sending a one-character query.
+        await (
+          ctx.postgres.query as unknown as (t: string) => Promise<unknown>
+        )('select 1')
+      }),
+    ).rejects.toThrow(/queryRaw/)
+  })
+
+  it('quotes the role it drops into', async () => {
+    await runQuery(async (ctx) => {
+      await ctx.postgres.query`select 1`
+    })
+
+    expect(h.issued).toContain('set local role "authenticated"')
   })
 })

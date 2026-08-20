@@ -20,7 +20,7 @@ export default {
     { auth: 'user', middleware: [withPostgresClient()] },
     async (_req, ctx) => {
       // No WHERE clause — RLS scopes the rows to the caller.
-      const notes = await ctx.postgres.query('select id, body from notes')
+      const notes = await ctx.postgres.query`select id, body from notes`
       return Response.json(notes)
     },
   ),
@@ -31,17 +31,67 @@ Use this when PostgREST is not the right tool: multi-table joins, window functio
 
 ## What each query runs
 
-Every `ctx.postgres.query()` call takes a connection from the pool and runs your SQL inside its own transaction, injecting the caller's claims exactly the way PostgREST does:
+Every query takes a connection from the pool and runs your SQL inside its own transaction, injecting the caller's claims exactly the way PostgREST does:
 
 ```sql
 begin;
 select set_config('request.jwt.claims', $claims, true);  -- auth.uid() resolves
-set local role authenticated;                            -- RLS now enforces
+set local role "authenticated";                          -- RLS now enforces
 -- your query
 commit;
 ```
 
 Both `set_config`'s third argument and `set local` are transaction-local, so nothing leaks onto the pooled connection when it goes back to the pool.
+
+## Writing queries safely
+
+`query` is a tagged template. Every interpolation becomes a bind parameter, so an interpolated value is never SQL text and cannot change the shape of the statement:
+
+```ts
+const rows = await ctx.postgres
+  .query`select id, body from notes where id = ${id}`
+// -> select id, body from notes where id = $1   with values [id]
+```
+
+That holds no matter what `id` contains. A value like `'; drop table notes; --` is sent as a parameter and compared as a string.
+
+Tagged templates cannot carry type arguments, so annotate the binding rather than writing `query<NoteRow>`:
+
+```ts
+const rows: NoteRow[] = await ctx.postgres.query`select id, body from notes`
+```
+
+Passing a plain string to `query` throws. The two calls differ only in their brackets, so refusing is safer than reinterpreting one as the other.
+
+### `queryRaw` for text you build
+
+Use `queryRaw(text, params)` when the SQL cannot be a literal — a query builder or codegen emitting `{ sql, parameters }`, or a statement held in a constant:
+
+```ts
+const rows = await ctx.postgres.queryRaw(
+  'select id, body from notes where id = $1',
+  [id],
+)
+```
+
+It is fully safe as long as caller-supplied values travel in `params`; that is exactly what `query` compiles down to. What it cannot do is stop you concatenating a value into `text`. The name is the warning, and it greps.
+
+### `ident` for identifiers
+
+Table names, column names and `order by` direction can never be bind parameters — `select $1 from notes` selects a literal, not a column. Those have to reach the server as SQL text, so check them against a set you control and quote them:
+
+```ts
+import { ident } from '@supabase/server/middleware/postgres'
+
+const SORTABLE = new Set(['created_at', 'title'])
+if (!SORTABLE.has(column)) throw new Error('unsupported sort column')
+
+const rows = await ctx.postgres.queryRaw(
+  `select id, title from notes order by ${ident(column)} desc`,
+)
+```
+
+`ident` stops injection; it does not authorize. Quoting a caller-supplied name yields a valid identifier, not a permitted one — it cannot break out of the statement, but it can still name a column the caller was never meant to read. The allowlist is what prevents that.
 
 ## Which roles are assumed
 
@@ -96,7 +146,7 @@ import { withPostgresClient } from '@supabase/server/middleware/postgres'
 
 export default {
   fetch: pipeline([withClaims(), withPostgresClient()], async (_req, ctx) => {
-    const rows = await ctx.postgres.query('select id, title from posts')
+    const rows = await ctx.postgres.query`select id, title from posts`
     return Response.json({ rows, caller: ctx.jwtClaims?.sub ?? 'anon' })
   }),
 }
@@ -130,9 +180,8 @@ export default {
   fetch: withSupabase(
     { auth: 'secret', middleware: [withPostgresAdminClient()] },
     async (_req, ctx) => {
-      const rows = await ctx.postgresAdmin.query(
-        'select user_id, count(*) from notes group by user_id',
-      )
+      const rows = await ctx.postgresAdmin
+        .query`select user_id, count(*) from notes group by user_id`
       return Response.json(rows)
     },
   ),

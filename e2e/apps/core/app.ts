@@ -48,6 +48,9 @@ const userHandler = withSupabase({ auth: 'user' }, async (req, ctx) => {
 // through the RLS-scoped one and /all-notes-pg through the admin one, running
 // the *identical* SQL. That the same query returns different rows is the whole
 // security boundary under test.
+// Shared between both routes, so it is a constant rather than a literal at
+// each call site — `queryRaw` is the path for SQL text held in a variable.
+// It carries no interpolation, so there is nothing to parameterize.
 const PG_QUERY = 'select id, user_id, body from notes order by created_at'
 
 const postgresHandler = withSupabase(
@@ -58,9 +61,9 @@ const postgresHandler = withSupabase(
   async (req, ctx) => {
     const { pathname } = new URL(req.url)
     if (pathname === '/all-notes-pg') {
-      return Response.json(await ctx.postgresAdmin.query<NoteRow>(PG_QUERY))
+      return Response.json(await ctx.postgresAdmin.queryRaw<NoteRow>(PG_QUERY))
     }
-    return Response.json(await ctx.postgres.query<NoteRow>(PG_QUERY))
+    return Response.json(await ctx.postgres.queryRaw<NoteRow>(PG_QUERY))
   },
 )
 
