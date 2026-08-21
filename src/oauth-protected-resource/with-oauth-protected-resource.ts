@@ -1,5 +1,14 @@
+import { defineMiddleware } from '@supabase/middleware'
+import type { Middleware } from '@supabase/middleware'
+
 import { resourceMetadataResponse } from './responses.js'
 import { getResourceMetadataUrl, inferFunctionName } from './url.js'
+
+/** Shape contributed at `ctx.oauthProtectedResource`. */
+export interface OAuthProtectedResourceContribution {
+  /** Absolute URL of this resource's OAuth Protected Resource Metadata document (RFC 9728). */
+  resourceMetadataUrl: string
+}
 
 /**
  * Wraps a request handler with OAuth 2.1 Protected Resource behavior (RFC 9728)
@@ -9,11 +18,8 @@ import { getResourceMetadataUrl, inferFunctionName } from './url.js'
  *   (with permissive CORS, including the `OPTIONS` preflight, so browser-based clients can read it)
  * - Enriches a `401` from the inner handler with `WWW-Authenticate: Bearer resource_metadata="..."`,
  *   unless the handler already set a `WWW-Authenticate` header (its value wins)
- * - Returns `404` for any other path (Edge Functions are single-endpoint - the inner handler owns `/{fn}` only)
- *
- * The returned handler's optional second parameter is the host's platform
- * argument (a Workers `env`, a Deno `ServeHandlerInfo`) and is forwarded to
- * the inner handler unchanged — required for `withSupabase` to capture it.
+ * - Passes any other path through to the inner handler unchanged (composition,
+ *   not routing, decides what happens to it)
  *
  * @category Middleware
  *
@@ -32,61 +38,75 @@ import { getResourceMetadataUrl, inferFunctionName } from './url.js'
  * )
  * ```
  */
-export function withOAuthProtectedResource(
-  handler: (req: Request, platformArg?: unknown) => Promise<Response>,
-): (req: Request, platformArg?: unknown) => Promise<Response> {
-  return async (req: Request, platformArg?: unknown): Promise<Response> => {
-    const url = new URL(req.url)
-    const fn = inferFunctionName(req)
-    if (!fn) return new Response('Not Found', { status: 404 })
-    const basePath = `/${fn}`
+export const withOAuthProtectedResource: Middleware<
+  'oauthProtectedResource',
+  undefined,
+  Record<never, never>,
+  OAuthProtectedResourceContribution
+> = defineMiddleware<
+  'oauthProtectedResource',
+  undefined,
+  Record<never, never>,
+  OAuthProtectedResourceContribution
+>({
+  key: 'oauthProtectedResource',
+  run: () =>
+    async function* (req) {
+      const url = new URL(req.url)
+      const fn = inferFunctionName(req)
+      const metadataPath = fn ? `/${fn}/oauth-protected-resource` : undefined
 
-    // RFC 9728 — OAuth Protected Resource Metadata
-    if (
-      req.method === 'GET' &&
-      url.pathname === `${basePath}/oauth-protected-resource`
-    ) {
-      return resourceMetadataResponse(req)
-    }
+      // RFC 9728 — OAuth Protected Resource Metadata
+      if (
+        metadataPath &&
+        req.method === 'GET' &&
+        url.pathname === metadataPath
+      ) {
+        return resourceMetadataResponse(req)
+      }
 
-    // CORS preflight for the metadata route — browser-based clients (e.g.
-    // MCP Inspector) fetch the discovery document cross-origin.
-    if (
-      req.method === 'OPTIONS' &&
-      url.pathname === `${basePath}/oauth-protected-resource`
-    ) {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'content-type, mcp-protocol-version',
-        },
-      })
-    }
+      // CORS preflight for the metadata route — browser-based clients (e.g.
+      // MCP Inspector) fetch the discovery document cross-origin.
+      if (
+        metadataPath &&
+        req.method === 'OPTIONS' &&
+        url.pathname === metadataPath
+      ) {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers':
+              'content-type, mcp-protocol-version',
+          },
+        })
+      }
 
-    if (url.pathname !== basePath) {
-      return new Response('Not Found', { status: 404 })
-    }
+      const resourceMetadataUrl = getResourceMetadataUrl(req)
+      const response = yield {
+        oauthProtectedResource: { resourceMetadataUrl },
+      }
 
-    const response = await handler(req, platformArg)
+      // Enrich a 401 with WWW-Authenticate so clients can discover the auth
+      // server — unless the handler already set one (its value wins, e.g. an
+      // RFC 6750 error or a custom resource_metadata override).
+      if (
+        response.status === 401 &&
+        !response.headers.has('WWW-Authenticate')
+      ) {
+        const headers = new Headers(response.headers)
+        headers.set(
+          'WWW-Authenticate',
+          `Bearer resource_metadata="${resourceMetadataUrl}"`,
+        )
+        return new Response(response.body, {
+          status: 401,
+          statusText: response.statusText,
+          headers,
+        })
+      }
 
-    // Enrich a 401 with WWW-Authenticate so clients can discover the auth
-    // server — unless the handler already set one (its value wins, e.g. an
-    // RFC 6750 error or a custom resource_metadata override).
-    if (response.status === 401 && !response.headers.has('WWW-Authenticate')) {
-      const headers = new Headers(response.headers)
-      headers.set(
-        'WWW-Authenticate',
-        `Bearer resource_metadata="${getResourceMetadataUrl(req)}"`,
-      )
-      return new Response(response.body, {
-        status: 401,
-        statusText: response.statusText,
-        headers,
-      })
-    }
-
-    return response
-  }
-}
+      return response
+    },
+})
