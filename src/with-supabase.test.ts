@@ -3,6 +3,7 @@ import { defineMiddleware, getEnv } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { EnvError } from './errors.js'
+import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
 import { withSupabase } from './with-supabase.js'
 
 const baseEnv = {
@@ -350,6 +351,40 @@ describe('withSupabase', () => {
 
       const res = await handler(new Request('http://localhost'))
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    })
+  })
+
+  describe('nested under an upstream middleware', () => {
+    // Nested under another entry, withSupabase must spread the upstream context
+    // rather than reseed — otherwise it drops upstream ctx keys and clobbers the
+    // platform env the entry captured (silently breaking getEnv on Workers).
+    it('preserves upstream ctx keys and the platform env captured by the entry', async () => {
+      let seenMetadataUrl: string | undefined
+      let seenBinding: string | undefined
+
+      const composed = withOAuthProtectedResource(
+        withSupabase({ auth: 'none', env: baseEnv }, async (_req, ctx) => {
+          // Present at runtime but not on the SupabaseContext type yet, so cast.
+          const upstream = ctx as {
+            oauthProtectedResource?: { resourceMetadataUrl: string }
+          }
+          seenMetadataUrl = upstream.oauthProtectedResource?.resourceMetadataUrl
+          seenBinding = getEnv('NESTED_TEST_BINDING')
+          return Response.json({ ok: true })
+        }),
+      )
+
+      // Workers-style entry invocation: fetch(request, env). withOAuthProtected-
+      // Resource is the entry, so it seeds the context with this env.
+      const res = await composed(new Request('http://localhost/my-fn'), {
+        NESTED_TEST_BINDING: 'from-platform',
+      })
+
+      expect(res.status).toBe(200)
+      // Upstream contribution survived withSupabase's context construction.
+      expect(seenMetadataUrl).toContain('/my-fn/oauth-protected-resource')
+      // Platform env captured by the entry was not clobbered by a reseed.
+      expect(seenBinding).toBe('from-platform')
     })
   })
 

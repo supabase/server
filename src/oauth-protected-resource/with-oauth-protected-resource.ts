@@ -21,6 +21,11 @@ export interface OAuthProtectedResourceContribution {
  * - Passes any other path through to the inner handler unchanged (composition,
  *   not routing, decides what happens to it)
  *
+ * Contributes `ctx.oauthProtectedResource` (the resolved metadata URL) to the
+ * downstream context. When nested under `withSupabase`, this key is present at
+ * runtime but not yet reflected in the handler's `SupabaseContext` type — see
+ * `withSupabase`'s type note.
+ *
  * @category Middleware
  *
  * @example

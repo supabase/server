@@ -4,7 +4,7 @@ import { AuthError, CreateSupabaseClientError, EnvError } from './errors.js'
 import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
-import { seedContext } from '@supabase/middleware'
+import { isContext, seedContext } from '@supabase/middleware'
 import type { Entry } from '@supabase/middleware'
 
 type AnyEntry = Entry<string, object, unknown>
@@ -170,15 +170,15 @@ export function withSupabase<Database = unknown>(
 
     let response: Response
     try {
-      // seedContext() stamps the engine's context marker so middleware entries
-      // recognise this as an upstream context, and captures the host's second
-      // fetch argument (a Workers `env`, a Deno `ServeHandlerInfo`) as the
-      // platform env behind the engine's importable getEnv — without the
-      // forward, Workers bindings would be invisible to middleware. The
-      // verified auth identity is seeded alongside it; the client middleware
-      // read `authMode` / `authKeyName` to mirror the verified credentials.
+      // As the entry point, `platformArg` is the host env — seed a context from
+      // it (captured behind getEnv). Nested under another middleware, it's an
+      // already-seeded context: reuse it, or reseeding would clobber the platform
+      // env and drop upstream ctx keys.
+      const baseContext = isContext(platformArg)
+        ? platformArg
+        : seedContext(platformArg)
       response = await composed(req, {
-        ...seedContext(platformArg),
+        ...baseContext,
         userClaims: auth.userClaims,
         jwtClaims: auth.jwtClaims,
         authMode: auth.authMode,
