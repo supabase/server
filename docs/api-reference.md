@@ -166,6 +166,135 @@ Defaults to `auth: 'user'` when config is omitted.
 
 ---
 
+## @supabase/server/middleware/postgres
+
+### withPostgresClient
+
+```ts
+const withPostgresClient: Middleware<
+  'postgres',
+  WithPostgresClientConfig | void,
+  { jwtClaims: RequestClaims | null },
+  PostgresApi
+>
+```
+
+Contributes `ctx.postgres` — a `pg` client scoped to the caller by RLS. Each query runs in its own transaction that sets `request.jwt.claims` and drops to the caller's role before the statement, so `auth.uid()` resolves and policies enforce.
+
+Only `authenticated` and `anon` are assumed. A verified token naming any other role — `service_role` or a custom role — short-circuits with a 500 and `{ message, code: 'UNSUPPORTED_ROLE' }` naming the role, rather than being downgraded to `anon`. A missing or absent `role` claim is `anon`.
+
+Requires `ctx.jwtClaims` upstream — supplied by `withSupabase` or by `withClaims` in a standalone `pipeline`. Composing it without one is a compile-time error.
+
+Short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }` when no connection string is available.
+
+Needs raw TCP: Node, Deno, Bun, and the Supabase Edge runtime, not Workers-style isolates. `pg` is an optional peer dependency.
+
+See [`docs/postgres.md`](postgres.md).
+
+### PostgresApi
+
+```ts
+interface PostgresApi {
+  query<T = Record<string, unknown>>(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<T[]>
+
+  queryRaw<T = Record<string, unknown>>(
+    text: string,
+    params?: unknown[],
+  ): Promise<T[]>
+}
+```
+
+The value at `ctx.postgres`. Both methods return the result rows directly (not a `pg` `Result`).
+
+`query` is a **tagged template**, so every interpolation becomes a bind parameter and can never alter the statement:
+
+```ts
+const rows = await ctx.postgres
+  .query`select id, body from notes where id = ${id}`
+// -> select id, body from notes where id = $1   with values [id]
+```
+
+Tagged templates cannot carry type arguments, so annotate the binding instead of writing `query<NoteRow>`:
+
+```ts
+const rows: NoteRow[] = await ctx.postgres.query`select id, body from notes`
+```
+
+Passing a plain string to `query` throws — the two calls differ only in their brackets, so it refuses rather than silently reinterpreting.
+
+`queryRaw` takes SQL text plus `params`, for text that cannot be a literal: a query builder emitting `{ sql, parameters }`, or SQL that must interpolate an identifier. Identifiers can never be bind parameters, so check them against a set you control and quote them with `ident`:
+
+```ts
+import { ident } from '@supabase/server/middleware/postgres'
+
+const SORTABLE = new Set(['created_at', 'title'])
+if (!SORTABLE.has(column)) throw new Error('unsupported sort column')
+const rows = await ctx.postgres.queryRaw(
+  `select id, title from posts order by ${ident(column)} desc`,
+)
+```
+
+`ident` quotes and escapes, but does not authorize — it stops injection, not a caller reading a column they should not see. The allowlist is what does that.
+
+### WithPostgresClientConfig
+
+```ts
+interface WithPostgresClientConfig {
+  connectionString?: string
+}
+```
+
+Defaults to the `SUPABASE_DB_URL` environment variable. Pools are created lazily, one per connection string per process.
+
+### RequestClaims
+
+```ts
+interface RequestClaims {
+  role?: string
+  [key: string]: unknown
+}
+```
+
+The minimal claims shape `withPostgresClient` requires upstream at `ctx.jwtClaims`. Satisfied by `withSupabase`'s JWKS-verified claims and by `withClaims`. Only `role` is read; the whole object is serialized into `request.jwt.claims`.
+
+---
+
+## @supabase/server/middleware/postgres-admin
+
+### withPostgresAdminClient
+
+```ts
+const withPostgresAdminClient: Middleware<
+  'postgresAdmin',
+  WithPostgresAdminClientConfig | void,
+  Record<never, never>,
+  PostgresApi
+>
+```
+
+Contributes `ctx.postgresAdmin` — a `pg` client that **bypasses RLS**. Queries run as-is, as the role in the connection string: no claim injection, no role switching, no wrapping transaction.
+
+Declares no upstream prerequisite, so it composes in any auth mode including `'secret'` and `'none'`. Shares the pool cache with `withPostgresClient` — same connection string, one pool.
+
+Short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }` when no connection string is available.
+
+Authorization is the caller's responsibility: RLS is not consulted, so per-user scoping must be an explicit `where` clause.
+
+### WithPostgresAdminClientConfig
+
+```ts
+interface WithPostgresAdminClientConfig {
+  connectionString?: string
+}
+```
+
+Defaults to the `SUPABASE_DB_URL` environment variable.
+
+---
+
 ## Types
 
 ### AuthMode
@@ -353,17 +482,18 @@ class AuthError extends Error {
 
 ## Error Code Constants
 
-| Constant                            | Value                               | Class       | Meaning                                           |
-| ----------------------------------- | ----------------------------------- | ----------- | ------------------------------------------------- |
-| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                         |
-| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                            |
-| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                   |
-| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                        |
-| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                        |
-| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                             |
-| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                                |
-| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched, or JWT failed verification |
-| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth                 |
+| Constant                            | Value                               | Class       | Meaning                                                        |
+| ----------------------------------- | ----------------------------------- | ----------- | -------------------------------------------------------------- |
+| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                                      |
+| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                                         |
+| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                                |
+| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                                     |
+| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                                     |
+| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                                          |
+| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                                             |
+| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched, or JWT failed verification              |
+| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth                              |
+| `UnsupportedRoleError`              | `'UNSUPPORTED_ROLE'`                | —           | `withPostgresClient` will not assume the caller's `role` claim |
 
 ---
 

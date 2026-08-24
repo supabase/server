@@ -39,6 +39,19 @@ enabled = false
 [edge_runtime]
 enabled = true
 
+# withPostgresClient defaults to SUPABASE_DB_URL, which the CLI injects on its own —
+# but locally that value addresses the database by container name
+# (`supabase_db_<project_id>`), and Deno's DNS resolver rejects hostnames
+# containing underscores, so `pg` fails with ENOTFOUND before opening a socket.
+# `db` is the same container's network alias and resolves cleanly. The CLI
+# refuses to let secrets override reserved SUPABASE_* names, so the function
+# reads this one and passes it as `connectionString` instead.
+#
+# Local-stack artifact only: a deployed Edge Function gets a real pooler
+# hostname with no underscores and needs none of this.
+[edge_runtime.secrets]
+E2E_DB_URL = "postgresql://postgres:postgres@db:5432/postgres"
+
 # The middleware's own 401 behavior is under test — the gateway's JWT
 # pre-check must not answer first.
 [functions.server-e2e]

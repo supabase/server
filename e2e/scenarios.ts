@@ -150,3 +150,75 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
     })
   })
 }
+
+/**
+ * `withPostgresClient` scenarios — a real `pg` connection to the local stack's
+ * Postgres, RLS-scoped by the caller's claims.
+ *
+ * Run only against the apps that expose `/my-notes-pg` (core on Node, and the
+ * edge function on the real Deno runtime), not the four framework adapters:
+ * `pg` needs raw TCP, so this is the middleware's runtime claim under test.
+ *
+ * The route runs `select ... from notes` with no WHERE clause, so the same
+ * assertions that hold for `/my-notes` (PostgREST + RLS) must hold here
+ * (direct connection + RLS). That the two agree is the point.
+ */
+export function runPostgresScenarios(app: string, baseUrl: string): void {
+  const { user1, user2 } = inject('e2eUsers')
+
+  describe(`${app}: ctx.postgres`, () => {
+    const noteBody = `e2e pg note from ${app} ${crypto.randomUUID()}`
+    let created: NoteRow
+
+    it('seeds a note for user1 through the admin client', async () => {
+      const res = await fetch(`${baseUrl}/notes`, {
+        method: 'POST',
+        headers: { ...bearer(user1), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: noteBody }),
+      })
+      expect(res.status).toBe(201)
+      created = (await res.json()) as NoteRow
+    })
+
+    it('GET /my-notes-pg without a token → 401 before any query runs', async () => {
+      const res = await fetch(`${baseUrl}/my-notes-pg`)
+      expect(res.status).toBe(401)
+    })
+
+    it('GET /my-notes-pg returns the caller rows, scoped by RLS alone', async () => {
+      const res = await fetch(`${baseUrl}/my-notes-pg`, {
+        headers: bearer(user1),
+      })
+      expect(res.status).toBe(200)
+      const rows = (await res.json()) as NoteRow[]
+      expect(rows.some((row) => row.id === created.id)).toBe(true)
+      expect(rows.every((row) => row.user_id === user1.id)).toBe(true)
+    })
+
+    it('GET /my-notes-pg as a different user cannot see them', async () => {
+      // user2 runs the identical unfiltered query — auth.uid() resolves to
+      // user2, so the policy hides user1's row. If claim injection or the role
+      // drop regressed, this would return every note in the table.
+      const res = await fetch(`${baseUrl}/my-notes-pg`, {
+        headers: bearer(user2),
+      })
+      expect(res.status).toBe(200)
+      const rows = (await res.json()) as NoteRow[]
+      expect(rows.some((row) => row.id === created.id)).toBe(false)
+      expect(rows.every((row) => row.user_id === user2.id)).toBe(true)
+    })
+
+    it('GET /all-notes-pg via ctx.postgresAdmin sees other users rows', async () => {
+      // The security boundary, stated as a single contrast: user2 issues the
+      // *same* SQL as the assertion above, through the admin client instead of
+      // the scoped one — and user1's row comes back. Scoping is Postgres
+      // enforcing RLS, not the query text.
+      const res = await fetch(`${baseUrl}/all-notes-pg`, {
+        headers: bearer(user2),
+      })
+      expect(res.status).toBe(200)
+      const rows = (await res.json()) as NoteRow[]
+      expect(rows.some((row) => row.id === created.id)).toBe(true)
+    })
+  })
+}

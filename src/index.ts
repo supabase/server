@@ -127,4 +127,5 @@ export {
   MissingPublishableKeyError,
   MissingSecretKeyError,
   MissingSupabaseURLError,
+  UnsupportedRoleError,
 } from './errors.js'

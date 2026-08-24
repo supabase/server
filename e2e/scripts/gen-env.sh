@@ -16,6 +16,10 @@ SUPABASE_PUBLISHABLE_KEY=$SB_PUBLISHABLE_KEY
 SUPABASE_SECRET_KEY=$SB_SECRET_KEY
 SUPABASE_JWKS_URL=$SB_API_URL/auth/v1/.well-known/jwks.json
 SUPABASE_ANON_KEY=$SB_ANON_KEY
+# Read by withPostgresClient (@supabase/server/middleware/postgres) for its direct
+# pg connection. On the edge runtime the CLI injects its own container-
+# reachable value; this one is for the Node apps on the host.
+SUPABASE_DB_URL=$SB_DB_URL
 EOF
 
 echo "Wrote e2e/.env"

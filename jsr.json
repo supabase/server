@@ -12,6 +12,7 @@
     "./middleware/client": "./src/middleware/client/index.ts",
     "./middleware/admin-client": "./src/middleware/admin-client/index.ts",
     "./middleware/postgres": "./src/middleware/postgres/index.ts",
+    "./middleware/postgres-admin": "./src/middleware/postgres-admin/index.ts",
     "./middleware/claims": "./src/middleware/claims/index.ts",
     "./oauth-protected-resource": "./src/oauth-protected-resource/index.ts"
   },

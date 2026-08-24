@@ -1,6 +1,6 @@
 import { beforeAll } from 'vitest'
 
-import { runAdapterScenarios } from './scenarios.ts'
+import { runAdapterScenarios, runPostgresScenarios } from './scenarios.ts'
 
 // Served by the local stack's edge runtime (`supabase start` with
 // [edge_runtime] enabled in e2e/supabase/config.toml) and reached through
@@ -33,3 +33,4 @@ beforeAll(async () => {
 }, 120_000)
 
 runAdapterScenarios('edge', baseUrl)
+runPostgresScenarios('edge', baseUrl)

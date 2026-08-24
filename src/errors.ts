@@ -170,6 +170,15 @@ export const InvalidCredentialsError = 'INVALID_CREDENTIALS'
  */
 export const CreateSupabaseClientError = 'CREATE_SUPABASE_CLIENT_ERROR'
 
+/**
+ * The caller's verified `role` claim names a Postgres role the middleware
+ * will not assume — either one that would bypass RLS, or one it does not
+ * support yet. Returned by `withPostgresClient` instead of silently running
+ * the query as `anon`.
+ * @category Errors
+ */
+export const UnsupportedRoleError = 'UNSUPPORTED_ROLE'
+
 const AuthErrorMap = {
   [InvalidCredentialsError]: (): AuthError =>
     new AuthError('Invalid credentials', InvalidCredentialsError, 401),
