@@ -34,17 +34,24 @@ const SUPPORTED_ROLES = new Set(['authenticated', 'anon'])
  * that returns zero rows and leaves nothing to debug.
  */
 function resolveRole(claims: RequestClaims | null): string | Response {
-  const requested = typeof claims?.role === 'string' ? claims.role : undefined
+  // `role` is typed as a string, but claims come from a token — a
+  // misconfigured custom-claims hook can put anything here.
+  const requested = claims?.role as unknown
 
   // No verified caller, or a token that names no role at all — anonymous is
   // the expected outcome, not a downgrade.
-  if (!requested) return 'anon'
-  if (SUPPORTED_ROLES.has(requested)) return requested
+  if (requested == null) return 'anon'
+
+  if (typeof requested === 'string' && SUPPORTED_ROLES.has(requested)) {
+    return requested
+  }
 
   const message =
     requested === 'service_role'
       ? "The caller's token carries the 'service_role' role. withPostgresClient will not assume it — that role bypasses RLS, which is the guarantee this middleware exists to provide. If bypassing RLS is intended, compose withPostgresAdminClient from '@supabase/server/middleware/postgres-admin'."
-      : `The caller's token carries the role '${requested}', which withPostgresClient does not support yet — it assumes 'authenticated' or 'anon' only. Custom roles are on the roadmap; until then, issue tokens with one of the supported roles.`
+      : typeof requested === 'string'
+        ? `The caller's token carries the role '${requested}', which withPostgresClient does not support yet — it assumes 'authenticated' or 'anon' only. Custom roles are on the roadmap; until then, issue tokens with one of the supported roles.`
+        : `The caller's token carries a 'role' claim that is not a string (${JSON.stringify(requested)}). withPostgresClient assumes 'authenticated' or 'anon' only and will not guess what a malformed claim meant.`
 
   return Response.json({ message, code: UnsupportedRoleError }, { status: 500 })
 }

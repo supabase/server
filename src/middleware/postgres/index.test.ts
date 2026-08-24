@@ -245,6 +245,25 @@ describe('withPostgresClient', () => {
     expect(body.message).toContain('manager')
   })
 
+  it('refuses a non-string role claim instead of downgrading to anon', async () => {
+    const handler = withPostgresClient(async (_req, ctx) => {
+      await ctx.postgres.query`select 1`
+      return Response.json({ ok: true })
+    })
+
+    const res = await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      // A misconfigured custom-claims hook can emit a non-string role. The
+      // token still named a role, so this is a refusal, not the anon case.
+      jwtClaims: { sub: 'u1', role: ['manager'] as unknown as string },
+    })
+
+    expect(res.status).toBe(500)
+    const body = (await res.json()) as { message: string; code: string }
+    expect(body.code).toBe('UNSUPPORTED_ROLE')
+    expect(h.issued).not.toContain('set local role "anon"')
+  })
+
   it('short-circuits before the handler runs when the role is refused', async () => {
     const inner = vi.fn(
       async (_req: Request, ctx: { postgres: PostgresApi }) => {
