@@ -22,11 +22,14 @@ describe('withOAuthProtectedResource - metadata route', () => {
     expect(body.bearer_methods_supported).toContain('header')
   })
 
-  it('ignores POST to /fn/oauth-protected-resource (passes through)', async () => {
+  it('passes POST to /fn/oauth-protected-resource through to the inner handler', async () => {
+    // Only GET matches the metadata route; every other method (and path) falls
+    // through to the inner handler rather than 404ing — see the path-routing
+    // describe block below.
     const res = await withOAuthProtectedResource(passthrough)(
       req('POST', '/my-fn/oauth-protected-resource'),
     )
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
   })
 })
 
@@ -67,12 +70,15 @@ describe('withOAuthProtectedResource - method pass-through', () => {
 })
 
 describe('withOAuthProtectedResource - path routing', () => {
-  it('returns 404 for unrecognized sub-paths', async () => {
-    // /my-fn/something is not a registered route under the my-fn function
+  it('passes unrecognized sub-paths through to the inner handler (deliberate: AI-995)', async () => {
+    // Was a blanket 404 under the old hand-written closure — an accidental
+    // side effect of being a standalone wrapper, not a deliberate contract.
+    // The defineMiddleware conversion passes through instead, since that's
+    // what fits the composition model: routing is the inner handler's job.
     const res = await withOAuthProtectedResource(passthrough)(
       req('POST', '/my-fn/something'),
     )
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
   })
 
   it('infers function name from first path segment', async () => {
@@ -203,7 +209,7 @@ describe('unauthorizedResponse', () => {
 })
 
 describe('withOAuthProtectedResource - platform argument', () => {
-  it('forwards the platform second argument to the inner handler', async () => {
+  it('no longer forwards the raw platform argument — the inner handler receives ctx instead', async () => {
     let seen: unknown
     const handler = async (_req: Request, platformArg?: unknown) => {
       seen = platformArg
@@ -211,6 +217,6 @@ describe('withOAuthProtectedResource - platform argument', () => {
     }
     const env = { MY_BINDING: 'value' }
     await withOAuthProtectedResource(handler)(req('POST', '/my-fn'), env)
-    expect(seen).toBe(env)
+    expect(seen).not.toBe(env)
   })
 })
