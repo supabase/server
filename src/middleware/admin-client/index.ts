@@ -3,8 +3,9 @@ import type { Entry } from '@supabase/middleware'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { createAdminClient } from '../../core/create-admin-client.js'
+import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
 import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
-import type { AuthMode, CreateAdminClientOptions } from '../../types.js'
+import type { CreateAdminClientOptions } from '../../types.js'
 
 /**
  * Configuration for {@link withSupabaseAdminClient} — the same environment and
@@ -18,12 +19,6 @@ export type WithSupabaseAdminClientConfig = Omit<
   'auth'
 >
 
-/** Auth keys an upstream `withSupabase` seeds onto the context. @internal */
-interface UpstreamAuth {
-  authMode?: AuthMode
-  authKeyName?: string
-}
-
 const base = defineMiddleware<
   'supabaseAdmin',
   WithSupabaseAdminClientConfig | void,
@@ -32,7 +27,7 @@ const base = defineMiddleware<
 >({
   key: 'supabaseAdmin',
   run: (config) => async (_req, ctx) => {
-    const upstream = (ctx ?? {}) as UpstreamAuth
+    const upstream = readUpstreamAuth(ctx)
     // Under `withSupabase`, use the secret key the request matched; standalone
     // (or in other modes), the default secret key.
     const keyName =
