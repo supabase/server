@@ -27,6 +27,9 @@ jobs:
 
       - run: pnpm lint
 
+      - name: Check every published import is declared (JSR resolvability)
+        run: pnpm check-deps
+
       - run: pnpm test
 
       - run: pnpm build
@@ -34,8 +37,14 @@ jobs:
       - name: Smoke-test built entrypoints load in raw Node
         run: pnpm smoke
 
+      - name: Smoke-test the packed tarball without optional peers
+        run: pnpm smoke:pack
+
       - name: Check type exports (attw)
         run: pnpm check-exports
 
+      # Covers slow types and the jsr.json payload. Bare specifiers resolve
+      # through the local node_modules here, so `pnpm check-deps` above is what
+      # guards the registry-side module graph.
       - name: Verify JSR packaging
         run: pnpm dlx jsr@0.14.3 publish --dry-run --allow-dirty
