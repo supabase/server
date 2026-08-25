@@ -9,7 +9,11 @@ import type {
   WithSupabaseConfig,
 } from './types.js'
 import { isContext, seedContext } from '@supabase/middleware'
-import type { BaseContext, Entry } from '@supabase/middleware'
+import type {
+  BaseContext,
+  Entry,
+  ValidateEntries,
+} from '@supabase/middleware'
 
 type AnyEntry = Entry<string, object, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,12 +124,14 @@ export function withSupabase<
  * ```
  *
  * **Type note.** `MiddlewareCtx<Entries>` accumulates the key contributions of
- * the middleware array. Middleware that declare `In` prerequisites on
- * Supabase-provided keys (`supabase`, `userClaims`, …) satisfy those at runtime
- * (the Supabase context is merged before the middleware run) but not at the
- * type level — a full implementation would widen the prerequisite-validation
- * seed to include `SupabaseContext`. Ordering and collision checks within the
- * middleware array work normally via `@supabase/middleware`'s runtime chain.
+ * the middleware array onto the handler's `ctx`. `ValidateEntries` checks the
+ * array against the same context the entries see at runtime: the upstream
+ * `Base` plus {@link SupabaseContext}. An entry may declare `In` prerequisites
+ * on Supabase-provided keys (`supabase`, `jwtClaims`, and the rest). An entry
+ * whose key collides with a Supabase-provided key, or with an earlier sibling,
+ * fails to compile. The failure sentinel occupies the handler parameter, never
+ * `entries`, so `const Entries` tuple inference stays intact, as in the
+ * engine's `pipeline`.
  */
 export function withSupabase<
   Database = unknown,
@@ -133,10 +139,17 @@ export function withSupabase<
   Base extends BaseContext = BaseContext,
 >(
   config: WithSupabaseConfig & { middleware: Entries },
-  handler: (
-    req: Request,
-    ctx: NoInfer<Base> & SupabaseContext<Database> & MiddlewareCtx<Entries>,
-  ) => Promise<Response>,
+  // Validation sits on the handler parameter (never on `entries`) so it does
+  // not disrupt `const Entries` tuple inference; the seed is the context the
+  // entries actually see at runtime.
+  handler: [
+    ValidateEntries<Entries, Base & SupabaseContext<Database>>,
+  ] extends [true]
+    ? (
+        req: Request,
+        ctx: NoInfer<Base> & SupabaseContext<Database> & MiddlewareCtx<Entries>,
+      ) => Promise<Response>
+    : ValidateEntries<Entries, Base & SupabaseContext<Database>>,
 ): (req: Request, ctx?: Base) => Promise<Response>
 
 export function withSupabase<Database = unknown>(
