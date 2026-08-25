@@ -5,7 +5,7 @@ import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
 import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 import { isContext, seedContext } from '@supabase/middleware'
-import type { Entry } from '@supabase/middleware'
+import type { BaseContext, Entry } from '@supabase/middleware'
 
 type AnyEntry = Entry<string, object, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,7 +38,21 @@ type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
  * @returns A fetch handler. The optional second parameter is the host's
  * platform argument (a Workers `env`, a Deno `ServeHandlerInfo`) — when the
  * runtime supplies one, it is captured as the platform env behind
- * `@supabase/middleware`'s `getEnv` for any composed middleware.
+ * `@supabase/middleware`'s `getEnv` for any composed middleware. Nested under
+ * another middleware, it is that middleware's accumulated context instead,
+ * which is reused rather than reseeded.
+ *
+ * **Type note.** `Base` carries an upstream middleware's contributions into the
+ * handler's `ctx`: with `satisfies FetchHandler` on the outermost call,
+ * `withOAuthProtectedResource(withSupabase(config, handler))` types
+ * `ctx.oauthProtectedResource` with no annotation. The anchor is the same one
+ * the engine already asks of nested stacks (it also gates collision detection
+ * there): `Base` flows from the contextual return type, and without the anchor
+ * the outer call resolves before it can push, so `Base` stays the empty
+ * upstream and upstream keys are absent from `ctx`. Supplying `Database` explicitly
+ * (`withSupabase<Db>(...)`) also defaults every later type parameter, `Base`
+ * included; in that case annotate both (`withSupabase<Db, UpstreamCtx>(...)`)
+ * or read the upstream key through a cast.
  *
  * @category Middleware
  *
@@ -55,10 +69,24 @@ type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
  * }
  * ```
  */
-export function withSupabase<Database = unknown>(
+export function withSupabase<
+  Database = unknown,
+  Base extends BaseContext = BaseContext,
+>(
   config: WithSupabaseConfig & { middleware?: never },
-  handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
-): (req: Request, platformArg?: unknown) => Promise<Response>
+  // `NoInfer<Base>` blocks inference from the handler argument, leaving the
+  // contextual return type as the single source of `Base` — the same split the
+  // engine's `Middleware` interface documents. Without it, an annotated handler
+  // supplies a candidate here that collapses `Base` to its constraint.
+  handler: (
+    req: Request,
+    ctx: NoInfer<Base> & SupabaseContext<Database>,
+  ) => Promise<Response>,
+  // `ctx?: Base` mirrors the engine's `Produced` shape for an `In`-less
+  // middleware: at the top level `Base` is the empty upstream (any platform
+  // argument still typechecks), and nested it is what lets the upstream
+  // middleware's contribution flow inward.
+): (req: Request, ctx?: Base) => Promise<Response>
 
 /**
  * Variant that accepts a `middleware` array — each `withFoo(config)` call
@@ -98,13 +126,14 @@ export function withSupabase<Database = unknown>(
 export function withSupabase<
   Database = unknown,
   const Entries extends readonly AnyEntry[] = readonly AnyEntry[],
+  Base extends BaseContext = BaseContext,
 >(
   config: WithSupabaseConfig & { middleware: Entries },
   handler: (
     req: Request,
-    ctx: SupabaseContext<Database> & MiddlewareCtx<Entries>,
+    ctx: NoInfer<Base> & SupabaseContext<Database> & MiddlewareCtx<Entries>,
   ) => Promise<Response>,
-): (req: Request, platformArg?: unknown) => Promise<Response>
+): (req: Request, ctx?: Base) => Promise<Response>
 
 export function withSupabase<Database = unknown>(
   config: WithSupabaseConfig & { middleware?: readonly AnyEntry[] },
