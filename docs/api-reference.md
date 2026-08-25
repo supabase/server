@@ -166,6 +166,46 @@ Defaults to `auth: 'user'` when config is omitted.
 
 ---
 
+## @supabase/server/middleware/claims
+
+### withClaims
+
+```ts
+const withClaims: Middleware<
+  'jwtClaims',
+  WithClaimsConfig | void,
+  Record<never, never>,
+  JWTClaims | null
+>
+```
+
+Contributes `ctx.jwtClaims` by verifying the caller's Bearer token against the project JWKS. This is the same verification core `withSupabase` uses for its `user` auth mode.
+
+Behavior:
+
+- No `Authorization: Bearer` token, or an `sb_*` API key in that position: contributes `null` and the request proceeds as anonymous.
+- Token present but invalid: short-circuits with a 401 and `{ message, code: 'INVALID_CREDENTIALS' }`.
+- Token present but no JWKS configured: short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }`. Verification is required; the middleware has no decode-only mode.
+
+`withClaims` is not an auth gate. It never rejects a request that has no token, so `[withClaims(), withSupabaseClient()]` is not the composable form of `withSupabase({ auth: 'user' })` and accepts anonymous callers. To require an authenticated caller, gate with `withSupabase({ auth: 'user' })` and compose further middleware through its `middleware` option. A host that takes an entries array can wrap it as the sole entry:
+
+```ts
+const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
+  withSupabase({ auth: 'user', cors: 'disabled' }, h)
+```
+
+### WithClaimsConfig
+
+```ts
+interface WithClaimsConfig {
+  jwks?: JSONWebKeySet | URL
+}
+```
+
+Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment.
+
+---
+
 ## @supabase/server/middleware/postgres
 
 ### withPostgresClient
