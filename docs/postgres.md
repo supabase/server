@@ -158,6 +158,8 @@ Order matters. `withPostgresClient` before `withClaims` is a compile-time error:
 middleware-prereq: key 'jwtClaims' is not yet on the context (check ordering)
 ```
 
+`withClaims` is not an auth gate. It contributes claims when a token is present, and `null` when one is not. The standalone pipeline above therefore also serves anonymous callers, whose queries run as `anon`. To require an authenticated caller, use the `withSupabase` form: `auth: 'user'` rejects token-less requests with a 401 before the handler runs.
+
 ## Table grants
 
 Queries run as `authenticated` or `anon`, and on current Supabase projects new tables grant those roles nothing. RLS policies are not enough on their own — a policy filters rows the role is already allowed to touch.

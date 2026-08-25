@@ -41,6 +41,20 @@ export interface WithClaimsConfig {
  * - Token present but no JWKS configured → short-circuits with a 500 —
  *   verification is not optional; there is no decode-only mode.
  *
+ * `withClaims` is not an auth gate. It never rejects a request that has no
+ * token. A pipeline like `[withClaims(), withSupabaseClient()]` accepts
+ * anonymous callers and is not the composable form of
+ * `withSupabase({ auth: 'user' })`, which rejects token-less requests with
+ * a 401. To require an authenticated caller, gate with
+ * `withSupabase({ auth: 'user' })` and compose further middleware through
+ * its `middleware` option. A host that takes an entries array can wrap it
+ * as the sole entry:
+ *
+ * ```ts
+ * const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
+ *   withSupabase({ auth: 'user', cors: 'disabled' }, h)
+ * ```
+ *
  * @example Standalone pipeline
  * ```ts
  * import { pipeline } from '@supabase/middleware'
