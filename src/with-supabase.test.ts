@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineMiddleware, getEnv } from '@supabase/middleware'
+import type { FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { EnvError } from './errors.js'
@@ -364,15 +365,14 @@ describe('withSupabase', () => {
 
       const composed = withOAuthProtectedResource(
         withSupabase({ auth: 'none', env: baseEnv }, async (_req, ctx) => {
-          // Present at runtime but not on the SupabaseContext type yet, so cast.
-          const upstream = ctx as {
-            oauthProtectedResource?: { resourceMetadataUrl: string }
-          }
-          seenMetadataUrl = upstream.oauthProtectedResource?.resourceMetadataUrl
+          // The `satisfies FetchHandler` anchor below is what lets `Base` flow
+          // in from the outer middleware. This line is the type test for that
+          // flow; a cast here would mask a regression.
+          seenMetadataUrl = ctx.oauthProtectedResource.resourceMetadataUrl
           seenBinding = getEnv('NESTED_TEST_BINDING')
           return Response.json({ ok: true })
         }),
-      )
+      ) satisfies FetchHandler
 
       // Workers-style entry invocation: fetch(request, env). withOAuthProtected-
       // Resource is the entry, so it seeds the context with this env.
