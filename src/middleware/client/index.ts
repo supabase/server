@@ -4,8 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { createContextClient } from '../../core/create-context-client.js'
 import { extractCredentials } from '../../core/extract-credentials.js'
+import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
 import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
-import type { AuthMode, CreateContextClientOptions } from '../../types.js'
+import type { CreateContextClientOptions } from '../../types.js'
 
 /**
  * Configuration for {@link withSupabaseClient} — the same environment and
@@ -16,12 +17,6 @@ import type { AuthMode, CreateContextClientOptions } from '../../types.js'
  */
 export type WithSupabaseClientConfig = Omit<CreateContextClientOptions, 'auth'>
 
-/** Auth keys an upstream `withSupabase` seeds onto the context. @internal */
-interface UpstreamAuth {
-  authMode?: AuthMode
-  authKeyName?: string
-}
-
 const base = defineMiddleware<
   'supabase',
   WithSupabaseClientConfig | void,
@@ -30,7 +25,7 @@ const base = defineMiddleware<
 >({
   key: 'supabase',
   run: (config) => async (req, ctx) => {
-    const upstream = (ctx ?? {}) as UpstreamAuth
+    const upstream = readUpstreamAuth(ctx)
     const { token: bearer } = extractCredentials(req)
     // `sb_*` secrets ride the Authorization header alongside the apikey
     // header — never attach them as a user token.

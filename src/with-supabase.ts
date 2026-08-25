@@ -3,7 +3,11 @@ import { verifyAuth } from './core/verify-auth.js'
 import { AuthError, CreateSupabaseClientError, EnvError } from './errors.js'
 import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
-import type { SupabaseContext, WithSupabaseConfig } from './types.js'
+import type {
+  SupabaseContext,
+  UpstreamAuth,
+  WithSupabaseConfig,
+} from './types.js'
 import { isContext, seedContext } from '@supabase/middleware'
 import type { BaseContext, Entry } from '@supabase/middleware'
 
@@ -206,12 +210,17 @@ export function withSupabase<Database = unknown>(
       const baseContext = isContext(platformArg)
         ? platformArg
         : seedContext(platformArg)
+      // The client entries read these two keys back off the context;
+      // `satisfies` holds the seed to that shape without widening it.
+      const upstreamAuth = {
+        authMode: auth.authMode,
+        authKeyName: auth.keyName ?? undefined,
+      } satisfies UpstreamAuth
       response = await composed(req, {
         ...baseContext,
         userClaims: auth.userClaims,
         jwtClaims: auth.jwtClaims,
-        authMode: auth.authMode,
-        authKeyName: auth.keyName ?? undefined,
+        ...upstreamAuth,
       })
     } catch (e) {
       // Client construction failures keep their historical response shape:

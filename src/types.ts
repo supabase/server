@@ -387,3 +387,23 @@ export interface SupabaseContext<Database = unknown> {
    */
   authKeyName?: string
 }
+
+/**
+ * The auth identity a composing wrapper seeds onto the context for the client
+ * entries to mirror — the subset of {@link SupabaseContext} that
+ * `withSupabaseClient` and `withSupabaseAdminClient` read to pick the key a
+ * verified request already matched.
+ *
+ * Every field is optional: the client entries are usable standalone, where no
+ * upstream has run and the defaults apply. That is why these keys are absent
+ * from the entries' `In` — a declared prerequisite is mandatory, and this one
+ * is not.
+ *
+ * Seeding both keys takes a wrapper that writes the context directly, as
+ * `withSupabase` does; a `defineMiddleware` entry contributes exactly one key.
+ *
+ * @internal
+ */
+export type UpstreamAuth = Partial<
+  Pick<SupabaseContext, 'authMode' | 'authKeyName'>
+>
