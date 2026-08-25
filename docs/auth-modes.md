@@ -209,5 +209,5 @@ withSupabase({ auth: ['user', 'publishable:web'] }, async (_req, ctx) => {
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
 2. Each mode in `auth` is tried in order against the extracted credentials
 3. First match wins — returns an `AuthResult` with `authMode`, `token`, `userClaims`, `jwtClaims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
-4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key)
+4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key — constructed on its first property access)
 5. Everything is bundled into a `SupabaseContext` and passed to your handler

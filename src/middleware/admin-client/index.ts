@@ -3,6 +3,7 @@ import type { Entry } from '@supabase/middleware'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { createAdminClient } from '../../core/create-admin-client.js'
+import { lazyClient } from '../../core/lazy-client.js'
 import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
 import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
 import type { CreateAdminClientOptions } from '../../types.js'
@@ -33,16 +34,20 @@ const base = defineMiddleware<
     const keyName =
       upstream.authMode === 'secret' ? upstream.authKeyName : undefined
 
-    let supabaseAdmin: SupabaseClient
-    try {
-      supabaseAdmin = createAdminClient({
-        auth: { keyName },
-        env: config?.env,
-        supabaseOptions: config?.supabaseOptions,
-      })
-    } catch (e) {
-      throw e instanceof EnvError ? e : Errors[CreateSupabaseClientError]()
-    }
+    // Constructed on the first property access and memoized for the request —
+    // a handler that never touches ctx.supabaseAdmin never resolves the
+    // secret key.
+    const supabaseAdmin = lazyClient<SupabaseClient>(() => {
+      try {
+        return createAdminClient({
+          auth: { keyName },
+          env: config?.env,
+          supabaseOptions: config?.supabaseOptions,
+        })
+      } catch (e) {
+        throw e instanceof EnvError ? e : Errors[CreateSupabaseClientError]()
+      }
+    })
     return { supabaseAdmin }
   },
 })
@@ -52,9 +57,13 @@ const base = defineMiddleware<
  * Row-Level Security, authenticated with a secret key. This is the same
  * middleware `withSupabase` composes internally to build its context.
  *
+ * The client is constructed on the first property access of
+ * `ctx.supabaseAdmin` and memoized for the request. A handler that never
+ * accesses it requires no secret key.
+ *
  * @throws {@link index.EnvError} When `SUPABASE_URL` or the secret key is
- * missing — composing wrappers (like `withSupabase`) map this to a 500
- * response; standalone pipelines see it as a thrown error.
+ * missing — thrown at the first `ctx.supabaseAdmin` property access, inside
+ * the handler or downstream middleware that performs it.
  *
  * @example Standalone pipeline
  * ```ts

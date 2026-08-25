@@ -15,12 +15,12 @@ On Supabase Platform and Local Development (CLI), all variables are auto-provisi
 
 Set these based on which auth modes your app uses:
 
-| Variable                               | Required when                             |
-| -------------------------------------- | ----------------------------------------- |
-| `SUPABASE_URL`                         | Always                                    |
-| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'` or using `supabaseAdmin` |
-| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                     |
-| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)         |
+| Variable                               | Required when                                                  |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `SUPABASE_URL`                         | Always                                                         |
+| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'`, or when the handler accesses `supabaseAdmin` |
+| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                                          |
+| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)                              |
 
 ### Minimal `.env` example
 
