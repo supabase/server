@@ -3,7 +3,7 @@ import { defineMiddleware, getEnv } from '@supabase/middleware'
 import type { FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
-import { EnvError } from './errors.js'
+import { EnvError, MissingDefaultSecretKeyError } from './errors.js'
 import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
 import { withSupabase } from './with-supabase.js'
 
@@ -412,6 +412,41 @@ describe('withSupabase', () => {
       await expect(handler(new Request('http://localhost'))).rejects.toThrow(
         'handler-level env failure',
       )
+    })
+
+    it('serves requests without a secret key when the handler never accesses supabaseAdmin', async () => {
+      let ran = false
+      const handler = withSupabase(
+        {
+          auth: 'none',
+          env: { ...baseEnv, secretKeys: {} },
+        },
+        async () => {
+          ran = true
+          return Response.json({ ok: true })
+        },
+      )
+
+      const res = await handler(new Request('http://localhost'))
+      expect(res.status).toBe(200)
+      expect(ran).toBe(true)
+    })
+
+    it('propagates the missing-secret-key EnvError at the supabaseAdmin access point', async () => {
+      const handler = withSupabase(
+        {
+          auth: 'none',
+          env: { ...baseEnv, secretKeys: {} },
+        },
+        async (_req, ctx) => {
+          ctx.supabaseAdmin.from('t')
+          return Response.json({ ok: true })
+        },
+      )
+
+      await expect(
+        handler(new Request('http://localhost')),
+      ).rejects.toMatchObject({ code: MissingDefaultSecretKeyError })
     })
   })
 

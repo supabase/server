@@ -187,10 +187,11 @@ export function withSupabase<Database = unknown>(
       )
     }
 
-    // Track whether the request has moved past client construction: only
-    // failures from the two client entries map to the historical JSON error
-    // responses — user middleware and handler throws propagate unchanged,
-    // exactly as before the rewrite.
+    // Track whether the request has moved past the client entries: only
+    // client-phase construction failures (the `supabase` entry) map to JSON
+    // error responses. User middleware and handler throws propagate
+    // unchanged — including the EnvError a lazily constructed
+    // `supabaseAdmin` throws at its first property access.
     let inClientPhase = true
     const markUserPhase: AnyHandler = (r, ctx) => {
       inClientPhase = false
@@ -223,10 +224,10 @@ export function withSupabase<Database = unknown>(
         ...upstreamAuth,
       })
     } catch (e) {
-      // Client construction failures keep their historical response shape:
+      // Client-phase construction failures map to JSON error responses:
       // EnvError (missing URL / keys) and the client middleware's
-      // CreateSupabaseClientError map to the same JSON errors
-      // createSupabaseContext produced.
+      // CreateSupabaseClientError take the same shape as the JSON errors
+      // createSupabaseContext produces.
       const mapped = !inClientPhase
         ? null
         : e instanceof EnvError

@@ -1,7 +1,7 @@
 import { pipeline } from '@supabase/middleware'
 import { describe, expect, it } from 'vitest'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 import {
   EnvError,
@@ -35,8 +35,12 @@ describe('withSupabaseAdminClient', () => {
   })
 
   it("selects the matched secret key from an upstream withSupabase context's authKeyName", async () => {
-    const handler = pipeline([withSupabaseAdminClient({ env: baseEnv })], () =>
-      Promise.resolve(Response.json({ ok: true })),
+    const handler = pipeline(
+      [withSupabaseAdminClient({ env: baseEnv })],
+      async (_req, ctx) => {
+        ctx.supabaseAdmin.from('t')
+        return Response.json({ ok: true })
+      },
     )
 
     // authKeyName 'internal' is not in the key set — the throw proves the
@@ -50,10 +54,23 @@ describe('withSupabaseAdminClient', () => {
     ).rejects.toMatchObject({ code: MissingSecretKeyError })
   })
 
-  it('throws EnvError when no secret key exists', async () => {
+  it('succeeds without a secret key when the handler never accesses supabaseAdmin', async () => {
     const handler = pipeline(
       [withSupabaseAdminClient({ env: { ...baseEnv, secretKeys: {} } })],
       async () => Response.json({ ok: true }),
+    )
+
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(200)
+  })
+
+  it('throws EnvError at the first supabaseAdmin access when no secret key exists', async () => {
+    const handler = pipeline(
+      [withSupabaseAdminClient({ env: { ...baseEnv, secretKeys: {} } })],
+      async (_req, ctx) => {
+        ctx.supabaseAdmin.from('t')
+        return Response.json({ ok: true })
+      },
     )
 
     await expect(
@@ -62,5 +79,44 @@ describe('withSupabaseAdminClient', () => {
     await expect(
       handler(new Request('http://localhost')),
     ).rejects.toBeInstanceOf(EnvError)
+  })
+
+  it('constructs the client once per request across accesses', async () => {
+    let first: unknown
+    let second: unknown
+    const handler = pipeline(
+      [withSupabaseAdminClient({ env: baseEnv })],
+      async (_req, ctx) => {
+        // `auth` is a constructor-assigned data property — identity across
+        // accesses proves a single underlying client. (`functions` is a
+        // getter that mints a new client per read, so it can't prove this.)
+        first = ctx.supabaseAdmin.auth
+        second = ctx.supabaseAdmin.auth
+        return Response.json({ ok: true })
+      },
+    )
+
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(200)
+    expect(first).toBeDefined()
+    expect(first).toBe(second)
+  })
+
+  it('exposes a working SupabaseClient through the proxy', async () => {
+    const handler = pipeline(
+      [withSupabaseAdminClient({ env: baseEnv })],
+      async (_req, ctx) => {
+        return Response.json({
+          isClient: ctx.supabaseAdmin instanceof SupabaseClient,
+          hasSelect: typeof ctx.supabaseAdmin.from('t').select === 'function',
+        })
+      },
+    )
+
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.isClient).toBe(true)
+    expect(body.hasSelect).toBe(true)
   })
 })
