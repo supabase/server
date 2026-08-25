@@ -1,6 +1,6 @@
 {
   "name": "@supabase/server",
-  "version": "1.5.0",
+  "version": "1.4.1",
   "exports": {
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
@@ -17,14 +17,7 @@
     "./oauth-protected-resource": "./src/oauth-protected-resource/index.ts"
   },
   "publish": {
-    "include": [
-      "src/**/*.ts",
-      "README.md",
-      "LICENSE"
-    ],
-    "exclude": [
-      "src/**/*.test.ts",
-      "src/**/*.spec.ts"
-    ]
+    "include": ["src/**/*.ts", "README.md", "LICENSE"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
   }
 }

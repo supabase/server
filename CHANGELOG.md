@@ -1,20 +1,5 @@
 # Changelog
 
-## [1.5.0](https://github.com/supabase/server/compare/server-v1.4.1...server-v1.5.0) (2026-08-25)
-
-
-### Features
-
-* add `withOAuthProtectedResource` ([#113](https://github.com/supabase/server/issues/113)) ([3908590](https://github.com/supabase/server/commit/39085907d163a434f18132639f92ab4b5082b5ab))
-* flow upstream ctx types through withSupabase nesting ([#119](https://github.com/supabase/server/issues/119)) ([f393c6e](https://github.com/supabase/server/commit/f393c6e7257fb103017d70a56e0437fcc7a9f060))
-* **middleware:** ship withPostgresClient and withPostgresAdminClient ([#115](https://github.com/supabase/server/issues/115)) ([77656ba](https://github.com/supabase/server/commit/77656bae3b76d37cebcf53a089230fe59c94161b))
-* withSupabase on the @supabase/middleware engine ([#88](https://github.com/supabase/server/issues/88)) ([2b5d4fd](https://github.com/supabase/server/commit/2b5d4fd82e2b38e5de3b19c840b3ca1a9813d893))
-
-
-### Bug Fixes
-
-* migrate `withOAuthProtectedResource` to `defineMiddleware` ([#116](https://github.com/supabase/server/issues/116)) ([04831ce](https://github.com/supabase/server/commit/04831cedcccedfdbdce99fbbaf6ee80fc8fc49b3))
-
 ## [1.4.1](https://github.com/supabase/server/compare/server-v1.4.0...server-v1.4.1) (2026-07-22)
 
 
