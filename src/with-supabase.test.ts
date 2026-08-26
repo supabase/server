@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineMiddleware, getEnv } from '@supabase/middleware'
-import type { FetchHandler } from '@supabase/middleware'
+import type { Entry, FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { EnvError, MissingDefaultSecretKeyError } from './errors.js'
+import { withClaims } from './middleware/claims/index.js'
+import { withPostgresClient } from './middleware/postgres/index.js'
 import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
 import { withSupabase } from './with-supabase.js'
 
@@ -297,10 +299,13 @@ describe('withSupabase', () => {
         b: 'http://localhost/supabase',
       })
 
-      // Check reverse order must breaks dependency chain
+      // Reverse order is a compile-time ordering error; at runtime the
+      // broken dependency chain throws all the same.
+      // @ts-expect-error — prereq 'a' is not yet on the context
       const handlerReverse = withSupabase(
         { auth: 'none', env: baseEnv, middleware: [withSecond(), withFirst()] },
-        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
+        async (_req: Request, ctx: { a: string; b: URL }) =>
+          Response.json({ a: ctx.a, b: ctx.b }),
       )
 
       expect(handlerReverse(new Request('http://localhost'))).rejects.toThrow(
@@ -481,5 +486,151 @@ describe('withSupabase', () => {
       expect(warn).not.toHaveBeenCalled()
       warn.mockRestore()
     })
+  })
+})
+
+describe('type guarantees (tsc-verified)', () => {
+  const withProvider = defineMiddleware<
+    'prov',
+    void,
+    Record<never, never>,
+    { v: number }
+  >({
+    key: 'prov',
+    run: () => async () => ({ prov: { v: 1 } }),
+  })
+
+  const withNeedsProv = defineMiddleware<
+    'dep',
+    void,
+    { prov: { v: number } },
+    { ok: true }
+  >({
+    key: 'dep',
+    run: () => async () => ({ dep: { ok: true as const } }),
+  })
+
+  it('an entry may declare a prerequisite on a Supabase-provided key', () => {
+    // withPostgresClient declares In: { jwtClaims }; the SupabaseContext
+    // seed satisfies it, so composing it here compiles.
+    const _handler = withSupabase(
+      { auth: 'none', env: baseEnv, middleware: [withPostgresClient()] },
+      async (_req, ctx) => {
+        expectTypeOf(ctx.postgres).not.toBeAny()
+        expectTypeOf(ctx.supabase).not.toBeAny()
+        return Response.json({ ok: true })
+      },
+    )
+    void _handler
+  })
+
+  it('an entry keyed on a Supabase-provided key fails to compile', () => {
+    // withClaims contributes 'jwtClaims', which withSupabase already seeds.
+    // Gating inside the array is redundant; the collision is a type error.
+    // (Same property the SDK-1614 gate relies on.)
+    // @ts-expect-error — Conflict<'jwtClaims'>: key already on the context
+    const _bad = withSupabase(
+      { auth: 'none', env: baseEnv, middleware: [withClaims()] },
+      async () => Response.json({ ok: true }),
+    )
+    void _bad
+  })
+
+  it('sibling ordering: provider before dependent compiles', () => {
+    const _ok = withSupabase(
+      {
+        auth: 'none',
+        env: baseEnv,
+        middleware: [withProvider(), withNeedsProv()],
+      },
+      async (_req, ctx) => {
+        expectTypeOf(ctx.dep).toEqualTypeOf<{ ok: true }>()
+        expectTypeOf(ctx.prov).toEqualTypeOf<{ v: number }>()
+        return Response.json({ ok: true })
+      },
+    )
+    void _ok
+  })
+
+  it('sibling ordering: dependent before provider fails to compile', () => {
+    // @ts-expect-error — prereq 'prov' is not yet on the context
+    const _bad = withSupabase(
+      {
+        auth: 'none',
+        env: baseEnv,
+        middleware: [withNeedsProv(), withProvider()],
+      },
+      async () => Response.json({ ok: true }),
+    )
+    void _bad
+  })
+
+  it('a prerequisite nothing supplies fails to compile', () => {
+    // @ts-expect-error — prereq 'prov' is not on the context
+    const _bad = withSupabase(
+      { auth: 'none', env: baseEnv, middleware: [withNeedsProv()] },
+      async () => Response.json({ ok: true }),
+    )
+    void _bad
+  })
+
+  it('nested: Base flows in beside a middleware array', () => {
+    // The `satisfies FetchHandler` anchor is what pushes the upstream
+    // contribution into `Base`; the validation conditional on the handler
+    // parameter must not resolve the call before that happens.
+    const _composed = withOAuthProtectedResource(
+      withSupabase(
+        { auth: 'none', env: baseEnv, middleware: [withProvider()] },
+        async (_req, ctx) => {
+          expectTypeOf(
+            ctx.oauthProtectedResource.resourceMetadataUrl,
+          ).toEqualTypeOf<string>()
+          expectTypeOf(ctx.prov).toEqualTypeOf<{ v: number }>()
+          expectTypeOf(ctx.supabase).not.toBeAny()
+          return Response.json({ ok: true })
+        },
+      ),
+    ) satisfies FetchHandler
+    void _composed
+  })
+
+  it('a widened entry poisons validation for later typed entries', () => {
+    // A hand-wrapped entry types as Entry<string, object, unknown>. Its
+    // string key folds an index signature into the accumulated context, so
+    // every later typed key reports a false conflict. Pinned here so the
+    // failure mode is documented rather than discovered in consumer code.
+    const widened = ((h) => h) as Entry<string, object, unknown>
+
+    // @ts-expect-error — false Conflict<'prov'> caused by the widened entry
+    const _bad = withSupabase(
+      { auth: 'none', env: baseEnv, middleware: [widened, withProvider()] },
+      async () => Response.json({ ok: true }),
+    )
+    void _bad
+
+    // Placed last, a widened entry has nothing after it to poison.
+    const _last = withSupabase(
+      { auth: 'none', env: baseEnv, middleware: [withProvider(), widened] },
+      async (_req, ctx) => {
+        expectTypeOf(ctx.prov).toEqualTypeOf<{ v: number }>()
+        return Response.json({ ok: true })
+      },
+    )
+    void _last
+  })
+
+  it('explicit Database defaults Entries; array accepted, unvalidated', () => {
+    const _handler = withSupabase<{ fixture: true }>(
+      { auth: 'none', env: baseEnv, middleware: [withProvider()] },
+      async (_req, ctx) => {
+        expectTypeOf(ctx.supabase).not.toBeAny()
+        // Entries defaulted to readonly AnyEntry[]: no tuple inference, so
+        // contributions are not accumulated onto ctx.
+        // @ts-expect-error — 'prov' is not on ctx without tuple inference
+        void ctx.prov
+        return Response.json({ ok: true })
+      },
+    )
+    void _handler
   })
 })
