@@ -158,7 +158,7 @@ Order matters. `withPostgresClient` before `withClaims` is a compile-time error:
 middleware-prereq: key 'jwtClaims' is not yet on the context (check ordering)
 ```
 
-`withClaims` is not an auth gate. It contributes claims when a token is present, and `null` when one is not. The standalone pipeline above therefore also serves anonymous callers, whose queries run as `anon`. To require an authenticated caller, use the `withSupabase` form: `auth: 'user'` rejects token-less requests with a 401 before the handler runs.
+`withClaims` is not an auth gate. It contributes claims when a token is present, and `null` when one is not. The standalone pipeline above therefore also serves anonymous callers, whose queries run as `anon`. To require an authenticated caller, swap in [`withRequiredClaims`](../src/middleware/required-claims/index.ts): it rejects token-less requests with a 401 before the handler runs and contributes non-null `jwtClaims`, so the handler reads `ctx.jwtClaims.sub` directly. Inside `withSupabase`, `auth: 'user'` provides the same gate.
 
 ## Table grants
 

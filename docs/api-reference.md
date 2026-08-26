@@ -187,17 +187,58 @@ Behavior:
 - Token present but invalid: short-circuits with a 401 and `{ message, code: 'INVALID_CREDENTIALS' }`.
 - Token present but no JWKS configured: short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }`. Verification is required; the middleware has no decode-only mode.
 
-`withClaims` is not an auth gate. It never rejects a request that has no token, so `[withClaims(), withSupabaseClient()]` is not the composable form of `withSupabase({ auth: 'user' })` and accepts anonymous callers. To require an authenticated caller, gate with `withSupabase({ auth: 'user' })` and compose further middleware through its `middleware` option. A host that takes an entries array can wrap it as the sole entry:
-
-```ts
-const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
-  withSupabase({ auth: 'user', cors: 'disabled' }, h)
-```
+`withClaims` is not an auth gate. It never rejects a request that has no token, so `[withClaims(), withSupabaseClient()]` is not the composable form of `withSupabase({ auth: 'user' })` and accepts anonymous callers. To require an authenticated caller, compose `withRequiredClaims` (`@supabase/server/middleware/required-claims`) instead. The two entries share the `jwtClaims` key, so a pipeline picks "claims if present" or "claims required"; composing both is a compile-time conflict.
 
 ### WithClaimsConfig
 
 ```ts
 interface WithClaimsConfig {
+  jwks?: JSONWebKeySet | URL
+}
+```
+
+Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment.
+
+---
+
+## @supabase/server/middleware/required-claims
+
+### withRequiredClaims
+
+```ts
+const withRequiredClaims: Middleware<
+  'jwtClaims',
+  WithRequiredClaimsConfig | void,
+  Record<never, never>,
+  JWTClaims
+>
+```
+
+The user-mode auth gate. Verifies the caller's Bearer token against the project JWKS and contributes **non-null** `ctx.jwtClaims`. This is the same verification core `withSupabase` uses for its `user` auth mode.
+
+Behavior:
+
+- No `Authorization: Bearer` token, or an `sb_*` API key in that position: short-circuits with a 401 and `{ message, code: 'INVALID_CREDENTIALS' }`. The handler never runs.
+- Token present but invalid: the same 401.
+- Token present but no JWKS configured: short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }`. Verification is required; the middleware has no decode-only mode.
+
+`withRequiredClaims` is the required-caller counterpart to `withClaims`: "claims required" rather than "claims if present". The two share the `jwtClaims` key, so composing both in one pipeline is a compile-time conflict.
+
+Because the contribution is non-null, gated handlers read `ctx.jwtClaims` directly, and entries declaring a `jwtClaims` prerequisite, such as `withPostgresClient`, compose with no further verification:
+
+```ts
+pipeline([withRequiredClaims(), withPostgresClient()], async (req, ctx) => {
+  const rows = await ctx.postgres.query`select id, title from posts`
+  return Response.json({ rows, caller: ctx.jwtClaims.sub })
+})
+```
+
+Inside `withSupabase` the context already carries verified `jwtClaims`, so composing the gate through the `middleware` option is a compile-time conflict. Use `withSupabase({ auth: 'user' })` to gate that path.
+
+### WithRequiredClaimsConfig
+
+```ts
+interface WithRequiredClaimsConfig {
   jwks?: JSONWebKeySet | URL
 }
 ```

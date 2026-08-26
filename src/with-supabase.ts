@@ -9,11 +9,7 @@ import type {
   WithSupabaseConfig,
 } from './types.js'
 import { isContext, seedContext } from '@supabase/middleware'
-import type {
-  BaseContext,
-  Entry,
-  ValidateEntries,
-} from '@supabase/middleware'
+import type { BaseContext, Entry, ValidateEntries } from '@supabase/middleware'
 
 type AnyEntry = Entry<string, object, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
