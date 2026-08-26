@@ -521,21 +521,22 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                                       | What's in it                                                                                                      |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                           | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`                      | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`             | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`               | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/adapters/elysia`           | `withSupabase` (Elysia plugin)                                                                                    |
-| `@supabase/server/adapters/nestjs`           | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
-| `@supabase/server/middleware/client`         | `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                           |
-| `@supabase/server/middleware/admin-client`   | `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                                     |
-| `@supabase/server/middleware/claims`         | `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                      |
-| `@supabase/server/middleware/postgres`       | `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                           |
-| `@supabase/server/middleware/postgres-admin` | `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                     |
-| `@supabase/server/oauth-protected-resource`  | `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`               |
-| `@supabase/server/peer/supabase-js`          | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                           |
+| Export                                        | What's in it                                                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                           |
+| `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
+| `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                  |
+| `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                             |
+| `@supabase/server/adapters/elysia`            | `withSupabase` (Elysia plugin)                                                                                    |
+| `@supabase/server/adapters/nestjs`            | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
+| `@supabase/server/middleware/client`          | `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                           |
+| `@supabase/server/middleware/admin-client`    | `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                                     |
+| `@supabase/server/middleware/claims`          | `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                      |
+| `@supabase/server/middleware/required-claims` | `withRequiredClaims` (user-mode auth gate, non-null `ctx.jwtClaims`)                                              |
+| `@supabase/server/middleware/postgres`        | `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                           |
+| `@supabase/server/middleware/postgres-admin`  | `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                     |
+| `@supabase/server/oauth-protected-resource`   | `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`               |
+| `@supabase/server/peer/supabase-js`           | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                           |
 
 ## Documentation
 
