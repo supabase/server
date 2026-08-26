@@ -28,7 +28,8 @@ export class EnvError extends Error {
    *
    * @see {@link EnvGenericError}, {@link MissingSupabaseURLError},
    *   {@link MissingPublishableKeyError}, {@link MissingDefaultPublishableKeyError},
-   *   {@link MissingSecretKeyError}, {@link MissingDefaultSecretKeyError}
+   *   {@link MissingSecretKeyError}, {@link MissingDefaultSecretKeyError},
+   *   {@link MissingResourceServerError}, {@link MissingAuthorizationServerError}
    */
   readonly code: string
 
@@ -76,6 +77,18 @@ export const MissingSecretKeyError = 'MISSING_SECRET_KEY'
  */
 export const MissingDefaultSecretKeyError = 'MISSING_DEFAULT_SECRET_KEY'
 
+/**
+ * `withOAuthProtectedResource` has no `resourceServer` and cannot derive one.
+ * @category Errors
+ */
+export const MissingResourceServerError = 'MISSING_RESOURCE_SERVER'
+
+/**
+ * `withOAuthProtectedResource` has no `authorizationServer` and cannot derive one.
+ * @category Errors
+ */
+export const MissingAuthorizationServerError = 'MISSING_AUTHORIZATION_SERVER'
+
 const EnvErrorMap = {
   [MissingSupabaseURLError]: (): EnvError =>
     new EnvError(
@@ -102,6 +115,17 @@ const EnvErrorMap = {
     new EnvError(
       'No default publishable key found. Set SUPABASE_PUBLISHABLE_KEY or include a "default" entry in SUPABASE_PUBLISHABLE_KEYS.',
       MissingDefaultPublishableKeyError,
+    ),
+
+  [MissingResourceServerError]: (): EnvError =>
+    new EnvError(
+      "resourceServer is required outside Supabase Edge Functions. Pass it to withOAuthProtectedResource(), e.g. { resourceServer: (req) => new URL(req.url).origin + '/api/mcp' }.",
+      MissingResourceServerError,
+    ),
+  [MissingAuthorizationServerError]: (): EnvError =>
+    new EnvError(
+      "authorizationServer is required outside Supabase Edge Functions. Pass it to withOAuthProtectedResource() — use fromSupabaseUrl('https://<ref>.supabase.co') for Supabase Auth — or set SUPABASE_URL.",
+      MissingAuthorizationServerError,
     ),
 }
 

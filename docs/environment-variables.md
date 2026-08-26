@@ -2,25 +2,27 @@
 
 On Supabase Platform and Local Development (CLI), all variables are auto-provisioned — no configuration needed
 
-| Variable                    | Format                             | Description                                  | Available in                      |
-| --------------------------- | ---------------------------------- | -------------------------------------------- | --------------------------------- |
-| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                    | All                               |
-| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object        | All                               |
-| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object             | All                               |
-| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | Inline JSON Web Key Set for JWT verification | All                               |
-| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)            | Self-hosted, if manually exported |
-| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                 | Self-hosted, if manually exported |
+| Variable                    | Format                             | Description                                                                                                     | Available in                      |
+| --------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `SUPABASE_URL`              | `https://<ref>.supabase.co`        | Your Supabase project URL                                                                                       | All                               |
+| `SUPABASE_PUBLISHABLE_KEYS` | `{"default":"sb_publishable_..."}` | Named publishable keys as JSON object                                                                           | All                               |
+| `SUPABASE_SECRET_KEYS`      | `{"default":"sb_secret_..."}`      | Named secret keys as JSON object                                                                                | All                               |
+| `SUPABASE_JWKS`             | `{"keys":[...]}` or `[...]`        | Inline JSON Web Key Set for JWT verification                                                                    | All                               |
+| `SUPABASE_PUBLISHABLE_KEY`  | `sb_publishable_...`               | Single publishable key (fallback)                                                                               | Self-hosted, if manually exported |
+| `SUPABASE_SECRET_KEY`       | `sb_secret_...`                    | Single secret key (fallback)                                                                                    | Self-hosted, if manually exported |
+| `SUPABASE_PUBLIC_URL`       | `https://<ref>.supabase.co`        | Externally-visible URL of the Supabase stack. Preferred origin for OAuth protected resource metadata            | Self-hosted                       |
+| `SUPABASE_FUNCTION_SLUG`    | `my-function`                      | The running function's slug. Yields a canonical `/functions/v1/{slug}` resource identifier with no path parsing | Edge Functions                    |
 
 ## Non-Supabase environments (Node.js, Bun, Cloudflare, self-hosted)
 
 Set these based on which auth modes your app uses:
 
-| Variable                               | Required when                                                  |
-| -------------------------------------- | -------------------------------------------------------------- |
-| `SUPABASE_URL`                         | Always                                                         |
-| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'`, or when the handler accesses `supabaseAdmin` |
-| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                                          |
-| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)                              |
+| Variable                               | Required when                                                                       |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `SUPABASE_URL`                         | Always. Also the last-resort `authorizationServer` for `withOAuthProtectedResource` |
+| `SUPABASE_SECRET_KEY`                  | `auth: 'secret'`, or when the handler accesses `supabaseAdmin`                      |
+| `SUPABASE_PUBLISHABLE_KEY`             | `auth: 'publishable'`                                                               |
+| `SUPABASE_JWKS` or `SUPABASE_JWKS_URL` | `auth: 'user'` (JWT verification)                                                   |
 
 ### Minimal `.env` example
 

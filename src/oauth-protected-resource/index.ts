@@ -5,6 +5,12 @@
  */
 
 export { withOAuthProtectedResource } from './with-oauth-protected-resource.js'
+export type {
+  OAuthProtectedResourceConfig,
+  OAuthProtectedResourceContribution,
+} from './with-oauth-protected-resource.js'
+export { fromSupabaseUrl } from './url.js'
+export type { UrlOption } from './url.js'
 export { resourceMetadataResponse, unauthorizedResponse } from './responses.js'
 export type {
   ResourceMetadataOptions,

@@ -534,7 +534,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | `@supabase/server/middleware/claims`         | `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                      |
 | `@supabase/server/middleware/postgres`       | `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                           |
 | `@supabase/server/middleware/postgres-admin` | `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                     |
-| `@supabase/server/oauth-protected-resource`  | `withOAuthProtectedResource`, `resourceMetadataResponse`, `unauthorizedResponse`                                  |
+| `@supabase/server/oauth-protected-resource`  | `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`               |
 | `@supabase/server/peer/supabase-js`          | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                           |
 
 ## Documentation
