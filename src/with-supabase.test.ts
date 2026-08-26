@@ -369,6 +369,7 @@ describe('withSupabase', () => {
       let seenBinding: string | undefined
 
       const composed = withOAuthProtectedResource(
+        { resourceServer: 'http://localhost/my-fn' },
         withSupabase({ auth: 'none', env: baseEnv }, async (_req, ctx) => {
           // The `satisfies FetchHandler` anchor below is what lets `Base` flow
           // in from the outer middleware. This line is the type test for that

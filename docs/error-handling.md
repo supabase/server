@@ -8,14 +8,16 @@ The SDK has two error classes, both with `status` (HTTP code) and `code` (machin
 
 Thrown when a required environment variable is missing or malformed. Always `status: 500` — these are server configuration issues, not client errors.
 
-| Code                              | Meaning                                                        |
-| --------------------------------- | -------------------------------------------------------------- |
-| `MISSING_SUPABASE_URL`            | `SUPABASE_URL` is not set                                      |
-| `MISSING_PUBLISHABLE_KEY`         | Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS` |
-| `MISSING_DEFAULT_PUBLISHABLE_KEY` | No default publishable key found                               |
-| `MISSING_SECRET_KEY`              | Named secret key not found in `SUPABASE_SECRET_KEYS`           |
-| `MISSING_DEFAULT_SECRET_KEY`      | No default secret key found                                    |
-| `ENV_ERROR`                       | Generic environment error                                      |
+| Code                              | Meaning                                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `MISSING_SUPABASE_URL`            | `SUPABASE_URL` is not set                                                                                              |
+| `MISSING_PUBLISHABLE_KEY`         | Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS`                                                         |
+| `MISSING_DEFAULT_PUBLISHABLE_KEY` | No default publishable key found                                                                                       |
+| `MISSING_SECRET_KEY`              | Named secret key not found in `SUPABASE_SECRET_KEYS`                                                                   |
+| `MISSING_DEFAULT_SECRET_KEY`      | No default secret key found                                                                                            |
+| `MISSING_RESOURCE_SERVER`         | `withOAuthProtectedResource` has no `resourceServer` and is not on Edge Functions                                      |
+| `MISSING_AUTHORIZATION_SERVER`    | `withOAuthProtectedResource` has no `authorizationServer`, and neither `SUPABASE_PUBLIC_URL` nor `SUPABASE_URL` is set |
+| `ENV_ERROR`                       | Generic environment error                                                                                              |
 
 ### AuthError
 
@@ -31,16 +33,17 @@ Thrown when authentication or authorization fails. Status is `401` for invalid c
 
 Different layers of the SDK handle errors differently. Understanding which pattern each function uses prevents surprises.
 
-| Function                  | Pattern       | What happens on error                                                    |
-| ------------------------- | ------------- | ------------------------------------------------------------------------ |
-| `withSupabase()`          | Auto-response | Returns `Response.json({ message, code }, { status })` with CORS headers |
-| `createSupabaseContext()` | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
-| `verifyAuth()`            | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
-| `verifyCredentials()`     | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
-| `resolveEnv()`            | Result tuple  | Returns `{ data: null, error: EnvError }`                                |
-| `createContextClient()`   | **Throws**    | Throws `EnvError`                                                        |
-| `createAdminClient()`     | **Throws**    | Throws `EnvError`                                                        |
-| Hono `withSupabase()`     | HTTPException | Throws `HTTPException` with `cause: AuthError`                           |
+| Function                       | Pattern       | What happens on error                                                    |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------ |
+| `withSupabase()`               | Auto-response | Returns `Response.json({ message, code }, { status })` with CORS headers |
+| `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
+| `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
+| `verifyCredentials()`          | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
+| `resolveEnv()`                 | Result tuple  | Returns `{ data: null, error: EnvError }`                                |
+| `createContextClient()`        | **Throws**    | Throws `EnvError`                                                        |
+| `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                        |
+| `withOAuthProtectedResource()` | **Throws**    | Throws `EnvError` when required off Edge Functions and unconfigured      |
+| Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                           |
 
 The two client factory functions (`createContextClient`, `createAdminClient`) are the only ones that throw. Everything else returns a result tuple `{ data, error }`.
 

@@ -88,6 +88,12 @@ export { withSupabase } from './with-supabase.js'
 export { createSupabaseContext } from './create-supabase-context.js'
 
 export { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
+export type {
+  OAuthProtectedResourceConfig,
+  OAuthProtectedResourceContribution,
+} from './oauth-protected-resource/with-oauth-protected-resource.js'
+export { fromSupabaseUrl } from './oauth-protected-resource/url.js'
+export type { UrlOption } from './oauth-protected-resource/url.js'
 export {
   resourceMetadataResponse,
   unauthorizedResponse,
@@ -122,9 +128,11 @@ export {
   EnvGenericError,
   Errors,
   InvalidCredentialsError,
+  MissingAuthorizationServerError,
   MissingDefaultPublishableKeyError,
   MissingDefaultSecretKeyError,
   MissingPublishableKeyError,
+  MissingResourceServerError,
   MissingSecretKeyError,
   MissingSupabaseURLError,
   UnsupportedRoleError,

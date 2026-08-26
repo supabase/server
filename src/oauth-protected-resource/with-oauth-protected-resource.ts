@@ -2,7 +2,8 @@ import { defineMiddleware } from '@supabase/middleware'
 import type { Middleware } from '@supabase/middleware'
 
 import { resourceMetadataResponse } from './responses.js'
-import { getResourceMetadataUrl, inferFunctionName } from './url.js'
+import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
+import type { UrlOption } from './url.js'
 
 /** Shape contributed at `ctx.oauthProtectedResource`. */
 export interface OAuthProtectedResourceContribution {
@@ -11,15 +12,54 @@ export interface OAuthProtectedResourceContribution {
 }
 
 /**
- * Wraps a request handler with OAuth 2.1 Protected Resource behavior (RFC 9728)
- * for Supabase Edge Functions.
+ * Configuration for {@link withOAuthProtectedResource}.
  *
- * - Serves OAuth Protected Resource Metadata at `GET /{fn}/oauth-protected-resource`
+ * Both options accept a fixed string or a function of the request. Both default
+ * to values derived from the request as it arrives through the Supabase Edge
+ * Functions proxy, so no configuration is needed there.
+ *
+ * @category Types
+ */
+export interface OAuthProtectedResourceConfig {
+  /**
+   * The resource identifier to advertise — this endpoint's externally-visible
+   * URL, which RFC 9728 §3.3 requires to equal the URL the client called.
+   *
+   * Defaults to the Edge Functions derivation. Required on any other backend,
+   * usually from the request — `(req) => new URL(req.url).origin + '/api/mcp'`
+   * — and throws `EnvError` (`MISSING_RESOURCE_SERVER`) if unset there.
+   */
+  resourceServer?: UrlOption
+  /**
+   * The OAuth 2.1 authorization server to advertise, as an issuer identifier.
+   *
+   * Defaults to the project's Supabase Auth on Edge Functions. Elsewhere it
+   * falls back to `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each with
+   * `/auth/v1` appended, and throws `EnvError` (`MISSING_AUTHORIZATION_SERVER`)
+   * if neither is set. Pass {@link fromSupabaseUrl} for a specific project, or
+   * any other issuer directly.
+   */
+  authorizationServer?: UrlOption
+}
+
+/**
+ * Wraps a request handler with OAuth 2.1 Protected Resource behavior (RFC 9728).
+ *
+ * - Serves OAuth Protected Resource Metadata at `GET {resource}/oauth-protected-resource`
  *   (with permissive CORS, including the `OPTIONS` preflight, so browser-based clients can read it)
  * - Enriches a `401` from the inner handler with `WWW-Authenticate: Bearer resource_metadata="..."`,
  *   unless the handler already set a `WWW-Authenticate` header (its value wins)
  * - Passes any other path through to the inner handler unchanged (composition,
  *   not routing, decides what happens to it)
+ *
+ * The metadata route is matched on the path *suffix*, so **any** `GET` or
+ * `OPTIONS` ending in `/oauth-protected-resource` is answered here and never
+ * reaches the inner handler, at any depth. Other methods pass through.
+ *
+ * Zero-config on Supabase Edge Functions. Elsewhere
+ * {@link OAuthProtectedResourceConfig.resourceServer} is required and
+ * {@link OAuthProtectedResourceConfig.authorizationServer} falls back to
+ * `SUPABASE_URL`; each throws an `EnvError` when it cannot be resolved.
  *
  * Contributes `ctx.oauthProtectedResource` (the resolved metadata URL) to the
  * downstream context. Nested under `withSupabase`, the key is typed on the
@@ -28,7 +68,7 @@ export interface OAuthProtectedResourceContribution {
  *
  * @category Middleware
  *
- * @example
+ * @example Supabase Edge Functions — zero config
  * ```ts
  * import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
  *
@@ -42,41 +82,64 @@ export interface OAuthProtectedResourceContribution {
  *   ),
  * )
  * ```
+ *
+ * @example Any other backend
+ * ```ts
+ * import { withOAuthProtectedResource, fromSupabaseUrl } from '@supabase/server'
+ *
+ * export default {
+ *   fetch: withOAuthProtectedResource(
+ *     {
+ *       resourceServer: (req) => new URL(req.url).origin + '/api/mcp',
+ *       authorizationServer: fromSupabaseUrl('https://abc123.supabase.co'),
+ *     },
+ *     handler,
+ *   ),
+ * }
+ * ```
+ *
+ * @example A non-Supabase authorization server
+ * ```ts
+ * withOAuthProtectedResource(
+ *   {
+ *     resourceServer: 'https://api.example.com/mcp',
+ *     authorizationServer: 'https://example.clerk.accounts.dev',
+ *   },
+ *   handler,
+ * )
+ * ```
  */
 export const withOAuthProtectedResource: Middleware<
   'oauthProtectedResource',
-  undefined,
+  OAuthProtectedResourceConfig | undefined,
   Record<never, never>,
   OAuthProtectedResourceContribution
 > = defineMiddleware<
   'oauthProtectedResource',
-  undefined,
+  OAuthProtectedResourceConfig | undefined,
   Record<never, never>,
   OAuthProtectedResourceContribution
 >({
   key: 'oauthProtectedResource',
-  run: () =>
+  run: (config) =>
     async function* (req) {
       const url = new URL(req.url)
-      const fn = inferFunctionName(req)
-      const metadataPath = fn ? `/${fn}/oauth-protected-resource` : undefined
+      // The metadata document lives at `{resource}/oauth-protected-resource`.
+      // Matching on the suffix keeps this working wherever the endpoint is
+      // mounted, without assuming the Edge Functions path convention.
+      const isMetadataRoute = url.pathname.endsWith('/oauth-protected-resource')
 
       // RFC 9728 — OAuth Protected Resource Metadata
-      if (
-        metadataPath &&
-        req.method === 'GET' &&
-        url.pathname === metadataPath
-      ) {
-        return resourceMetadataResponse(req)
+      if (isMetadataRoute && req.method === 'GET') {
+        return resourceMetadataResponse(req, {
+          resource: getResourceUrl(req, config?.resourceServer),
+          authorizationServers: [getAuthUrl(req, config?.authorizationServer)],
+        })
       }
 
-      // CORS preflight for the metadata route — browser-based clients (e.g.
-      // MCP Inspector) fetch the discovery document cross-origin.
-      if (
-        metadataPath &&
-        req.method === 'OPTIONS' &&
-        url.pathname === metadataPath
-      ) {
+      // CORS preflight for the metadata route — browser-based clients fetch the
+      // discovery document cross-origin.
+      if (isMetadataRoute && req.method === 'OPTIONS') {
         return new Response(null, {
           status: 204,
           headers: {
@@ -88,7 +151,10 @@ export const withOAuthProtectedResource: Middleware<
         })
       }
 
-      const resourceMetadataUrl = getResourceMetadataUrl(req)
+      const resourceMetadataUrl = getResourceMetadataUrl(
+        req,
+        config?.resourceServer,
+      )
       const response = yield {
         oauthProtectedResource: { resourceMetadataUrl },
       }
