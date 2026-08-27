@@ -1,4 +1,9 @@
-import { AuthError, Errors, InvalidCredentialsError } from '../errors.js'
+import {
+  AuthError,
+  EnvGenericError,
+  Errors,
+  InvalidCredentialsError,
+} from '../errors.js'
 import type {
   AuthMode,
   AuthModeWithKey,
@@ -197,6 +202,12 @@ async function tryMode(
  * through to the next mode. Use {@link verifyAuth} to extract and verify in a
  * single call.
  *
+ * When `user` is among the allowed modes, a request carries a user token, and
+ * no JWKS source is configured, the failure is a 500 `ENV_ERROR` rather than
+ * a 401: the token cannot be verified, and that is a server misconfiguration,
+ * not a caller error. Another allowed mode matching the request's credentials
+ * still wins — the 500 is reported only when nothing matched.
+ *
  * @param credentials - The credentials to verify (from {@link extractCredentials}).
  * @param options - Allowed auth modes and optional env overrides.
  * @returns `{ data: AuthResult, error: null }` on success, `{ data: null, error: AuthError }` on failure.
@@ -238,6 +249,29 @@ export async function verifyCredentials(
     }
     if (result) {
       return { data: result, error: null }
+    }
+  }
+
+  // A user token that cannot be verified because no JWKS source is
+  // configured is a server misconfiguration, not a caller error — the same
+  // 500 `ENV_ERROR` the standalone claims middleware reports. Checked only
+  // after every mode has been tried, so key-based fallthrough (e.g.
+  // `['user', 'secret']` with a valid apikey) is unaffected. `sb_*` values
+  // in the Authorization slot are API keys, not user tokens, and stay a
+  // caller error.
+  const userTokenUnverifiable =
+    !env.jwks &&
+    credentials.token !== null &&
+    !credentials.token.startsWith('sb_') &&
+    modes.some((mode) => parseAuthMode(mode).base === 'user')
+  if (userTokenUnverifiable) {
+    return {
+      data: null,
+      error: new AuthError(
+        'A JWKS source is required to verify user tokens. Set SUPABASE_JWKS or SUPABASE_JWKS_URL, or pass `jwks` in the env overrides.',
+        EnvGenericError,
+        500,
+      ),
     }
   }
 

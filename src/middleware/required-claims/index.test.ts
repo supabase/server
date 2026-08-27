@@ -167,6 +167,77 @@ describe('withRequiredClaims', () => {
     const body = await res.json()
     expect(body.code).toBe(InvalidCredentialsError)
   })
+
+  describe('parity with withSupabase auth: "user"', () => {
+    // Both gates share `verifyUserJwt`; these tests pin the rest of the
+    // contract — the same request yields the same status and error code
+    // through either entry point.
+    const supabaseEnv = (jwksSource: JSONWebKeySet | null) => ({
+      url: 'https://test.supabase.co',
+      publishableKeys: { default: 'sb_publishable_xyz' },
+      secretKeys: { default: 'sb_secret_xyz' },
+      jwks: jwksSource,
+    })
+
+    async function both(
+      token: string | undefined,
+      jwksSource: JSONWebKeySet | null,
+    ) {
+      const gated = withRequiredClaims(
+        jwksSource ? { jwks: jwksSource } : undefined,
+        async (_req, ctx) => Response.json({ sub: ctx.jwtClaims.sub }),
+      )
+      const wrapped = withSupabase(
+        { auth: 'user', cors: 'disabled', env: supabaseEnv(jwksSource) },
+        async (_req, ctx) => Response.json({ sub: ctx.jwtClaims!.sub }),
+      )
+      return {
+        gate: await gated(requestWithToken(token)),
+        supabase: await wrapped(requestWithToken(token)),
+      }
+    }
+
+    it('valid token: both run the handler with the same subject', async () => {
+      const { gate, supabase } = await both(rsToken, jwks)
+      expect(gate.status).toBe(200)
+      expect(supabase.status).toBe(200)
+      expect(await gate.json()).toEqual(await supabase.json())
+    })
+
+    it('missing token: both 401 INVALID_CREDENTIALS', async () => {
+      const { gate, supabase } = await both(undefined, jwks)
+      for (const res of [gate, supabase]) {
+        expect(res.status).toBe(401)
+        expect((await res.json()).code).toBe(InvalidCredentialsError)
+      }
+    })
+
+    it('sb_* key in the Authorization slot: both 401 INVALID_CREDENTIALS', async () => {
+      const { gate, supabase } = await both('sb_secret_other', jwks)
+      for (const res of [gate, supabase]) {
+        expect(res.status).toBe(401)
+        expect((await res.json()).code).toBe(InvalidCredentialsError)
+      }
+    })
+
+    it('token signed by an unknown key: both 401 INVALID_CREDENTIALS', async () => {
+      const { gate, supabase } = await both(foreignToken, jwks)
+      for (const res of [gate, supabase]) {
+        expect(res.status).toBe(401)
+        expect((await res.json()).code).toBe(InvalidCredentialsError)
+      }
+    })
+
+    it('token present but no JWKS configured: both 500 ENV_ERROR', async () => {
+      vi.stubEnv('SUPABASE_JWKS', '')
+      vi.stubEnv('SUPABASE_JWKS_URL', '')
+      const { gate, supabase } = await both(rsToken, null)
+      for (const res of [gate, supabase]) {
+        expect(res.status).toBe(500)
+        expect((await res.json()).code).toBe(EnvGenericError)
+      }
+    })
+  })
 })
 
 describe('withRequiredClaims composition (type-level)', () => {

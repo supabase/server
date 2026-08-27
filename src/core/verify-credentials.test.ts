@@ -14,7 +14,7 @@ import type { JSONWebKeySet } from 'jose'
 import type { Credentials, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
 import { _resetAllowDeprecationWarned } from './utils/deprecation.js'
-import { InvalidCredentialsError } from '../errors.js'
+import { EnvGenericError, InvalidCredentialsError } from '../errors.js'
 
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
   return {
@@ -378,6 +378,91 @@ describe('verifyCredentials', () => {
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidCredentialsError)
+    })
+  })
+
+  describe('user mode without a JWKS source', () => {
+    // `resolveEnv` falls back from a null `jwks` override to the env vars, so
+    // they are stubbed empty to make "no JWKS anywhere" explicit.
+    beforeEach(() => {
+      vi.stubEnv('SUPABASE_JWKS', '')
+      vi.stubEnv('SUPABASE_JWKS_URL', '')
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('fails 500 ENV_ERROR when a user token is present', async () => {
+      const creds: Credentials = { token: 'some.jwt.token', apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(EnvGenericError)
+      expect(result.error!.status).toBe(500)
+      expect(result.error!.message).toContain('JWKS')
+    })
+
+    it('fails 401 when no token is present', async () => {
+      // Missing credentials are the caller's problem and are reported before
+      // missing configuration.
+      const creds: Credentials = { token: null, apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.status).toBe(401)
+    })
+
+    it('fails 401 for an sb_* value in the Authorization slot', async () => {
+      // An API key can never pass user mode, JWKS or not.
+      const creds: Credentials = { token: 'sb_secret_xyz', apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.status).toBe(401)
+    })
+
+    it('another matching mode still wins over the config error', async () => {
+      const creds: Credentials = {
+        token: 'some.jwt.token',
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'publishable'],
+        env: makeEnv(),
+      })
+      expect(result.error).toBeNull()
+      expect(result.data!.authMode).toBe('publishable')
+    })
+
+    it('fails 500 in a mode array when nothing else matches', async () => {
+      const creds: Credentials = { token: 'some.jwt.token', apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'publishable'],
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(EnvGenericError)
+      expect(result.error!.status).toBe(500)
+    })
+
+    it('fails 401 when user mode is not among the allowed modes', async () => {
+      const creds: Credentials = { token: 'some.jwt.token', apikey: null }
+      const result = await verifyCredentials(creds, {
+        auth: 'publishable',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.status).toBe(401)
     })
   })
 

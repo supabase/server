@@ -26,6 +26,7 @@ Thrown when authentication or authorization fails. Status is `401` for invalid c
 | Code                           | Status | Meaning                                                                                   |
 | ------------------------------ | ------ | ----------------------------------------------------------------------------------------- |
 | `INVALID_CREDENTIALS`          | 401    | No credential matched any allowed auth mode, or a JWT was present but failed verification |
+| `ENV_ERROR`                    | 500    | `user` mode is allowed, a user token is present, and no JWKS source is configured         |
 | `CREATE_SUPABASE_CLIENT_ERROR` | 500    | Auth succeeded but client creation failed                                                 |
 | `AUTH_ERROR`                   | 401    | Generic authentication error                                                              |
 
