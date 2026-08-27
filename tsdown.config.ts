@@ -12,6 +12,7 @@ export default defineConfig({
     'src/middleware/postgres/index.ts',
     'src/middleware/postgres-admin/index.ts',
     'src/middleware/claims/index.ts',
+    'src/middleware/required-claims/index.ts',
     'src/middleware/client/index.ts',
     'src/middleware/admin-client/index.ts',
     'src/oauth-protected-resource/index.ts',

@@ -139,6 +139,16 @@
         "default": "./dist/middleware/claims/index.cjs"
       }
     },
+    "./middleware/required-claims": {
+      "import": {
+        "types": "./dist/middleware/required-claims/index.d.mts",
+        "default": "./dist/middleware/required-claims/index.mjs"
+      },
+      "require": {
+        "types": "./dist/middleware/required-claims/index.d.cts",
+        "default": "./dist/middleware/required-claims/index.cjs"
+      }
+    },
     "./oauth-protected-resource": {
       "import": {
         "types": "./dist/oauth-protected-resource/index.d.mts",

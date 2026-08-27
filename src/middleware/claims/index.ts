@@ -45,15 +45,10 @@ export interface WithClaimsConfig {
  * token. A pipeline like `[withClaims(), withSupabaseClient()]` accepts
  * anonymous callers and is not the composable form of
  * `withSupabase({ auth: 'user' })`, which rejects token-less requests with
- * a 401. To require an authenticated caller, gate with
- * `withSupabase({ auth: 'user' })` and compose further middleware through
- * its `middleware` option. A host that takes an entries array can wrap it
- * as the sole entry:
- *
- * ```ts
- * const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
- *   withSupabase({ auth: 'user', cors: 'disabled' }, h)
- * ```
+ * a 401. To require an authenticated caller, compose `withRequiredClaims`
+ * from `@supabase/server/middleware/required-claims` instead. The two entries
+ * share the `jwtClaims` key, so a pipeline picks "claims if present" or
+ * "claims required"; composing both is a compile-time conflict.
  *
  * @example Standalone pipeline
  * ```ts
