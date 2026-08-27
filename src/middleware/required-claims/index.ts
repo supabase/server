@@ -47,6 +47,12 @@ export interface WithRequiredClaimsConfig {
  * a `jwtClaims` prerequisite, such as `withPostgresClient`, compose with no
  * further verification.
  *
+ * The 401 and 500 short-circuits carry no CORS headers, and a bare pipeline
+ * answers no `OPTIONS` preflight. For browser callers, compose `withCors`
+ * (`@supabase/middleware/cors`) ahead of the gate: it answers preflight before
+ * the gate runs and stamps `Access-Control-*` headers on the short-circuit
+ * responses.
+ *
  * Inside `withSupabase` the context already carries verified `jwtClaims`, so
  * this gate is unnecessary there and composing it through the `middleware`
  * option is a compile-time conflict. Use `withSupabase({ auth: 'user' })` to

@@ -233,7 +233,16 @@ pipeline([withRequiredClaims(), withPostgresClient()], async (req, ctx) => {
 })
 ```
 
+The gate's 401 and 500 short-circuits carry no CORS headers, and a bare pipeline answers no `OPTIONS` preflight. For browser callers, compose `withCors` (`@supabase/middleware/cors`) ahead of the gate: it answers preflight before the gate runs and stamps `Access-Control-*` headers on the gate's short-circuit responses.
+
 Inside `withSupabase` the context already carries verified `jwtClaims`, so composing the gate through the `middleware` option is a compile-time conflict. Use `withSupabase({ auth: 'user' })` to gate that path.
+
+The gate contributes `jwtClaims` and nothing else. A handler that needs the full `SupabaseContext` behind an auth gate (for example `ctx.userClaims` or `ctx.authMode`, which no composable entry contributes) uses `withSupabase({ auth: 'user' })` directly. A host that takes an entries array can wrap it as the sole entry. `cors: 'disabled'` leaves CORS handling to the host:
+
+```ts
+const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
+  withSupabase({ auth: 'user', cors: 'disabled' }, h)
+```
 
 ### WithRequiredClaimsConfig
 
