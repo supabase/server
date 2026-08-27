@@ -4,8 +4,16 @@ import type { JSONWebKeySet } from 'jose'
 
 import { extractCredentials } from '../../core/extract-credentials.js'
 import { resolveJwks } from '../../core/resolve-env.js'
+import { classifyApiKey } from '../../core/utils/classify-credentials.js'
 import { verifyUserJwt } from '../../core/verify-user-jwt.js'
-import { EnvGenericError, InvalidCredentialsError } from '../../errors.js'
+import { errorResponse } from '../../error-response.js'
+import {
+  Errors,
+  InvalidJwtError,
+  JwksFetchFailedError,
+  JwksNotConfiguredError,
+  MissingCredentialsError,
+} from '../../errors.js'
 import type { JWTClaims } from '../../types.js'
 
 /**
@@ -92,29 +100,42 @@ export const withRequiredClaims: Middleware<
     // header — they are API keys, not user JWTs, so they cannot pass a gate
     // that requires verified user claims.
     if (!token || token.startsWith('sb_')) {
-      return Response.json(
-        { message: 'Invalid credentials', code: InvalidCredentialsError },
-        { status: 401 },
+      const { apikey } = extractCredentials(req)
+      return errorResponse(
+        Errors[MissingCredentialsError]({
+          authModes: ['user'],
+          received: {
+            // An `sb_*` value in Authorization is an API key, not a JWT — the
+            // header arrived, but carried nothing this gate can verify.
+            authorization: token ? 'api-key' : 'absent',
+            apikey: classifyApiKey(apikey),
+          },
+        }),
       )
     }
 
     const jwks = config?.jwks ?? resolveJwks()
     if (!jwks) {
-      return Response.json(
-        {
-          message:
-            'A JWKS source is required to verify claims. Set SUPABASE_JWKS or SUPABASE_JWKS_URL, or pass `jwks` to withRequiredClaims.',
-          code: EnvGenericError,
-        },
-        { status: 500 },
+      return errorResponse(
+        Errors[JwksNotConfiguredError]({ middleware: 'withRequiredClaims' }),
       )
     }
 
     const verified = await verifyUserJwt(token, jwks)
-    if (!verified) {
-      return Response.json(
-        { message: 'Invalid credentials', code: InvalidCredentialsError },
-        { status: 401 },
+    if (!verified.ok) {
+      const { failure } = verified
+      return errorResponse(
+        failure.kind === 'jwks-source'
+          ? Errors[JwksFetchFailedError]({
+              reason: failure.reason,
+              cause: failure.cause,
+            })
+          : Errors[InvalidJwtError]({
+              reason: failure.reason,
+              hint: failure.hint,
+              jwt: failure.jwt,
+              cause: failure.cause,
+            }),
       )
     }
 

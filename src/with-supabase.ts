@@ -1,6 +1,12 @@
 import { addCorsHeaders, buildCorsHeaders, isCorsDisabled } from './cors.js'
 import { verifyAuth } from './core/verify-auth.js'
-import { AuthError, CreateSupabaseClientError, EnvError } from './errors.js'
+import { errorResponse } from './error-response.js'
+import {
+  AuthError,
+  CreateSupabaseClientError,
+  EnvError,
+  ErrorCodeHeader,
+} from './errors.js'
 import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
 import type {
@@ -174,8 +180,24 @@ export function withSupabase<Database = unknown>(
   )
 
   return async (req: Request, platformArg?: unknown) => {
-    const corsHeaders = () =>
-      !isCorsDisabled(config.cors) ? buildCorsHeaders(config.cors) : {}
+    // Cross-origin browser code cannot read a non-safelisted response header
+    // unless it is named in Access-Control-Expose-Headers, so the error code
+    // header would be invisible in exactly the case it is most useful.
+    const errorHeaders = () => {
+      if (isCorsDisabled(config.cors)) return {}
+      const headers = buildCorsHeaders(config.cors)
+      const exposeKey =
+        Object.keys(headers).find(
+          (name) => name.toLowerCase() === 'access-control-expose-headers',
+        ) ?? 'Access-Control-Expose-Headers'
+      const exposed = headers[exposeKey]
+      return {
+        ...headers,
+        [exposeKey]: exposed
+          ? `${exposed}, ${ErrorCodeHeader}`
+          : ErrorCodeHeader,
+      }
+    }
 
     if (!isCorsDisabled(config.cors) && req.method === 'OPTIONS') {
       return new Response(null, {
@@ -190,10 +212,7 @@ export function withSupabase<Database = unknown>(
       env: config.env,
     })
     if (error) {
-      return Response.json(
-        { message: error.message, code: error.code },
-        { status: error.status, headers: corsHeaders() },
-      )
+      return errorResponse(error, { headers: errorHeaders() })
     }
 
     // Track whether the request has moved past the client entries: only
@@ -240,15 +259,19 @@ export function withSupabase<Database = unknown>(
       const mapped = !inClientPhase
         ? null
         : e instanceof EnvError
-          ? new AuthError(e.message, e.code, 500)
+          ? // Keep the EnvError's code, hint, and details — it already names
+            // the exact variable at fault.
+            new AuthError(e.message, e.code, 500, {
+              hint: e.hint,
+              details: e.details,
+              docs: e.docs,
+              cause: e,
+            })
           : e instanceof AuthError && e.code === CreateSupabaseClientError
             ? e
             : null
       if (!mapped) throw e
-      return Response.json(
-        { message: mapped.message, code: mapped.code },
-        { status: mapped.status, headers: corsHeaders() },
-      )
+      return errorResponse(mapped, { headers: errorHeaders() })
     }
 
     if (!isCorsDisabled(config.cors)) {

@@ -88,9 +88,9 @@ describe('withPostgresClient', () => {
     })
 
     expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({
-      message: expect.stringContaining('SUPABASE_DB_URL'),
-      code: 'ENV_ERROR',
+    expect(await res.json()).toMatchObject({
+      code: 'MISSING_CONNECTION_STRING',
+      hint: expect.stringContaining('SUPABASE_DB_URL'),
     })
   })
 
@@ -218,9 +218,15 @@ describe('withPostgresClient', () => {
     })
 
     expect(res.status).toBe(500)
-    const body = (await res.json()) as { message: string; code: string }
+    const body = (await res.json()) as {
+      message: string
+      code: string
+      hint: string
+    }
     expect(body.code).toBe('UNSUPPORTED_ROLE')
-    expect(body.message).toContain('withPostgresAdminClient')
+    expect(body.message).toContain('service_role')
+    // The message names the refusal; `hint` names the supported alternative.
+    expect(body.hint).toContain('withPostgresAdminClient')
     // Never silently downgraded to anon, and never actually used.
     expect(h.issued).not.toContain('set local role "anon"')
     expect(h.issued).not.toContain('set local role "service_role"')

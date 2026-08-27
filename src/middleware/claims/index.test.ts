@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { JSONWebKeySet } from 'jose'
 
-import { InvalidCredentialsError } from '../../errors.js'
+import { InvalidJwtError } from '../../errors.js'
 import { withClaims } from './index.js'
 
 describe('withClaims', () => {
@@ -75,7 +75,7 @@ describe('withClaims', () => {
     const res = await handler(requestWithToken(foreignToken))
     expect(res.status).toBe(401)
     const body = await res.json()
-    expect(body.code).toBe(InvalidCredentialsError)
+    expect(body.code).toBe(InvalidJwtError)
   })
 
   it('short-circuits 401 for a malformed token', async () => {

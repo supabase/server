@@ -1,64 +1,246 @@
 # Error Handling
 
+Every error this library produces identifies itself and tells you what to do about it. An error carries:
+
+| Field     | Description                                                                           |
+| --------- | ------------------------------------------------------------------------------------- |
+| `source`  | Always `"@supabase/server"` — which library produced this                             |
+| `code`    | Machine-readable code, e.g. `MISSING_CREDENTIALS`                                     |
+| `message` | Human-readable description, prefixed `[@supabase/server]`                             |
+| `hint`    | The actionable next step. Omitted when there isn't a useful one                       |
+| `docs`    | Link to the section of this page for `code`                                           |
+| `details` | Structured diagnostics — accepted auth modes, what the request carried, key **names** |
+| `status`  | HTTP status code (on the error object; not in the JSON body)                          |
+
+`details` never contains secret material: no key values, no token payloads. API keys are reported by _format_ (`"secret"`, `"publishable"`, `"legacy-jwt"`), named keys by _name_ only, and JWTs by their public `alg` / `kid` header fields.
+
+## What a failure looks like
+
+```
+HTTP/1.1 401 Unauthorized
+x-supabase-server-error: MISSING_CREDENTIALS
+Access-Control-Expose-Headers: x-supabase-server-error
+```
+
+```json
+{
+  "source": "@supabase/server",
+  "code": "MISSING_CREDENTIALS",
+  "message": "[@supabase/server] No credentials found on the request. This endpoint accepts auth mode(s): \"user\", \"publishable\".",
+  "hint": "Send one of: Authorization: Bearer <jwt> (for auth mode \"user\"); apikey: <publishable key> (for auth mode \"publishable\").",
+  "docs": "https://github.com/supabase/server/blob/main/docs/error-handling.md#missing_credentials",
+  "details": {
+    "acceptedAuthModes": ["user", "publishable"],
+    "received": { "authorization": "absent", "apikey": "absent" }
+  }
+}
+```
+
+The code is repeated in the `x-supabase-server-error` response header, and added to `Access-Control-Expose-Headers` so cross-origin browser code can actually read it.
+
+Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`).
+
 ## Error classes
 
-The SDK has two error classes, both with `status` (HTTP code) and `code` (machine-readable string) properties.
+```
+Error
+└── SupabaseServerError    ← catch this for anything from @supabase/server
+    ├── EnvError           ← always status 500
+    └── AuthError          ← status 401 or 500
+```
 
-### EnvError
+```ts
+import { SupabaseServerError } from '@supabase/server'
 
-Thrown when a required environment variable is missing or malformed. Always `status: 500` — these are server configuration issues, not client errors.
+try {
+  const supabase = createAdminClient()
+} catch (e) {
+  if (e instanceof SupabaseServerError) {
+    console.error(e.code, e.message, e.hint, e.docs)
+    return Response.json(e.toJSON(), { status: e.status })
+  }
+  throw e
+}
+```
 
-| Code                              | Meaning                                                                                                                |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `MISSING_SUPABASE_URL`            | `SUPABASE_URL` is not set                                                                                              |
-| `MISSING_PUBLISHABLE_KEY`         | Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS`                                                         |
-| `MISSING_DEFAULT_PUBLISHABLE_KEY` | No default publishable key found                                                                                       |
-| `MISSING_SECRET_KEY`              | Named secret key not found in `SUPABASE_SECRET_KEYS`                                                                   |
-| `MISSING_DEFAULT_SECRET_KEY`      | No default secret key found                                                                                            |
-| `MISSING_RESOURCE_SERVER`         | `withOAuthProtectedResource` has no `resourceServer` and is not on Edge Functions                                      |
-| `MISSING_AUTHORIZATION_SERVER`    | `withOAuthProtectedResource` has no `authorizationServer`, and neither `SUPABASE_PUBLIC_URL` nor `SUPABASE_URL` is set |
-| `ENV_ERROR`                       | Generic environment error                                                                                              |
+`toJSON()` returns the payload above, and is picked up automatically by `JSON.stringify` — so logging the error yields the full diagnostics instead of `{}`.
 
-### AuthError
+## AuthError codes
 
-Thrown when authentication or authorization fails. Status is `401` for invalid credentials, `500` for server-side auth failures.
+Thrown when authentication fails. `401` means the request's credentials are at fault. **`500` means the server is misconfigured** — the request could not have succeeded no matter what it sent, so don't blame the caller.
 
-| Code                           | Status | Meaning                                                                                   |
-| ------------------------------ | ------ | ----------------------------------------------------------------------------------------- |
-| `INVALID_CREDENTIALS`          | 401    | No credential matched any allowed auth mode, or a JWT was present but failed verification |
-| `ENV_ERROR`                    | 500    | `user` mode is allowed, a user token is present, and no JWKS source is configured         |
-| `CREATE_SUPABASE_CLIENT_ERROR` | 500    | Auth succeeded but client creation failed                                                 |
-| `AUTH_ERROR`                   | 401    | Generic authentication error                                                              |
+| Code                                                            | Status | Meaning                                                             |
+| --------------------------------------------------------------- | ------ | ------------------------------------------------------------------- |
+| [`MISSING_CREDENTIALS`](#missing_credentials)                   | 401    | The request carried no usable credentials                           |
+| [`INVALID_API_KEY`](#invalid_api_key)                           | 401    | An `apikey` was sent but matched no configured key                  |
+| [`INVALID_JWT`](#invalid_jwt)                                   | 401    | A JWT was sent but failed verification                              |
+| [`INVALID_CREDENTIALS`](#invalid_credentials)                   | 401    | Fallback when nothing more specific applies                         |
+| [`JWKS_NOT_CONFIGURED`](#jwks_not_configured)                   | 500    | A JWT was sent but no JWKS is configured to verify it               |
+| [`JWKS_FETCH_FAILED`](#jwks_fetch_failed)                       | 500    | The remote JWKS could not be fetched or parsed                      |
+| [`NO_KEYS_CONFIGURED`](#no_keys_configured)                     | 500    | An auth mode was requested that no configured key could ever match  |
+| [`UNSUPPORTED_ROLE`](#unsupported_role)                         | 500    | The caller's `role` claim names a role `withPostgresClient` refuses |
+| [`CREATE_SUPABASE_CLIENT_ERROR`](#create_supabase_client_error) | 500    | Auth succeeded but client creation failed                           |
+| [`AUTH_ERROR`](#auth_error)                                     | 401    | Generic authentication error                                        |
+
+### `MISSING_CREDENTIALS`
+
+Neither an `apikey` header nor a usable `Authorization: Bearer` token was present, and no accepted auth mode allows that.
+
+`details.acceptedAuthModes` lists what the endpoint accepts; `hint` tells you exactly which header to send for each.
+
+Watch for `details.received.authorization` being `"non-bearer-scheme"`. Credentials are only read from `Authorization: Bearer <jwt>` — a wrong scheme, wrong casing (`bearer`), a bare token, or an `sb_*` API key in that header produces no user credential at all, and the `hint` will say which of those happened.
+
+### `INVALID_API_KEY`
+
+An `apikey` header was present but matched none of the keys configured for the attempted modes.
+
+The `hint` prioritises format mismatches, since sending the wrong _kind_ of key is the most common cause:
+
+- a secret key sent to a `publishable`-only endpoint (or the reverse)
+- a legacy JWT-style `anon` / `service_role` key, where an `sb_publishable_…` / `sb_secret_…` key is expected
+- a value that isn't a Supabase API key at all
+
+Otherwise the key was well-formed but simply unknown — usually a different Supabase project. `details.configuredKeyNames` lists the names configured for the attempted modes, and `details.received.apikey` gives the format of what you sent.
+
+### `INVALID_JWT`
+
+A JWT was present in `Authorization` but failed verification. The message names the specific reason and `hint` explains it:
+
+| Reason                                       | Usual cause                                              |
+| -------------------------------------------- | -------------------------------------------------------- |
+| the token has expired                        | Stale access token, or server clock skew                 |
+| the signature did not verify                 | JWKS belongs to a different project                      |
+| no key in the JWKS matches the token's `kid` | Wrong project, or a rotated signing key with stale JWKS  |
+| its header is missing `alg` or `kid`         | Legacy JWT signed with the shared JWT secret             |
+| it has no `sub` claim                        | Not a user token — likely an `anon` / `service_role` JWT |
+| a registered claim failed validation         | `nbf` in the future, or a mismatched `aud` / `iss`       |
+| the token is malformed                       | Truncated, URL-encoded, or quoted token                  |
+
+`details.jwt` carries the token's `alg` and `kid` — both client-supplied and public — which is what you need to debug a JWKS mismatch. Claim values are never included.
+
+A present-but-invalid JWT rejects immediately rather than falling through to the next auth mode, so this code always wins over a later mode's failure.
+
+### `INVALID_CREDENTIALS`
+
+Fallback code, returned when a credential was present but no more specific code applies.
+
+> **Changed in v1.6.** This used to be the only code returned for a failed request. The specific codes above now cover essentially every real failure, so match on those instead. `INVALID_CREDENTIALS` and `Errors[InvalidCredentialsError]()` remain exported and working.
+
+### `JWKS_NOT_CONFIGURED`
+
+Auth mode `"user"` was requested and a JWT was supplied, but no JWKS is configured — the token cannot be verified.
+
+This is a **`500`**, not a `401`. The endpoint can never authenticate a user in this state.
+
+Set `SUPABASE_JWKS_URL` (e.g. `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json`) or `SUPABASE_JWKS` (inline JSON), or pass `env.jwks`.
+
+> A **malformed** value resolves to `null` rather than erroring, and surfaces here. `SUPABASE_JWKS` must be valid JSON; `SUPABASE_JWKS_URL` must be `https` (plain `http` is only accepted for loopback hosts, so the Supabase CLI works against `http://localhost:54321`).
+
+`withClaims` / `withRequiredClaims` report this same code when they reach verification without a JWKS — they only get there with a token in hand, so the situation is identical. Their `hint` names their own `jwks` option instead of `env.jwks`, and `details.middleware` says which one asked.
+
+### `JWKS_FETCH_FAILED`
+
+The remote JWKS endpoint could not be reached, timed out, or returned something unusable — so a token that may well be valid could not be verified.
+
+A **`500`**: an upstream outage is not the caller's fault. The underlying error is attached as `cause`.
+
+### `NO_KEYS_CONFIGURED`
+
+A `publishable` or `secret` auth mode was requested, but no key it could match is configured. Covers both an empty key set and a named mode like `publishable:mobile` when no `"mobile"` key exists.
+
+A **`500`** — that mode can never match any request. `details.mode` names the offending mode and `details.configuredKeyNames` lists what _is_ configured.
+
+This is only reported once every mode has been tried. With `auth: ['publishable:mobile', 'secret']`, a valid secret key still succeeds even though the first mode is unreachable.
+
+### `UNSUPPORTED_ROLE`
+
+`withPostgresClient` will not assume the Postgres role the caller's verified `role` claim names, and refuses rather than silently running the query as `anon` — which would return zero rows and leave nothing to debug.
+
+- `role: "service_role"` — that role bypasses RLS, the guarantee this middleware exists to provide. `hint` points at `withPostgresAdminClient` if bypassing RLS is intended.
+- any other custom role — not supported yet; `details.supportedRoles` lists what is.
+- a non-string `role` claim — a misconfigured custom-claims hook.
+
+### `CREATE_SUPABASE_CLIENT_ERROR`
+
+Auth succeeded but `createClient()` failed — almost always a missing or malformed `SUPABASE_URL` or API key. The underlying error is attached as `cause`.
+
+When the cause is an `EnvError`, its specific code (e.g. `MISSING_DEFAULT_PUBLISHABLE_KEY`) is preserved instead, along with that error's `hint` and `details`.
+
+### `AUTH_ERROR`
+
+Generic authentication error. The default code when constructing an `AuthError` yourself.
+
+## EnvError codes
+
+Thrown when a required environment variable is missing or malformed. Always `status: 500`.
+
+| Code                                                                  | Meaning                                                            |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`MISSING_SUPABASE_URL`](#missing_supabase_url)                       | `SUPABASE_URL` is not set                                          |
+| [`MISSING_PUBLISHABLE_KEY`](#missing_publishable_key)                 | Named publishable key not found in `SUPABASE_PUBLISHABLE_KEYS`     |
+| [`MISSING_DEFAULT_PUBLISHABLE_KEY`](#missing_default_publishable_key) | No default publishable key found                                   |
+| [`MISSING_SECRET_KEY`](#missing_secret_key)                           | Named secret key not found in `SUPABASE_SECRET_KEYS`               |
+| [`MISSING_DEFAULT_SECRET_KEY`](#missing_default_secret_key)           | No default secret key found                                        |
+| [`MISSING_RESOURCE_SERVER`](#missing_resource_server)                 | `withOAuthProtectedResource` cannot derive a `resourceServer`      |
+| [`MISSING_AUTHORIZATION_SERVER`](#missing_authorization_server)       | `withOAuthProtectedResource` cannot derive an authorization server |
+| [`ENV_ERROR`](#env_error)                                             | Generic environment error                                          |
+
+### `MISSING_SUPABASE_URL`
+
+Set `SUPABASE_URL` to your project URL (`https://<project-ref>.supabase.co`), or pass `env.url`. A local Supabase CLI stack uses `http://localhost:54321`.
+
+### `MISSING_PUBLISHABLE_KEY`
+
+The requested named publishable key doesn't exist. The message and `details.configuredKeyNames` list which names _are_ configured.
+
+Add the entry to `SUPABASE_PUBLISHABLE_KEYS` — a JSON object of name → key — or pass `env.publishableKeys`.
+
+### `MISSING_DEFAULT_PUBLISHABLE_KEY`
+
+Set `SUPABASE_PUBLISHABLE_KEY`, or add a `"default"` entry to `SUPABASE_PUBLISHABLE_KEYS`, or pass `env.publishableKeys`.
+
+### `MISSING_SECRET_KEY`
+
+As `MISSING_PUBLISHABLE_KEY`, for `SUPABASE_SECRET_KEYS` / `env.secretKeys`.
+
+### `MISSING_DEFAULT_SECRET_KEY`
+
+Set `SUPABASE_SECRET_KEY`, or add a `"default"` entry to `SUPABASE_SECRET_KEYS`, or pass `env.secretKeys`.
+
+### `MISSING_RESOURCE_SERVER`
+
+`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request. Pass `resourceServer` — `hint` shows the shape.
+
+### `MISSING_AUTHORIZATION_SERVER`
+
+As above for the authorization server. Pass `authorizationServer`, use `fromSupabaseUrl(...)` for Supabase Auth, or set `SUPABASE_PUBLIC_URL` / `SUPABASE_URL`.
+
+### `ENV_ERROR`
+
+Generic environment error. The default code when constructing an `EnvError` yourself.
 
 ## How errors surface in each layer
 
-Different layers of the SDK handle errors differently. Understanding which pattern each function uses prevents surprises.
+| Function                       | Pattern       | What happens on error                                                   |
+| ------------------------------ | ------------- | ----------------------------------------------------------------------- |
+| `withSupabase()`               | Auto-response | Returns the JSON payload above, with CORS and `x-supabase-server-error` |
+| `withClaims()`                 | Auto-response | Same payload, short-circuiting the pipeline                             |
+| `withRequiredClaims()`         | Auto-response | Same payload, short-circuiting the pipeline                             |
+| `withPostgresClient()`         | Auto-response | Same payload, on an unsupported `role` claim                            |
+| `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                              |
+| `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                              |
+| `verifyCredentials()`          | Result tuple  | Returns `{ data: null, error: AuthError }`                              |
+| `resolveEnv()`                 | Result tuple  | Returns `{ data: null, error: EnvError }`                               |
+| `createContextClient()`        | **Throws**    | Throws `EnvError`                                                       |
+| `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                       |
+| `withOAuthProtectedResource()` | **Throws**    | Throws `EnvError` when required off Edge Functions and unconfigured     |
+| Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                          |
 
-| Function                       | Pattern       | What happens on error                                                    |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------ |
-| `withSupabase()`               | Auto-response | Returns `Response.json({ message, code }, { status })` with CORS headers |
-| `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
-| `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
-| `verifyCredentials()`          | Result tuple  | Returns `{ data: null, error: AuthError }`                               |
-| `resolveEnv()`                 | Result tuple  | Returns `{ data: null, error: EnvError }`                                |
-| `createContextClient()`        | **Throws**    | Throws `EnvError`                                                        |
-| `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                        |
-| `withOAuthProtectedResource()` | **Throws**    | Throws `EnvError` when required off Edge Functions and unconfigured      |
-| Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                           |
+`verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
 
-The two client factory functions (`createContextClient`, `createAdminClient`) are the only ones that throw. Everything else returns a result tuple `{ data, error }`.
+## Custom error formatting
 
-## Handling errors in withSupabase
-
-`withSupabase` handles errors automatically. If auth fails, the caller receives a JSON response:
-
-```json
-{ "message": "Invalid credentials", "code": "INVALID_CREDENTIALS" }
-```
-
-with the appropriate HTTP status code and CORS headers. Your handler never runs.
-
-If you need custom error formatting, use `createSupabaseContext` instead:
+`withSupabase` responds for you. To shape the response yourself, use `createSupabaseContext`:
 
 ```ts
 import { createSupabaseContext } from '@supabase/server'
@@ -70,17 +252,15 @@ export default {
     })
 
     if (error) {
-      // Custom error format
+      // Log everything, return only what the caller needs.
+      console.error(error.code, error.message, error.hint, error.details)
       return Response.json(
-        {
-          success: false,
-          error: { message: error.message, code: error.code },
-        },
+        { success: false, error: { message: error.message, code: error.code } },
         { status: error.status },
       )
     }
 
-    const { data } = await ctx!.supabase.from('todos').select()
+    const { data } = await ctx.supabase.from('todos').select()
     return Response.json({ success: true, data })
   },
 }
@@ -91,21 +271,9 @@ export default {
 The Hono adapter throws an `HTTPException` when auth fails. Access the original `AuthError` via `.cause`:
 
 ```ts
-import { Hono } from 'hono'
-import { HTTPException } from 'hono/http-exception'
-import { withSupabase } from '@supabase/server/adapters/hono'
-
-const app = new Hono()
-
-app.use('*', withSupabase({ auth: 'user' }))
-
 app.onError((err, c) => {
-  if (err instanceof HTTPException && err.cause) {
-    const authError = err.cause
-    return c.json(
-      { message: authError.message, code: authError.code },
-      err.status,
-    )
+  if (err instanceof HTTPException && err.cause instanceof AuthError) {
+    return c.json(err.cause.toJSON(), err.status)
   }
   return c.json({ message: 'Internal error' }, 500)
 })
@@ -113,44 +281,32 @@ app.onError((err, c) => {
 
 ## Handling errors in core primitives
 
-Result-tuple functions:
-
 ```ts
 import { verifyAuth, resolveEnv } from '@supabase/server/core'
 
-// verifyAuth returns { data, error }
 const { data: auth, error } = await verifyAuth(request, { auth: 'user' })
 if (error) {
-  return Response.json({ message: error.message }, { status: error.status })
+  return Response.json(error.toJSON(), { status: error.status })
 }
 
-// resolveEnv returns { data, error }
 const { data: env, error: envError } = resolveEnv()
 if (envError) {
-  console.error(`Config issue [${envError.code}]: ${envError.message}`)
+  console.error(`[${envError.code}] ${envError.message}\n${envError.hint}`)
 }
 ```
 
 Client factories throw — wrap them in try/catch:
 
 ```ts
-import {
-  verifyAuth,
-  createContextClient,
-  createAdminClient,
-} from '@supabase/server/core'
-import { EnvError } from '@supabase/server'
-
-const { data: auth, error } = await verifyAuth(request, { auth: 'user' })
-// ... handle error ...
+import { createContextClient } from '@supabase/server/core'
+import { SupabaseServerError } from '@supabase/server'
 
 try {
-  const supabase = createContextClient({ auth: { token: auth!.token } })
-  const supabaseAdmin = createAdminClient()
+  const supabase = createContextClient({ auth: { token: auth.token } })
 } catch (e) {
-  if (e instanceof EnvError) {
-    console.error(`Config issue [${e.code}]: ${e.message}`)
-    return Response.json({ message: e.message }, { status: 500 })
+  if (e instanceof SupabaseServerError) {
+    console.error(e.code, e.message, e.hint)
+    return Response.json(e.toJSON(), { status: e.status })
   }
   throw e
 }
@@ -158,38 +314,39 @@ try {
 
 ## Using the Errors factory map
 
-The `Errors` object provides factory functions for creating error instances by code. Useful when building custom error handling or testing:
+`Errors` provides a factory per code, each returning a fully-populated error.
 
 ```ts
 import {
   Errors,
   MissingSupabaseURLError,
-  InvalidCredentialsError,
+  MissingSecretKeyError,
 } from '@supabase/server'
 
-// Create specific errors
-const envError = Errors[MissingSupabaseURLError]()
-// → EnvError { message: "SUPABASE_URL is required but not set", code: "MISSING_SUPABASE_URL", status: 500 }
+Errors[MissingSupabaseURLError]()
+// → EnvError { code: 'MISSING_SUPABASE_URL', status: 500, hint: 'Set SUPABASE_URL to …' }
 
-const authError = Errors[InvalidCredentialsError]()
-// → AuthError { message: "Invalid credentials", code: "INVALID_CREDENTIALS", status: 401 }
+// Pass the configured names to get them into the message and details.
+Errors[MissingSecretKeyError]('mobile', ['default', 'web'])
+// → message: '… No "mobile" secret key found. Configured names: "default", "web".'
 ```
 
 ## Checking error types
 
 ```ts
-import { AuthError, EnvError } from '@supabase/server'
+import { AuthError, EnvError, SupabaseServerError } from '@supabase/server'
 
 try {
-  // ... some operation
+  // ...
 } catch (e) {
+  if (e instanceof SupabaseServerError) {
+    // Anything from @supabase/server. e.code, e.status, e.hint, e.docs, e.details
+  }
   if (e instanceof AuthError) {
-    // e.status is 401 or 500
-    // e.code is 'INVALID_CREDENTIALS', 'CREATE_SUPABASE_CLIENT_ERROR', or 'AUTH_ERROR'
+    // e.status is 401 (bad credentials) or 500 (server misconfigured)
   }
   if (e instanceof EnvError) {
     // e.status is always 500
-    // e.code is one of the MISSING_* constants or 'ENV_ERROR'
   }
 }
 ```

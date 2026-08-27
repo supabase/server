@@ -5,7 +5,13 @@ import type { JSONWebKeySet } from 'jose'
 import { extractCredentials } from '../../core/extract-credentials.js'
 import { resolveJwks } from '../../core/resolve-env.js'
 import { verifyUserJwt } from '../../core/verify-user-jwt.js'
-import { EnvGenericError, InvalidCredentialsError } from '../../errors.js'
+import { errorResponse } from '../../error-response.js'
+import {
+  Errors,
+  InvalidJwtError,
+  JwksFetchFailedError,
+  JwksNotConfiguredError,
+} from '../../errors.js'
 import type { JWTClaims } from '../../types.js'
 
 /**
@@ -88,21 +94,26 @@ export const withClaims: Middleware<
 
     const jwks = config?.jwks ?? resolveJwks()
     if (!jwks) {
-      return Response.json(
-        {
-          message:
-            'A JWKS source is required to verify claims. Set SUPABASE_JWKS or SUPABASE_JWKS_URL, or pass `jwks` to withClaims.',
-          code: EnvGenericError,
-        },
-        { status: 500 },
+      return errorResponse(
+        Errors[JwksNotConfiguredError]({ middleware: 'withClaims' }),
       )
     }
 
     const verified = await verifyUserJwt(token, jwks)
-    if (!verified) {
-      return Response.json(
-        { message: 'Invalid credentials', code: InvalidCredentialsError },
-        { status: 401 },
+    if (!verified.ok) {
+      const { failure } = verified
+      return errorResponse(
+        failure.kind === 'jwks-source'
+          ? Errors[JwksFetchFailedError]({
+              reason: failure.reason,
+              cause: failure.cause,
+            })
+          : Errors[InvalidJwtError]({
+              reason: failure.reason,
+              hint: failure.hint,
+              jwt: failure.jwt,
+              cause: failure.cause,
+            }),
       )
     }
 

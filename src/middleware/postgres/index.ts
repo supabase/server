@@ -8,7 +8,8 @@ import {
 } from '../../core/postgres-pool.js'
 import type { PostgresApi } from '../../core/postgres-pool.js'
 import { compileTemplate, ident } from '../../core/sql.js'
-import { UnsupportedRoleError } from '../../errors.js'
+import { errorResponse } from '../../error-response.js'
+import { Errors, UnsupportedRoleError } from '../../errors.js'
 
 export type { PostgresApi }
 // `ident` is exported here rather than only from core: it is the companion
@@ -46,14 +47,12 @@ function resolveRole(claims: RequestClaims | null): string | Response {
     return requested
   }
 
-  const message =
-    requested === 'service_role'
-      ? "The caller's token carries the 'service_role' role. withPostgresClient will not assume it — that role bypasses RLS, which is the guarantee this middleware exists to provide. If bypassing RLS is intended, compose withPostgresAdminClient from '@supabase/server/middleware/postgres-admin'."
-      : typeof requested === 'string'
-        ? `The caller's token carries the role '${requested}', which withPostgresClient does not support yet — it assumes 'authenticated' or 'anon' only. Custom roles are on the roadmap; until then, issue tokens with one of the supported roles.`
-        : `The caller's token carries a 'role' claim that is not a string (${JSON.stringify(requested)}). withPostgresClient assumes 'authenticated' or 'anon' only and will not guess what a malformed claim meant.`
-
-  return Response.json({ message, code: UnsupportedRoleError }, { status: 500 })
+  return errorResponse(
+    Errors[UnsupportedRoleError]({
+      requestedRole: requested,
+      supportedRoles: [...SUPPORTED_ROLES],
+    }),
+  )
 }
 
 /**

@@ -184,8 +184,11 @@ Contributes `ctx.jwtClaims` by verifying the caller's Bearer token against the p
 Behavior:
 
 - No `Authorization: Bearer` token, or an `sb_*` API key in that position: contributes `null` and the request proceeds as anonymous.
-- Token present but invalid: short-circuits with a 401 and `{ message, code: 'INVALID_CREDENTIALS' }`.
-- Token present but no JWKS configured: short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }`. Verification is required; the middleware has no decode-only mode.
+- Token present but invalid: short-circuits with a 401 and code `INVALID_JWT`, naming the specific reason (expired, bad signature, unknown `kid`, malformed, no `sub`).
+- Token present but no JWKS configured: short-circuits with a 500 and code `JWKS_NOT_CONFIGURED` — the same code `withSupabase`'s `user` mode reports, with a `hint` naming this middleware's `jwks` option. Verification is required; the middleware has no decode-only mode.
+- Remote JWKS unreachable: short-circuits with a 500 and code `JWKS_FETCH_FAILED`.
+
+Responses use the standard [error payload](error-handling.md#what-a-failure-looks-like).
 
 `withClaims` is not an auth gate. It never rejects a request that has no token, so `[withClaims(), withSupabaseClient()]` is not the composable form of `withSupabase({ auth: 'user' })` and accepts anonymous callers. To require an authenticated caller, compose `withRequiredClaims` (`@supabase/server/middleware/required-claims`) instead. The two entries share the `jwtClaims` key, so a pipeline picks "claims if present" or "claims required"; composing both is a compile-time conflict.
 
@@ -218,9 +221,12 @@ The user-mode auth gate. Verifies the caller's Bearer token against the project 
 
 Behavior:
 
-- No `Authorization: Bearer` token, or an `sb_*` API key in that position: short-circuits with a 401 and `{ message, code: 'INVALID_CREDENTIALS' }`. The handler never runs.
-- Token present but invalid: the same 401.
-- Token present but no JWKS configured: short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }`. Verification is required; the middleware has no decode-only mode.
+- No `Authorization: Bearer` token, or an `sb_*` API key in that position: short-circuits with a 401 and code `MISSING_CREDENTIALS`. The handler never runs.
+- Token present but invalid: a 401 with code `INVALID_JWT`, naming the specific reason.
+- Token present but no JWKS configured: short-circuits with a 500 and code `JWKS_NOT_CONFIGURED` — the same code `withSupabase`'s `user` mode reports, with a `hint` naming this middleware's `jwks` option. Verification is required; the middleware has no decode-only mode.
+- Remote JWKS unreachable: short-circuits with a 500 and code `JWKS_FETCH_FAILED`.
+
+Responses use the standard [error payload](error-handling.md#what-a-failure-looks-like).
 
 `withRequiredClaims` is the required-caller counterpart to `withClaims`: "claims required" rather than "claims if present". The two share the `jwtClaims` key, so composing both in one pipeline is a compile-time conflict.
 
@@ -275,7 +281,7 @@ Only `authenticated` and `anon` are assumed. A verified token naming any other r
 
 Requires `ctx.jwtClaims` upstream — supplied by `withSupabase` or by `withClaims` in a standalone `pipeline`. Composing it without one is a compile-time error.
 
-Short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }` when no connection string is available.
+Short-circuits with a 500 and code `MISSING_CONNECTION_STRING` when no connection string is available.
 
 Needs raw TCP: Node, Deno, Bun, and the Supabase Edge runtime, not Workers-style isolates. `pg` is an optional peer dependency.
 
@@ -369,7 +375,7 @@ Contributes `ctx.postgresAdmin` — a `pg` client that **bypasses RLS**. Queries
 
 Declares no upstream prerequisite, so it composes in any auth mode including `'secret'` and `'none'`. Shares the pool cache with `withPostgresClient` — same connection string, one pool.
 
-Short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }` when no connection string is available.
+Short-circuits with a 500 and code `MISSING_CONNECTION_STRING` when no connection string is available.
 
 Authorization is the caller's responsibility: RLS is not consulted, so per-user scoping must be an explicit `where` clause.
 
@@ -550,21 +556,74 @@ import type {
 
 ## Error Classes
 
+### SupabaseServerError
+
+Base class for every error the library produces — catch this to handle anything from `@supabase/server`.
+
+```ts
+abstract class SupabaseServerError extends Error {
+  readonly source: '@supabase/server'
+  abstract readonly status: number
+  readonly code: string
+  readonly hint?: string // actionable next step
+  readonly docs: string // link to docs/error-handling.md#<code>
+  readonly details?: Record<string, unknown> // non-sensitive diagnostics
+  toJSON(): ErrorPayload
+}
+```
+
+`message` is always prefixed `[@supabase/server]`. `details` never contains key values or token payloads. `toJSON()` is picked up by `JSON.stringify`, so logging the error yields the full diagnostics.
+
 ### EnvError
 
 ```ts
-class EnvError extends Error {
+class EnvError extends SupabaseServerError {
   readonly status: 500
-  readonly code: string
+  constructor(
+    message: string,
+    code?: string,
+    options?: SupabaseServerErrorOptions,
+  )
 }
 ```
 
 ### AuthError
 
 ```ts
-class AuthError extends Error {
-  readonly status: number // 401 or 500
-  readonly code: string
+class AuthError extends SupabaseServerError {
+  readonly status: number // 401 = bad credentials, 500 = server misconfigured
+  constructor(
+    message: string,
+    code?: string,
+    status?: number,
+    options?: SupabaseServerErrorOptions,
+  )
+}
+```
+
+### ErrorPayload
+
+The JSON body every auto-responding layer returns, and the return type of `toJSON()`.
+
+```ts
+interface ErrorPayload {
+  source: '@supabase/server'
+  code: string
+  message: string
+  hint?: string
+  docs: string
+  details?: Record<string, unknown>
+}
+```
+
+### SupabaseServerErrorOptions
+
+```ts
+interface SupabaseServerErrorOptions {
+  hint?: string
+  details?: Record<string, unknown>
+  docs?: string // overrides the generated URL
+  cause?: unknown
 }
 ```
 
@@ -572,18 +631,30 @@ class AuthError extends Error {
 
 ## Error Code Constants
 
-| Constant                            | Value                               | Class       | Meaning                                                        |
-| ----------------------------------- | ----------------------------------- | ----------- | -------------------------------------------------------------- |
-| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                                      |
-| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                                         |
-| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                                |
-| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                                     |
-| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                                     |
-| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                                          |
-| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error                                             |
-| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | No credential matched, or JWT failed verification              |
-| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth                              |
-| `UnsupportedRoleError`              | `'UNSUPPORTED_ROLE'`                | —           | `withPostgresClient` will not assume the caller's `role` claim |
+| Constant                            | Value                               | Class       | Meaning                                                              |
+| ----------------------------------- | ----------------------------------- | ----------- | -------------------------------------------------------------------- |
+| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                                            |
+| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                                               |
+| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                                      |
+| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                                           |
+| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                                           |
+| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                                                |
+| `MissingResourceServerError`        | `'MISSING_RESOURCE_SERVER'`         | `EnvError`  | `withOAuthProtectedResource` cannot derive a `resourceServer`        |
+| `MissingAuthorizationServerError`   | `'MISSING_AUTHORIZATION_SERVER'`    | `EnvError`  | `withOAuthProtectedResource` cannot derive an authorization server   |
+| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error (401)                                             |
+| `MissingCredentialsError`           | `'MISSING_CREDENTIALS'`             | `AuthError` | Request carried no usable credentials (401)                          |
+| `InvalidApiKeyError`                | `'INVALID_API_KEY'`                 | `AuthError` | `apikey` matched no configured key (401)                             |
+| `InvalidJwtError`                   | `'INVALID_JWT'`                     | `AuthError` | JWT failed verification (401)                                        |
+| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | Fallback credential failure (401)                                    |
+| `JwksNotConfiguredError`            | `'JWKS_NOT_CONFIGURED'`             | `AuthError` | JWT sent but no JWKS configured (500)                                |
+| `JwksFetchFailedError`              | `'JWKS_FETCH_FAILED'`               | `AuthError` | Remote JWKS unreachable or unusable (500)                            |
+| `NoKeysConfiguredError`             | `'NO_KEYS_CONFIGURED'`              | `AuthError` | Auth mode no configured key can match (500)                          |
+| `UnsupportedRoleError`              | `'UNSUPPORTED_ROLE'`                | `AuthError` | `withPostgresClient` will not assume the caller's `role` claim (500) |
+| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth (500)                              |
+
+Also exported: `ErrorSource` (`'@supabase/server'`) and `ErrorCodeHeader` (`'x-supabase-server-error'`).
+
+See [`error-handling.md`](error-handling.md) for the meaning, `hint`, and `details` of each code.
 
 ---
 
@@ -592,13 +663,44 @@ class AuthError extends Error {
 ```ts
 const Errors: {
   [MissingSupabaseURLError]: () => EnvError
-  [MissingPublishableKeyError]: (name: string) => EnvError
-  [MissingDefaultPublishableKeyError]: () => EnvError
-  [MissingSecretKeyError]: (name: string) => EnvError
-  [MissingDefaultSecretKeyError]: () => EnvError
-  [InvalidCredentialsError]: () => AuthError
-  [CreateSupabaseClientError]: () => AuthError
+  [MissingPublishableKeyError]: (name, configuredKeyNames?) => EnvError
+  [MissingDefaultPublishableKeyError]: (configuredKeyNames?) => EnvError
+  [MissingSecretKeyError]: (name, configuredKeyNames?) => EnvError
+  [MissingDefaultSecretKeyError]: (configuredKeyNames?) => EnvError
+  [MissingResourceServerError]: () => EnvError
+  [MissingAuthorizationServerError]: () => EnvError
+  [MissingCredentialsError]: (context: AuthFailureContext) => AuthError
+  [InvalidApiKeyError]: (context: AuthFailureContext) => AuthError
+  [InvalidJwtError]: (context: PartialContext & JwtFailure) => AuthError
+  [InvalidCredentialsError]: (context?: AuthFailureContext) => AuthError
+  [JwksNotConfiguredError]: (
+    context?: PartialContext & { middleware? },
+  ) => AuthError
+  [JwksFetchFailedError]: (context: PartialContext & { reason }) => AuthError
+  [NoKeysConfiguredError]: (
+    context: AuthFailureContext & { mode; keyKind },
+  ) => AuthError
+  [UnsupportedRoleError]: (context: {
+    requestedRole
+    supportedRoles
+  }) => AuthError
+  [CreateSupabaseClientError]: (options?: { cause?: unknown }) => AuthError
 }
 ```
 
-Keyed by error code constant. Each entry returns a pre-configured error instance.
+Keyed by error code constant. Each entry returns an error pre-configured with `hint`, `docs`, and non-sensitive `details`. The named-key factories accept the configured key names so they can be reported in the message without exposing key values.
+
+### AuthFailureContext
+
+Non-sensitive diagnostics the auth pipeline passes to the factories.
+
+```ts
+interface AuthFailureContext {
+  authModes: readonly string[]
+  received: {
+    authorization: 'bearer' | 'non-bearer-scheme' | 'absent'
+    apikey: 'absent' | 'publishable' | 'secret' | 'legacy-jwt' | 'unrecognized'
+  }
+  configuredKeyNames?: Record<string, readonly string[]>
+}
+```

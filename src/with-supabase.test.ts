@@ -3,7 +3,14 @@ import { defineMiddleware, getEnv } from '@supabase/middleware'
 import type { Entry, FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
-import { EnvError, MissingDefaultSecretKeyError } from './errors.js'
+import {
+  EnvError,
+  ErrorCodeHeader,
+  JwksNotConfiguredError,
+  MissingCredentialsError,
+  MissingDefaultSecretKeyError,
+} from './errors.js'
+import type { WithSupabaseConfig } from './types.js'
 import { withClaims } from './middleware/claims/index.js'
 import { withPostgresClient } from './middleware/postgres/index.js'
 import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
@@ -71,6 +78,101 @@ describe('withSupabase', () => {
     const body = await res.json()
     expect(body.message).toBeDefined()
     expect(body.code).toBeDefined()
+  })
+
+  describe('error response shape', () => {
+    async function errorResponse(config?: Partial<WithSupabaseConfig>) {
+      const handler = withSupabase(
+        { auth: 'user', env: baseEnv, ...config },
+        async () => Response.json({ ok: true }),
+      )
+      return handler(new Request('http://localhost'))
+    }
+
+    it('returns the full diagnostic payload', async () => {
+      const body = await (await errorResponse()).json()
+
+      expect(body).toEqual({
+        source: '@supabase/server',
+        code: MissingCredentialsError,
+        message: expect.stringContaining('[@supabase/server] '),
+        hint: expect.stringContaining('Authorization: Bearer <jwt>'),
+        docs: expect.stringContaining('error-handling.md#missing_credentials'),
+        details: {
+          acceptedAuthModes: ['user'],
+          received: { authorization: 'absent', apikey: 'absent' },
+        },
+      })
+    })
+
+    it('keeps message and code at the top level for existing consumers', async () => {
+      const body = await (await errorResponse()).json()
+      expect(typeof body.message).toBe('string')
+      expect(body.code).toBe(MissingCredentialsError)
+    })
+
+    it('repeats the code in the x-supabase-server-error header', async () => {
+      const res = await errorResponse()
+      expect(res.headers.get(ErrorCodeHeader)).toBe(MissingCredentialsError)
+    })
+
+    it('exposes the code header to cross-origin callers', async () => {
+      const res = await errorResponse()
+      expect(res.headers.get('Access-Control-Expose-Headers')).toBe(
+        ErrorCodeHeader,
+      )
+    })
+
+    it('appends to an existing Access-Control-Expose-Headers value', async () => {
+      const res = await errorResponse({
+        cors: {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Expose-Headers': 'x-request-id',
+          },
+        },
+      })
+      expect(res.headers.get('Access-Control-Expose-Headers')).toBe(
+        `x-request-id, ${ErrorCodeHeader}`,
+      )
+    })
+
+    it('still sets the code header when CORS is disabled', async () => {
+      const res = await errorResponse({ cors: 'disabled' })
+      expect(res.headers.get(ErrorCodeHeader)).toBe(MissingCredentialsError)
+      expect(res.headers.get('Access-Control-Expose-Headers')).toBeNull()
+    })
+
+    it('reports a missing JWKS as a 500, not a 401', async () => {
+      const handler = withSupabase({ auth: 'user', env: baseEnv }, async () =>
+        Response.json({ ok: true }),
+      )
+      const res = await handler(
+        new Request('http://localhost', {
+          headers: { authorization: 'Bearer header.payload.signature' },
+        }),
+      )
+      expect(res.status).toBe(500)
+      expect(res.headers.get(ErrorCodeHeader)).toBe(JwksNotConfiguredError)
+      expect((await res.json()).hint).toContain('SUPABASE_JWKS_URL')
+    })
+
+    it('carries the specific env code through a client-phase failure', async () => {
+      // The client middleware throws an EnvError; its code, hint, and details
+      // must survive rather than collapsing to a generic client error.
+      const handler = withSupabase(
+        { auth: 'none', env: { ...baseEnv, publishableKeys: {} } },
+        async () => Response.json({ ok: true }),
+      )
+      const res = await handler(new Request('http://localhost'))
+      expect(res.status).toBe(500)
+      const body = await res.json()
+      expect(body.code).toBe('MISSING_DEFAULT_PUBLISHABLE_KEY')
+      expect(body.hint).toContain('SUPABASE_PUBLISHABLE_KEY')
+      expect(res.headers.get(ErrorCodeHeader)).toBe(
+        'MISSING_DEFAULT_PUBLISHABLE_KEY',
+      )
+    })
   })
 
   it('adds CORS headers to success response', async () => {

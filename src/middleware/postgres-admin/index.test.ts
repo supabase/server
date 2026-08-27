@@ -52,9 +52,9 @@ describe('withPostgresAdminClient', () => {
     const res = await handler(new Request('http://localhost'), seedContext())
 
     expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({
-      message: expect.stringContaining('withPostgresAdminClient'),
-      code: 'ENV_ERROR',
+    expect(await res.json()).toMatchObject({
+      code: 'MISSING_CONNECTION_STRING',
+      hint: expect.stringContaining('withPostgresAdminClient'),
     })
   })
 
