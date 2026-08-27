@@ -8,6 +8,7 @@ import {
   JwksNotConfiguredError,
   MissingCredentialsError,
   NoKeysConfiguredError,
+  UnusableCredentialError,
   type AuthFailureContext,
 } from '../errors.js'
 import type {
@@ -18,6 +19,7 @@ import type {
   SupabaseEnv,
 } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
+import { ApiKeyInAuthorizationHeader } from './utils/authorization-header.js'
 import { classifyApiKey } from './utils/classify-credentials.js'
 import { resolveAuthOption } from './utils/deprecation.js'
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
@@ -339,11 +341,19 @@ function explainFallthrough(
     })
   }
 
-  // `api-key` and `non-bearer-scheme` mean the header arrived but carried
-  // nothing usable — the same situation as absent, and reported the same way so
-  // this matches what `withRequiredClaims` says for an identical request.
   const { authorization, apikey } = context.received
-  if (authorization !== 'bearer' && apikey === 'absent') {
+
+  // An `sb_*` value in the Authorization slot is a credential that *did*
+  // arrive, so it is not "missing" — the distinction has to live in the code
+  // itself, since `errors: { detailed: false }` strips the hint that would
+  // otherwise explain it.
+  if (authorization === 'api-key' && apikey === 'absent') {
+    return Errors[UnusableCredentialError]({
+      ...context,
+      ...ApiKeyInAuthorizationHeader,
+    })
+  }
+  if (authorization === 'absent' && apikey === 'absent') {
     return Errors[MissingCredentialsError](context)
   }
   if (apikey !== 'absent') {

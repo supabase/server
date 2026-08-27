@@ -221,7 +221,8 @@ The user-mode auth gate. Verifies the caller's Bearer token against the project 
 
 Behavior:
 
-- No `Authorization: Bearer` token, or an `sb_*` API key in that position: short-circuits with a 401 and code `MISSING_CREDENTIALS`. The handler never runs.
+- No `Authorization` header: short-circuits with a 401 and code `MISSING_CREDENTIALS`. The handler never runs.
+- An `sb_*` API key in the `Authorization` header: a 401 with code `UNUSABLE_CREDENTIAL` — a credential arrived, just not a user JWT.
 - Token present but invalid: a 401 with code `INVALID_JWT`, naming the specific reason.
 - Token present but no JWKS configured: short-circuits with a 500 and code `JWKS_NOT_CONFIGURED` — the same code `withSupabase`'s `user` mode reports, with a `hint` naming this middleware's `jwks` option. Verification is required; the middleware has no decode-only mode.
 - Remote JWKS unreachable: short-circuits with a 500 and code `JWKS_FETCH_FAILED`.
@@ -653,7 +654,8 @@ interface SupabaseServerErrorOptions {
 | `MissingResourceServerError`        | `'MISSING_RESOURCE_SERVER'`         | `EnvError`  | `withOAuthProtectedResource` cannot derive a `resourceServer`        |
 | `MissingAuthorizationServerError`   | `'MISSING_AUTHORIZATION_SERVER'`    | `EnvError`  | `withOAuthProtectedResource` cannot derive an authorization server   |
 | `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error (401)                                             |
-| `MissingCredentialsError`           | `'MISSING_CREDENTIALS'`             | `AuthError` | Request carried no usable credentials (401)                          |
+| `MissingCredentialsError`           | `'MISSING_CREDENTIALS'`             | `AuthError` | Request carried no credentials at all (401)                          |
+| `UnusableCredentialError`           | `'UNUSABLE_CREDENTIAL'`             | `AuthError` | A credential arrived but cannot be used (401)                        |
 | `InvalidApiKeyError`                | `'INVALID_API_KEY'`                 | `AuthError` | `apikey` matched no configured key (401)                             |
 | `InvalidJwtError`                   | `'INVALID_JWT'`                     | `AuthError` | JWT failed verification (401)                                        |
 | `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | Fallback credential failure (401)                                    |
@@ -681,6 +683,9 @@ const Errors: {
   [MissingResourceServerError]: () => EnvError
   [MissingAuthorizationServerError]: () => EnvError
   [MissingCredentialsError]: (context: AuthFailureContext) => AuthError
+  [UnusableCredentialError]: (
+    context: PartialContext & { reason; hint },
+  ) => AuthError
   [InvalidApiKeyError]: (context: AuthFailureContext) => AuthError
   [InvalidJwtError]: (context: PartialContext & JwtFailure) => AuthError
   [InvalidCredentialsError]: (context?: AuthFailureContext) => AuthError
@@ -709,7 +714,7 @@ Non-sensitive diagnostics the auth pipeline passes to the factories.
 interface AuthFailureContext {
   authModes: readonly string[]
   received: {
-    authorization: 'bearer' | 'non-bearer-scheme' | 'absent'
+    authorization: 'bearer' | 'api-key' | 'non-bearer-scheme' | 'absent'
     apikey: 'absent' | 'publishable' | 'secret' | 'legacy-jwt' | 'unrecognized'
   }
   configuredKeyNames?: Record<string, readonly string[]>

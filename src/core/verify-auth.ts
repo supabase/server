@@ -1,6 +1,12 @@
-import { withExtraDiagnostics, type AuthError } from '../errors.js'
+import {
+  Errors,
+  MissingCredentialsError,
+  UnusableCredentialError,
+  type AuthError,
+} from '../errors.js'
 import type { AuthModeWithKey, AuthResult, SupabaseEnv } from '../types.js'
 import { extractCredentials } from './extract-credentials.js'
+import { diagnoseAuthorizationHeader } from './utils/authorization-header.js'
 import { verifyCredentials } from './verify-credentials.js'
 
 /**
@@ -26,43 +32,6 @@ export interface VerifyAuthOptions {
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>
-}
-
-/**
- * Explains an `Authorization` header that was present but yielded no token.
- *
- * {@link extractCredentials} only reads `Authorization: Bearer <token>`, so a
- * wrong scheme, wrong casing, or a bare token silently produces no credential
- * at all. That reads as "you sent nothing", which is the single most confusing
- * way for auth to fail — name it explicitly instead.
- *
- * @returns A hint sentence, or `null` when the header was genuinely absent or
- *   did carry a token.
- *
- * @internal
- */
-function explainUnusableAuthorizationHeader(raw: string): string | null {
-  const [scheme = '', ...rest] = raw.split(' ')
-
-  // Correct scheme, so the only way `extractCredentials` yielded nothing is an
-  // empty token. (Header values are trimmed in transit, so a trailing-space-only
-  // value arrives here as a bare "Bearer".)
-  if (scheme === 'Bearer') {
-    return 'The Authorization header used the `Bearer` scheme but carried an empty token.'
-  }
-  if (scheme.toLowerCase() === 'bearer') {
-    return (
-      `The Authorization header used the scheme "${scheme}" — it must be exactly \`Bearer\`, ` +
-      'capitalised, followed by a single space and the JWT.'
-    )
-  }
-  if (rest.length > 0) {
-    return `The Authorization header used the "${scheme}" scheme, not \`Bearer\`, so no token was read.`
-  }
-  return (
-    'The Authorization header carried a bare value with no scheme. It must be ' +
-    '`Authorization: Bearer <jwt>`.'
-  )
 }
 
 /**
@@ -106,24 +75,30 @@ export async function verifyAuth(
   const result = await verifyCredentials(credentials, options)
   if (result.error === null || credentials.token) return result
 
-  // Only reachable with the raw request in hand, so `verifyCredentials` can't
-  // report it — layer it on here.
-  const rawAuthorization = request.headers.get('authorization')
-  if (!rawAuthorization) return result
+  // Only reachable with the raw request in hand: `verifyCredentials` sees a
+  // null token and cannot tell "no header" from "header we couldn't read".
+  const diagnosis = diagnoseAuthorizationHeader(
+    request.headers.get('authorization'),
+  )
+  if (diagnosis.kind !== 'unreadable') return result
 
-  const hint = explainUnusableAuthorizationHeader(rawAuthorization)
-  if (!hint) return result
+  // Restricted to MISSING_CREDENTIALS: any other code (a bad apikey, a
+  // misconfiguration) describes the failure better than the Authorization
+  // header being malformed.
+  if (result.error.code !== MissingCredentialsError) return result
 
   return {
     data: null,
-    error: withExtraDiagnostics(result.error, {
-      hint,
-      details: {
-        received: {
-          ...(result.error.details?.received as Record<string, unknown>),
-          authorization: 'non-bearer-scheme',
-        },
-      },
+    error: Errors[UnusableCredentialError]({
+      authModes: result.error.details?.acceptedAuthModes as
+        | readonly string[]
+        | undefined,
+      received: {
+        ...(result.error.details?.received as object),
+        authorization: 'non-bearer-scheme',
+      } as never,
+      reason: diagnosis.reason,
+      hint: diagnosis.hint,
     }),
   }
 }

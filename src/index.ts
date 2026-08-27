@@ -147,6 +147,7 @@ export {
   NoKeysConfiguredError,
   SupabaseServerError,
   UnsupportedRoleError,
+  UnusableCredentialError,
 } from './errors.js'
 
 export type {

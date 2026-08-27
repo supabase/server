@@ -472,6 +472,21 @@ export const AuthGenericError = 'AUTH_ERROR'
 export const MissingCredentialsError = 'MISSING_CREDENTIALS'
 
 /**
+ * A credential *did* arrive, but not one any accepted auth mode can use — an
+ * `sb_*` API key in the `Authorization` header, or a header this library cannot
+ * read a bearer token out of (wrong scheme, wrong casing, bare value, empty
+ * token).
+ *
+ * @remarks Distinct from {@link MissingCredentialsError} on purpose. The two
+ * partition the "nothing authenticated" space exactly — nothing arrived vs.
+ * something arrived that could not be used — so the code stays true on its own
+ * when `errors: { detailed: false }` strips `hint` and `details`.
+ *
+ * @category Errors
+ */
+export const UnusableCredentialError = 'UNUSABLE_CREDENTIAL'
+
+/**
  * An `apikey` header was present but matched none of the keys configured for
  * the accepted auth modes.
  *
@@ -706,30 +721,50 @@ function apiKeyHint(context: AuthFailureContext): string {
 }
 
 const AuthErrorMap = {
-  [MissingCredentialsError]: (context: AuthFailureContext): AuthError => {
-    const { authorization } = context.received
-    return new AuthError(
-      `No usable credentials found on the request. This endpoint accepts auth mode(s): ${quoteList(context.authModes)}.`,
+  [MissingCredentialsError]: (context: AuthFailureContext): AuthError =>
+    new AuthError(
+      `No credentials found on the request. This endpoint accepts auth mode(s): ${quoteList(context.authModes)}.`,
       MissingCredentialsError,
       401,
       {
-        hint: [
-          authorization === 'non-bearer-scheme' &&
-            'The Authorization header was present but did not use the `Bearer` scheme, so no token was read.',
-          authorization === 'api-key' &&
-            'The Authorization header carried an sb_* API key, not a user JWT. API keys belong in the `apikey` header; ' +
-              'the Supabase SDK sends them in both, which is why this is easy to miss.',
-          sendOneOfHint(context.authModes),
-        ]
-          .filter(Boolean)
-          .join(' '),
+        hint: sendOneOfHint(context.authModes),
         details: {
           acceptedAuthModes: context.authModes,
           received: context.received,
         },
       },
-    )
-  },
+    ),
+
+  [UnusableCredentialError]: (
+    context: Partial<AuthFailureContext> & {
+      /** What arrived and why it can't be used. Follows "cannot use: ". */
+      reason: string
+      /** How to send it correctly. */
+      hint: string
+    },
+  ): AuthError =>
+    new AuthError(
+      `The request carried a credential this endpoint cannot use: ${context.reason}.` +
+        (context.authModes
+          ? ` Accepted auth mode(s): ${quoteList(context.authModes)}.`
+          : ''),
+      UnusableCredentialError,
+      401,
+      {
+        hint: [
+          context.hint,
+          context.authModes && sendOneOfHint(context.authModes),
+        ]
+          .filter(Boolean)
+          .join(' '),
+        details: {
+          ...(context.authModes
+            ? { acceptedAuthModes: context.authModes }
+            : {}),
+          ...(context.received ? { received: context.received } : {}),
+        },
+      },
+    ),
 
   [InvalidApiKeyError]: (context: AuthFailureContext): AuthError =>
     new AuthError(

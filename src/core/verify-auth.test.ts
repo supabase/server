@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MissingCredentialsError } from '../errors.js'
+import { MissingCredentialsError, UnusableCredentialError } from '../errors.js'
 import { verifyAuth } from './verify-auth.js'
 
 describe('verifyAuth', () => {
@@ -45,9 +45,11 @@ describe('verifyAuth', () => {
 
     it('explains a non-Bearer scheme', async () => {
       const error = await failFor('Basic dXNlcjpwYXNz')
-      expect(error.code).toBe(MissingCredentialsError)
-      expect(error.hint).toContain('"Basic"')
-      expect(error.hint).toContain('not `Bearer`')
+      // A credential arrived, so this is not MISSING_CREDENTIALS.
+      expect(error.code).toBe(UnusableCredentialError)
+      expect(error.message).toContain('"Basic"')
+      expect(error.message).toContain('not `Bearer`')
+      expect(error.hint).toContain('Authorization: Bearer <jwt>')
       expect(error.details!.received).toMatchObject({
         authorization: 'non-bearer-scheme',
       })
@@ -55,18 +57,21 @@ describe('verifyAuth', () => {
 
     it('explains a lowercased bearer scheme', async () => {
       const error = await failFor('bearer some.jwt.value')
-      expect(error.hint).toContain('"bearer"')
-      expect(error.hint).toContain('must be exactly `Bearer`')
+      expect(error.code).toBe(UnusableCredentialError)
+      expect(error.message).toContain('"bearer"')
+      expect(error.hint).toContain('case-sensitive')
     })
 
     it('explains a bare token with no scheme', async () => {
       const error = await failFor('some.jwt.value')
-      expect(error.hint).toContain('no scheme')
+      expect(error.code).toBe(UnusableCredentialError)
+      expect(error.message).toContain('no scheme')
     })
 
     it('explains an empty Bearer token', async () => {
       const error = await failFor('Bearer ')
-      expect(error.hint).toContain('empty token')
+      expect(error.code).toBe(UnusableCredentialError)
+      expect(error.message).toContain('empty token')
     })
 
     it('leaves the error untouched when no Authorization header is sent', async () => {

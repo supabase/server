@@ -22,6 +22,7 @@ import {
   JwksNotConfiguredError,
   MissingCredentialsError,
   NoKeysConfiguredError,
+  UnusableCredentialError,
 } from '../errors.js'
 
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
@@ -427,7 +428,7 @@ describe('verifyCredentials', () => {
       expect(result.error!.status).toBe(401)
     })
 
-    it('fails 401 for an sb_* value in the Authorization slot', async () => {
+    it('fails 401 UNUSABLE_CREDENTIAL for an sb_* value in the Authorization slot', async () => {
       // An API key can never pass user mode, JWKS or not. The header arrived
       // but carried no user credential, so this is the same class of failure
       // as sending nothing — and the hint says which mistake was made.
@@ -437,9 +438,10 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(MissingCredentialsError)
+      expect(result.error!.code).toBe(UnusableCredentialError)
       expect(result.error!.status).toBe(401)
-      expect(result.error!.hint).toContain('sb_* API key')
+      expect(result.error!.message).toContain('sb_* API key')
+      expect(result.error!.hint).toContain('`apikey` header')
       expect(result.error!.details!.received).toMatchObject({
         authorization: 'api-key',
       })

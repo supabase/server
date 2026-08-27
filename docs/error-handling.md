@@ -95,7 +95,8 @@ Thrown when authentication fails. `401` means the request's credentials are at f
 
 | Code                                                            | Status | Meaning                                                             |
 | --------------------------------------------------------------- | ------ | ------------------------------------------------------------------- |
-| [`MISSING_CREDENTIALS`](#missing_credentials)                   | 401    | The request carried no usable credentials                           |
+| [`MISSING_CREDENTIALS`](#missing_credentials)                   | 401    | The request carried no credentials at all                           |
+| [`UNUSABLE_CREDENTIAL`](#unusable_credential)                   | 401    | A credential arrived, but not one any accepted mode can use         |
 | [`INVALID_API_KEY`](#invalid_api_key)                           | 401    | An `apikey` was sent but matched no configured key                  |
 | [`INVALID_JWT`](#invalid_jwt)                                   | 401    | A JWT was sent but failed verification                              |
 | [`INVALID_CREDENTIALS`](#invalid_credentials)                   | 401    | Fallback when nothing more specific applies                         |
@@ -108,11 +109,20 @@ Thrown when authentication fails. `401` means the request's credentials are at f
 
 ### `MISSING_CREDENTIALS`
 
-Neither an `apikey` header nor a usable `Authorization: Bearer` token was present, and no accepted auth mode allows that.
+The request carried nothing: no `apikey` header, and no `Authorization` header at all.
 
 `details.acceptedAuthModes` lists what the endpoint accepts; `hint` tells you exactly which header to send for each.
 
-Watch for `details.received.authorization` being `"non-bearer-scheme"`. Credentials are only read from `Authorization: Bearer <jwt>` — a wrong scheme, wrong casing (`bearer`), a bare token, or an `sb_*` API key in that header produces no user credential at all, and the `hint` will say which of those happened.
+If something _did_ arrive but couldn't be used, the code is [`UNUSABLE_CREDENTIAL`](#unusable_credential) instead. The two partition the space exactly, so the code alone tells you which situation you're in — which matters when [`errors: { detailed: false }`](#trimming-the-response-body) strips `hint` and `details`.
+
+### `UNUSABLE_CREDENTIAL`
+
+A credential arrived, but not one any accepted auth mode can use. Two shapes:
+
+- **Wrong kind.** An `sb_*` API key in the `Authorization` header where a user JWT is required. The Supabase SDK sends the key in both the `apikey` and `Authorization` headers, so this is easy to hit by accident. `details.received.authorization` is `"api-key"`.
+- **Unreadable.** A header this library can't read a bearer token out of — wrong scheme (`Basic …`), wrong casing (`bearer` — the scheme is case-sensitive), a bare value with no scheme, or `Bearer` with an empty token. `details.received.authorization` is `"non-bearer-scheme"`.
+
+The `message` names which one happened, so the diagnosis survives even with `hint` and `details` stripped.
 
 ### `INVALID_API_KEY`
 

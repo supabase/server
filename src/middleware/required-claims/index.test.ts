@@ -16,6 +16,7 @@ import {
   InvalidJwtError,
   JwksNotConfiguredError,
   MissingCredentialsError,
+  UnusableCredentialError,
 } from '../../errors.js'
 import { withSupabase } from '../../with-supabase.js'
 import { withClaims } from '../claims/index.js'
@@ -103,7 +104,7 @@ describe('withRequiredClaims', () => {
     expect(ran).toBe(false)
   })
 
-  it('short-circuits 401 for an sb_* apikey in the Authorization header', async () => {
+  it('short-circuits 401 UNUSABLE_CREDENTIAL for an sb_* apikey in the Authorization header', async () => {
     let ran = false
     const handler = withRequiredClaims({ jwks }, async () => {
       ran = true
@@ -121,7 +122,7 @@ describe('withRequiredClaims', () => {
       const res = await handler(requestWithToken(apikey))
       expect(res.status).toBe(401)
       const body = await res.json()
-      expect(body.code).toBe(MissingCredentialsError)
+      expect(body.code).toBe(UnusableCredentialError)
       expect(ran).toBe(false)
     }
   })
@@ -218,11 +219,11 @@ describe('withRequiredClaims', () => {
       }
     })
 
-    it('sb_* key in the Authorization slot: both 401 MISSING_CREDENTIALS', async () => {
+    it('sb_* key in the Authorization slot: both 401 UNUSABLE_CREDENTIAL', async () => {
       const { gate, supabase } = await both('sb_secret_other', jwks)
       for (const res of [gate, supabase]) {
         expect(res.status).toBe(401)
-        expect((await res.json()).code).toBe(MissingCredentialsError)
+        expect((await res.json()).code).toBe(UnusableCredentialError)
       }
     })
 
@@ -233,6 +234,38 @@ describe('withRequiredClaims', () => {
         expect((await res.json()).code).toBe(InvalidJwtError)
       }
     })
+
+    // Every shape the Authorization header can arrive in, since only the raw
+    // header distinguishes "sent nothing" from "sent something unreadable" —
+    // and the two entry points read it through the same classifier.
+    it.each([
+      ['no header', undefined, 'MISSING_CREDENTIALS'],
+      ['sb_* API key', 'Bearer sb_secret_other', 'UNUSABLE_CREDENTIAL'],
+      ['Basic scheme', 'Basic dXNlcjpwYXNz', 'UNUSABLE_CREDENTIAL'],
+      ['lowercased bearer', 'bearer a.b.c', 'UNUSABLE_CREDENTIAL'],
+      ['bare value, no scheme', 'a.b.c', 'UNUSABLE_CREDENTIAL'],
+      ['Bearer with empty token', 'Bearer', 'UNUSABLE_CREDENTIAL'],
+    ])(
+      'Authorization %s: both 401 %s',
+      async (_label, authorization, expectedCode) => {
+        const req = () =>
+          new Request('http://localhost', {
+            headers: authorization ? { Authorization: authorization } : {},
+          })
+        const gated = withRequiredClaims({ jwks }, async () =>
+          Response.json({ ok: true }),
+        )
+        const wrapped = withSupabase(
+          { auth: 'user', cors: 'disabled', env: supabaseEnv(jwks) },
+          async () => Response.json({ ok: true }),
+        )
+
+        for (const res of [await gated(req()), await wrapped(req())]) {
+          expect(res.status).toBe(401)
+          expect((await res.json()).code).toBe(expectedCode)
+        }
+      },
+    )
 
     it('token present but no JWKS configured: both 500 JWKS_NOT_CONFIGURED', async () => {
       vi.stubEnv('SUPABASE_JWKS', '')
