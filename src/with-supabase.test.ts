@@ -3,6 +3,7 @@ import { defineMiddleware, getEnv } from '@supabase/middleware'
 import type { Entry, FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
+import { createSupabaseContext } from './create-supabase-context.js'
 import {
   EnvError,
   ErrorCodeHeader,
@@ -172,6 +173,45 @@ describe('withSupabase', () => {
       expect(res.headers.get(ErrorCodeHeader)).toBe(
         'MISSING_DEFAULT_PUBLISHABLE_KEY',
       )
+    })
+
+    describe('errors: { detailed: false }', () => {
+      it('reduces the body to code and message alone', async () => {
+        const body = await (
+          await errorResponse({ errors: { detailed: false } })
+        ).json()
+
+        expect(body).toEqual({
+          code: MissingCredentialsError,
+          // Provenance survives in the prefix, without the `source` field.
+          message: expect.stringContaining('[@supabase/server] '),
+        })
+      })
+
+      it('keeps the status and the code header', async () => {
+        const res = await errorResponse({ errors: { detailed: false } })
+        expect(res.status).toBe(401)
+        expect(res.headers.get(ErrorCodeHeader)).toBe(MissingCredentialsError)
+      })
+
+      it('is detailed by default and when explicitly enabled', async () => {
+        for (const config of [{}, { errors: { detailed: true } }]) {
+          const body = await (await errorResponse(config)).json()
+          expect(body.hint).toBeDefined()
+          expect(body.details).toBeDefined()
+        }
+      })
+
+      it('leaves the error object itself fully populated', async () => {
+        // The trim is response-only — createSupabaseContext callers and the
+        // adapters read the error directly and must still see everything.
+        const { error } = await createSupabaseContext(
+          new Request('http://localhost'),
+          { auth: 'user', env: baseEnv, errors: { detailed: false } },
+        )
+        expect(error!.hint).toBeDefined()
+        expect(error!.details).toBeDefined()
+      })
     })
   })
 

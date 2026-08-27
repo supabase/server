@@ -88,6 +88,17 @@ export interface ErrorPayload {
 }
 
 /**
+ * Reduced error body produced when `errors: { detailed: false }` is set.
+ *
+ * `message` keeps its `[@supabase/server]` prefix, so the error is still
+ * traceable back here even without the `source` field.
+ *
+ * @see {@link index.ErrorResponseConfig}
+ * @category Errors
+ */
+export type MinimalErrorPayload = Pick<ErrorPayload, 'code' | 'message'>
+
+/**
  * Base class for every error `@supabase/server` produces.
  *
  * Catch this to handle anything originating from this library, regardless of

@@ -40,6 +40,30 @@ The code is repeated in the `x-supabase-server-error` response header, and added
 
 Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`).
 
+## Trimming the response body
+
+`hint`, `docs`, and `details` are written for whoever is building against the endpoint. To keep them off the wire, set `errors: { detailed: false }` — the body reduces to `code` and `message`:
+
+```ts
+withSupabase({ auth: 'user', errors: { detailed: false } }, handler)
+```
+
+```
+HTTP/1.1 401 Unauthorized
+x-supabase-server-error: MISSING_CREDENTIALS
+```
+
+```json
+{
+  "code": "MISSING_CREDENTIALS",
+  "message": "[@supabase/server] No credentials found on the request. This endpoint accepts auth mode(s): \"user\"."
+}
+```
+
+The status code and the `x-supabase-server-error` header are unaffected, and `message` keeps its `[@supabase/server]` prefix — so the error stays traceable without the `source` field. The **error object itself is untouched**: `createSupabaseContext` callers and the framework adapters still see `hint`, `docs`, and `details` in full.
+
+> This is a verbosity control, not a security boundary. `code` and `message` still describe the failure specifically. To disclose nothing, format the response yourself with `createSupabaseContext` (see [Custom error formatting](#custom-error-formatting)).
+
 ## Error classes
 
 ```

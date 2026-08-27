@@ -434,8 +434,19 @@ interface WithSupabaseConfig {
   env?: Partial<SupabaseEnv>
   cors?: boolean | Record<string, string> // default: true
   supabaseOptions?: SupabaseClientOptions<string>
+  errors?: ErrorResponseConfig
 }
 ```
+
+### ErrorResponseConfig
+
+```ts
+interface ErrorResponseConfig {
+  detailed?: boolean // default: true
+}
+```
+
+`detailed: false` reduces the error response body to `code` and `message` alone, dropping `source`, `hint`, `docs`, and `details`. The status and `x-supabase-server-error` header are unaffected, and the error object itself keeps everything. See [`error-handling.md`](error-handling.md#trimming-the-response-body).
 
 ### SupabaseEnv
 

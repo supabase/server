@@ -113,6 +113,7 @@ export type {
   CreateAdminClientOptions,
   CreateContextClientOptions,
   Credentials,
+  ErrorResponseConfig,
   JWTClaims,
   SupabaseContext,
   SupabaseEnv,
@@ -152,6 +153,7 @@ export type {
   ApiKeyFormat,
   AuthFailureContext,
   ErrorPayload,
+  MinimalErrorPayload,
   ReceivedCredentials,
   SupabaseServerErrorOptions,
 } from './errors.js'

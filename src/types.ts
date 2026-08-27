@@ -312,6 +312,56 @@ export interface WithSupabaseConfig {
    * ```
    */
   supabaseOptions?: SupabaseClientOptions<string>
+
+  /**
+   * How much of an error to include in the response body.
+   *
+   * @remarks Applies to the responses {@link withSupabase} produces. The error
+   * object itself is always fully populated, so {@link createSupabaseContext}
+   * and the framework adapters still see everything.
+   *
+   * @see {@link ErrorResponseConfig}
+   */
+  errors?: ErrorResponseConfig
+}
+
+/**
+ * Controls how much of an error {@link withSupabase} puts in the response body.
+ *
+ * @example Trimming the response
+ * ```ts
+ * // Full payload: source, code, message, hint, docs, details
+ * withSupabase({ auth: 'user' }, handler)
+ *
+ * // Trimmed: code and message only
+ * withSupabase({ auth: 'user', errors: { detailed: false } }, handler)
+ * ```
+ *
+ * @category Types
+ */
+export interface ErrorResponseConfig {
+  /**
+   * Whether to include the diagnostic fields in the response body.
+   *
+   * `hint` names the likely misconfiguration, `details` reports the endpoint's
+   * accepted auth modes, which credential headers arrived, and the *names* of
+   * configured keys, and `docs` links the relevant reference. All three are
+   * aimed at whoever is building against the endpoint.
+   *
+   * Set to `false` to reduce the body to `code` and `message` alone. The
+   * `x-supabase-server-error` header and the HTTP status are unaffected, and
+   * `message` keeps its `[@supabase/server]` prefix — so the error stays
+   * traceable without the `source` field.
+   *
+   * @remarks This is a verbosity control, not a security boundary. `code` and
+   * `message` still describe the failure specifically (e.g.
+   * `JWKS_NOT_CONFIGURED`). Neither level ever includes key values or token
+   * payloads. To disclose nothing, format the response yourself with
+   * {@link createSupabaseContext}.
+   *
+   * @defaultValue `true`
+   */
+  detailed?: boolean
 }
 
 /**

@@ -212,7 +212,10 @@ export function withSupabase<Database = unknown>(
       env: config.env,
     })
     if (error) {
-      return errorResponse(error, { headers: errorHeaders() })
+      return errorResponse(error, {
+        headers: errorHeaders(),
+        errors: config.errors,
+      })
     }
 
     // Track whether the request has moved past the client entries: only
@@ -271,7 +274,10 @@ export function withSupabase<Database = unknown>(
             ? e
             : null
       if (!mapped) throw e
-      return errorResponse(mapped, { headers: errorHeaders() })
+      return errorResponse(mapped, {
+        headers: errorHeaders(),
+        errors: config.errors,
+      })
     }
 
     if (!isCorsDisabled(config.cors)) {
