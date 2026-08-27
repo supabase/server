@@ -1,4 +1,9 @@
-import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
+import {
+  getAuthUrl,
+  getResourceMetadataUrl,
+  getResourceUrl,
+  percentEncodeQuotes,
+} from './url.js'
 import type {
   ResourceMetadataOptions,
   UnauthorizedResponseOptions,
@@ -6,8 +11,8 @@ import type {
 
 /**
  * `401` response with a `WWW-Authenticate: Bearer resource_metadata="..."` header (RFC 9728).
- * Auto-constructs the metadata URL from `X-Forwarded-*` headers.
- * Pass `resourceMetadataUrl` to override for custom setups.
+ * The metadata URL defaults to the Edge Functions derivation and throws off
+ * platform; pass `resourceMetadataUrl` to override for custom setups.
  *
  * @category Middleware
  */
@@ -15,8 +20,9 @@ export function unauthorizedResponse(
   req: Request,
   options?: UnauthorizedResponseOptions,
 ): Response {
-  const metadataUrl =
-    options?.resourceMetadataUrl ?? getResourceMetadataUrl(req)
+  const metadataUrl = percentEncodeQuotes(
+    options?.resourceMetadataUrl ?? getResourceMetadataUrl(req),
+  )
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
     status: 401,
     headers: {
@@ -29,7 +35,8 @@ export function unauthorizedResponse(
 /**
  * RFC 9728 OAuth Protected Resource Metadata response.
  * Advertises the authorization server, resource URI, and bearer methods supported.
- * Auto-constructs URLs from `X-Forwarded-*` headers.
+ * URLs default to the Edge Functions derivation and throw off platform; pass
+ * `resource` / `authorizationServers` to override.
  *
  * @category Middleware
  */

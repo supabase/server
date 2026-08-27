@@ -1,3 +1,6 @@
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pipeline } from '@supabase/middleware'
 
@@ -245,6 +248,15 @@ describe('unauthorizedResponse', () => {
     })
     expect(res.headers.get('WWW-Authenticate')).toBe(
       `Bearer resource_metadata="${url}"`,
+    )
+  })
+
+  it('percent-encodes `"` in the resourceMetadataUrl override (quoted-string integrity)', () => {
+    const res = unauthorizedResponse(req('POST', '/my-fn'), {
+      resourceMetadataUrl: 'https://x.example.com/a"b/oauth-protected-resource',
+    })
+    expect(res.headers.get('WWW-Authenticate')).toBe(
+      'Bearer resource_metadata="https://x.example.com/a%22b/oauth-protected-resource"',
     )
   })
 })
@@ -774,5 +786,131 @@ describe('withOAuthProtectedResource - off-platform defaults fail loudly', () =>
     expect(body.authorization_servers).toEqual([
       'https://explicit.supabase.co/auth/v1',
     ])
+  })
+})
+
+describe('withOAuthProtectedResource - WWW-Authenticate quoted-string integrity', () => {
+  // A raw `"` in the advertised URL terminates the RFC 9110 quoted-string
+  // early, letting the remainder parse as extra auth-params (parameter
+  // injection). `"` and `\` are invalid URL code points anyway, so they are
+  // percent-encoded — in the header, the metadata document, and the ctx
+  // contribution alike, keeping the RFC 9728 §3.3 comparison intact.
+  it('percent-encodes `"` arriving via X-Forwarded-Host', async () => {
+    const res = await withOAuthProtectedResource(returns401)(
+      req('POST', '/my-fn', { 'X-Forwarded-Host': 'evil.test", scope="admin' }),
+    )
+    expect(res.headers.get('WWW-Authenticate')).toBe(
+      'Bearer resource_metadata="http://evil.test%22, scope=%22admin/functions/v1/my-fn/oauth-protected-resource"',
+    )
+  })
+
+  it('percent-encodes `"` and `\\` in a configured resourceServer', async () => {
+    const res = await withOAuthProtectedResource(
+      {
+        resourceServer: 'https://api.example.com/m"c\\p',
+        authorizationServer: 'https://auth.example.com',
+      },
+      returns401,
+    )(req('POST', '/my-fn'))
+    expect(res.headers.get('WWW-Authenticate')).toBe(
+      'Bearer resource_metadata="https://api.example.com/m%22c%5Cp/oauth-protected-resource"',
+    )
+  })
+
+  it('advertises the same encoded resource in the metadata document (§3.3 agreement)', async () => {
+    const res = await withOAuthProtectedResource(passthrough)(
+      req('GET', '/my-fn/oauth-protected-resource', {
+        'X-Forwarded-Host': 'evil.test"h',
+      }),
+    )
+    const body = await res.json()
+    expect(body.resource).toBe('http://evil.test%22h/functions/v1/my-fn')
+  })
+})
+
+describe('withOAuthProtectedResource - 401 enrichment resilience', () => {
+  it('enriches a 401 whose body the handler already consumed', async () => {
+    const handler = async () => {
+      const res = new Response('denied', { status: 401 })
+      await res.text()
+      return res
+    }
+    const res = await withOAuthProtectedResource(handler)(req('POST', '/my-fn'))
+    expect(res.status).toBe(401)
+    expect(res.headers.get('WWW-Authenticate')).toMatch(/^Bearer /)
+  })
+
+  it('enriches the 401 in place, so fetch-carried fields (.url, .redirected) survive', async () => {
+    let issued: Response | undefined
+    const handler = async () => {
+      issued = new Response(null, { status: 401 })
+      return issued
+    }
+    const res = await withOAuthProtectedResource(handler)(req('POST', '/my-fn'))
+    expect(res).toBe(issued)
+  })
+
+  it('enriches a fetch()-proxied 401, whose headers are immutable', async () => {
+    const upstream = createServer((_req, res) => {
+      res.statusCode = 401
+      res.setHeader('X-Upstream', 'yes')
+      res.end('denied')
+    })
+    await new Promise<void>((resolve) => upstream.listen(0, resolve))
+    const { port } = upstream.address() as AddressInfo
+    try {
+      const handler = async () => fetch(`http://127.0.0.1:${port}/`)
+      const res = await withOAuthProtectedResource(handler)(
+        req('POST', '/my-fn'),
+      )
+      expect(res.status).toBe(401)
+      expect(res.headers.get('WWW-Authenticate')).toMatch(/resource_metadata=/)
+      expect(res.headers.get('X-Upstream')).toBe('yes')
+      expect(await res.text()).toBe('denied')
+    } finally {
+      upstream.close()
+    }
+  })
+})
+
+describe('withOAuthProtectedResource - root path (no function segment)', () => {
+  // With no slug and no path segment there is no function name to restore, so
+  // the reconstruction would advertise a bare `/functions/v1` — a URL that
+  // identifies no resource. Failing loudly matches the off-platform contract.
+  it('throws MISSING_RESOURCE_SERVER on a bare /oauth-protected-resource (edge default)', async () => {
+    setEnv('SUPABASE_PUBLIC_URL', undefined)
+    setEnv('SUPABASE_FUNCTION_SLUG', undefined)
+    await expect(
+      withOAuthProtectedResource(passthrough)(
+        req('GET', '/oauth-protected-resource'),
+      ),
+    ).rejects.toMatchObject({
+      constructor: EnvError,
+      code: MissingResourceServerError,
+      status: 500,
+    })
+  })
+
+  it('resourceMetadataResponse on a root path throws instead of advertising a bare /functions/v1', () => {
+    setEnv('SUPABASE_PUBLIC_URL', undefined)
+    setEnv('SUPABASE_FUNCTION_SLUG', undefined)
+    let thrown: unknown
+    try {
+      resourceMetadataResponse(req('GET', '/'))
+    } catch (e) {
+      thrown = e
+    }
+    expect(thrown).toBeInstanceOf(EnvError)
+    expect(thrown).toMatchObject({ code: MissingResourceServerError })
+  })
+
+  it('SUPABASE_FUNCTION_SLUG rescues a root path with a canonical identifier', async () => {
+    setEnv('SUPABASE_PUBLIC_URL', undefined)
+    setEnv('SUPABASE_FUNCTION_SLUG', 'my-fn')
+    const res = await withOAuthProtectedResource(passthrough)(
+      req('GET', '/oauth-protected-resource'),
+    )
+    const body = await res.json()
+    expect(body.resource).toBe('http://localhost/functions/v1/my-fn')
   })
 })

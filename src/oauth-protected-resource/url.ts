@@ -29,6 +29,18 @@ export function trimTrailingSlash(value: string): string {
 }
 
 /**
+ * Percent-encodes `"` and `\` — invalid URL code points that would otherwise
+ * break out of the RFC 9110 quoted-string in `WWW-Authenticate`. Applied to
+ * every advertised URL, so the header, the metadata document, and the ctx
+ * contribution agree on one spelling (RFC 9728 §3.3 requires an exact match).
+ *
+ * @internal
+ */
+export function percentEncodeQuotes(value: string): string {
+  return value.replace(/["\\]/g, (c) => (c === '"' ? '%22' : '%5C'))
+}
+
+/**
  * The externally-visible origin of a Supabase Edge Function.
  *
  * `SUPABASE_PUBLIC_URL` wins when set. Otherwise the origin is assembled from
@@ -76,6 +88,10 @@ function edgeOrigin(req: Request): string {
  * The two forms differ only for a request at a sub-path of the function: the
  * canonical one reports the function, the reconstructed one the sub-path.
  *
+ * @throws {EnvError} `MISSING_RESOURCE_SERVER` on a root path with no slug —
+ * there is no function segment to restore, and a bare `/functions/v1`
+ * identifies no resource.
+ *
  * @internal
  */
 function edgeResourcePath(req: Request): string {
@@ -86,6 +102,9 @@ function edgeResourcePath(req: Request): string {
     METADATA_SUFFIX_PATTERN,
     '',
   )
+  if (received === '' || received === '/') {
+    throw Errors[MissingResourceServerError]()
+  }
   return `${EDGE_FUNCTIONS_PATH_PREFIX}${received}`
 }
 
@@ -96,7 +115,8 @@ function edgeResourcePath(req: Request): string {
  * There is no environment fallback — `SUPABASE_URL` names the Supabase project,
  * not this endpoint — so off Edge Functions it throws.
  *
- * @throws {EnvError} `MISSING_RESOURCE_SERVER` off Edge Functions.
+ * @throws {EnvError} `MISSING_RESOURCE_SERVER` off Edge Functions, or on a
+ * root path with no `SUPABASE_FUNCTION_SLUG` — see {@link edgeResourcePath}.
  *
  * @internal
  */
@@ -170,7 +190,7 @@ export function resolveUrlOption(
   fallback: (req: Request) => string,
 ): string {
   const value = typeof option === 'function' ? option(req) : option
-  return trimTrailingSlash(value ?? fallback(req))
+  return percentEncodeQuotes(trimTrailingSlash(value ?? fallback(req)))
 }
 
 /**
