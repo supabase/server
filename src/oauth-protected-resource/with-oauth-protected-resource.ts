@@ -166,16 +166,23 @@ export const withOAuthProtectedResource: Middleware<
         response.status === 401 &&
         !response.headers.has('WWW-Authenticate')
       ) {
-        const headers = new Headers(response.headers)
-        headers.set(
-          'WWW-Authenticate',
-          `Bearer resource_metadata="${resourceMetadataUrl}"`,
-        )
-        return new Response(response.body, {
-          status: 401,
-          statusText: response.statusText,
-          headers,
-        })
+        const challenge = `Bearer resource_metadata="${resourceMetadataUrl}"`
+        try {
+          response.headers.set('WWW-Authenticate', challenge)
+          return response
+        } catch {
+          // Headers on a fetch()-proxied response carry the immutable guard,
+          // so enrichment falls back to a copy. A copy cannot carry `.url` or
+          // `.redirected` and cannot reuse a consumed body stream, which is
+          // why in-place mutation is the primary path.
+          const headers = new Headers(response.headers)
+          headers.set('WWW-Authenticate', challenge)
+          return new Response(response.bodyUsed ? null : response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+          })
+        }
       }
 
       return response
