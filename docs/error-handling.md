@@ -117,16 +117,17 @@ If something _did_ arrive but couldn't be used, the code is [`UNUSABLE_CREDENTIA
 
 ### `UNUSABLE_CREDENTIAL`
 
-A credential arrived, but not one any accepted auth mode can use. Two shapes:
+A credential arrived, but not one any accepted auth mode can use. Three shapes:
 
 - **Wrong kind.** An `sb_*` API key in the `Authorization` header where a user JWT is required. The Supabase SDK sends the key in both the `apikey` and `Authorization` headers, so this is easy to hit by accident. `details.received.authorization` is `"api-key"`.
+- **API key to an endpoint that reads none.** Every accepted mode is `user`, so an API key can't satisfy it in _either_ header. This is what an unauthenticated `supabase-js` call to a `user`-only endpoint looks like: the publishable key rides both headers, but no session token does. It's reported here rather than as [`INVALID_API_KEY`](#invalid_api_key) — the key isn't wrong, it's the wrong kind of credential, and "check your project's keys" would send you hunting for a mismatch that doesn't exist.
 - **Unreadable.** A header this library can't read a bearer token out of — wrong scheme (`Basic …`), wrong casing (`bearer` — the scheme is case-sensitive), a bare value with no scheme, or `Bearer` with an empty token. `details.received.authorization` is `"non-bearer-scheme"`.
 
-The `message` names which one happened, so the diagnosis survives even with `hint` and `details` stripped.
+The `message` names which one happened, so the diagnosis survives even with `hint` and `details` stripped. `withRequiredClaims` and `withClaims` report an identical request identically — they only ever accept a user token, so the second shape is the one they hit.
 
 ### `INVALID_API_KEY`
 
-An `apikey` header was present but matched none of the keys configured for the attempted modes.
+An `apikey` header was present but matched none of the keys configured for the attempted modes. Only reported when a `publishable` or `secret` mode was actually attempted — on a `user`-only endpoint an API key is [`UNUSABLE_CREDENTIAL`](#unusable_credential) instead.
 
 The `hint` prioritises format mismatches, since sending the wrong _kind_ of key is the most common cause:
 
@@ -158,7 +159,7 @@ A present-but-invalid JWT rejects immediately rather than falling through to the
 
 Fallback code, returned when a credential was present but no more specific code applies.
 
-> **Changed in v1.6.** This used to be the only code returned for a failed request. The specific codes above now cover essentially every real failure, so match on those instead. `INVALID_CREDENTIALS` and `Errors[InvalidCredentialsError]()` remain exported and working.
+> **Changed in v1.5.** This used to be the only code returned for a failed request. The specific codes above now cover essentially every real failure, so match on those instead. `INVALID_CREDENTIALS` and `Errors[InvalidCredentialsError]()` remain exported and working.
 
 ### `JWKS_NOT_CONFIGURED`
 
@@ -217,6 +218,7 @@ Thrown when a required environment variable is missing or malformed. Always `sta
 | [`MISSING_DEFAULT_SECRET_KEY`](#missing_default_secret_key)           | No default secret key found                                        |
 | [`MISSING_RESOURCE_SERVER`](#missing_resource_server)                 | `withOAuthProtectedResource` cannot derive a `resourceServer`      |
 | [`MISSING_AUTHORIZATION_SERVER`](#missing_authorization_server)       | `withOAuthProtectedResource` cannot derive an authorization server |
+| [`MISSING_CONNECTION_STRING`](#missing_connection_string)             | No Postgres connection string is configured                        |
 | [`ENV_ERROR`](#env_error)                                             | Generic environment error                                          |
 
 ### `MISSING_SUPABASE_URL`
@@ -248,6 +250,12 @@ Set `SUPABASE_SECRET_KEY`, or add a `"default"` entry to `SUPABASE_SECRET_KEYS`,
 ### `MISSING_AUTHORIZATION_SERVER`
 
 As above for the authorization server. Pass `authorizationServer`, use `fromSupabaseUrl(...)` for Supabase Auth, or set `SUPABASE_PUBLIC_URL` / `SUPABASE_URL`.
+
+### `MISSING_CONNECTION_STRING`
+
+`withPostgresClient` / `withPostgresAdminClient` have no Postgres connection string to connect with, so they short-circuit with a 500 before running the handler.
+
+Set `SUPABASE_DB_URL`, or pass `connectionString` to the middleware — `details.middleware` names which one asked. Supabase Edge Functions provide `SUPABASE_DB_URL` automatically; elsewhere, copy it from Project Settings → Database → Connection string.
 
 ### `ENV_ERROR`
 

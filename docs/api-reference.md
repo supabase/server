@@ -653,6 +653,7 @@ interface SupabaseServerErrorOptions {
 | `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                                                |
 | `MissingResourceServerError`        | `'MISSING_RESOURCE_SERVER'`         | `EnvError`  | `withOAuthProtectedResource` cannot derive a `resourceServer`        |
 | `MissingAuthorizationServerError`   | `'MISSING_AUTHORIZATION_SERVER'`    | `EnvError`  | `withOAuthProtectedResource` cannot derive an authorization server   |
+| `MissingConnectionStringError`      | `'MISSING_CONNECTION_STRING'`       | `EnvError`  | No Postgres connection string configured                             |
 | `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error (401)                                             |
 | `MissingCredentialsError`           | `'MISSING_CREDENTIALS'`             | `AuthError` | Request carried no credentials at all (401)                          |
 | `UnusableCredentialError`           | `'UNUSABLE_CREDENTIAL'`             | `AuthError` | A credential arrived but cannot be used (401)                        |
@@ -682,6 +683,7 @@ const Errors: {
   [MissingDefaultSecretKeyError]: (configuredKeyNames?) => EnvError
   [MissingResourceServerError]: () => EnvError
   [MissingAuthorizationServerError]: () => EnvError
+  [MissingConnectionStringError]: (middleware: string) => EnvError
   [MissingCredentialsError]: (context: AuthFailureContext) => AuthError
   [UnusableCredentialError]: (
     context: PartialContext & { reason; hint },
