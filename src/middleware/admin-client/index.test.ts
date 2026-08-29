@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { SupabaseClient } from '@supabase/supabase-js'
 
 import {
+  CreateSupabaseClientError,
   EnvError,
   MissingDefaultSecretKeyError,
   MissingSecretKeyError,
@@ -118,5 +119,23 @@ describe('withSupabaseAdminClient', () => {
     const body = await res.json()
     expect(body.isClient).toBe(true)
     expect(body.hasSelect).toBe(true)
+  })
+  it('attaches the underlying failure as `cause` when client creation fails', async () => {
+    // A malformed URL passes env resolution but throws inside createClient —
+    // the hint on this error tells the reader to log `cause`, so it must be set.
+    const handler = pipeline(
+      [withSupabaseAdminClient({ env: { ...baseEnv, url: 'not-a-url' } })],
+      async (_req, ctx) => {
+        // The client is lazy — touching it is what triggers construction.
+        return Response.json({ ok: ctx.supabaseAdmin.auth !== undefined })
+      },
+    )
+
+    await expect(
+      handler(new Request('http://localhost')),
+    ).rejects.toMatchObject({
+      code: CreateSupabaseClientError,
+      cause: expect.any(Error),
+    })
   })
 })

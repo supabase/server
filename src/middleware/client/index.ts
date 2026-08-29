@@ -49,7 +49,9 @@ const base = defineMiddleware<
         supabaseOptions: config?.supabaseOptions,
       })
     } catch (e) {
-      throw e instanceof EnvError ? e : Errors[CreateSupabaseClientError]()
+      throw e instanceof EnvError
+        ? e
+        : Errors[CreateSupabaseClientError]({ cause: e })
     }
     return { supabase }
   },
