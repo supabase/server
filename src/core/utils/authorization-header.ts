@@ -87,3 +87,34 @@ export const ApiKeyInAuthorizationHeader = {
     'API keys belong in the `apikey` header. The Supabase SDK sends the key in both the `apikey` ' +
     'and `Authorization` headers, which is why this is easy to miss.',
 } as const
+
+/**
+ * Diagnosis for Supabase API keys arriving at an endpoint that reads none — a
+ * `user`-only gate. supabase-js sends the publishable key in both the `apikey`
+ * and `Authorization` headers, so an unauthenticated client lands here with a
+ * key in each slot; reporting "your key matched nothing" would send the caller
+ * hunting for a key mismatch that does not exist. Shared so `verifyCredentials`
+ * and the claims gate word an identical request identically.
+ *
+ * @internal
+ */
+export function apiKeyOnUserOnlyEndpoint(slots: {
+  /** An `sb_*` value rode the `Authorization` header. */
+  inAuthorization: boolean
+  /** An `apikey` header was present, whatever its format. */
+  inApiKeyHeader: boolean
+}): { reason: string; hint: string } {
+  return {
+    reason: slots.inApiKeyHeader
+      ? 'an apikey header, which no accepted auth mode reads'
+      : 'an sb_* API key in the Authorization header, which no accepted auth mode reads',
+    hint:
+      'This endpoint authenticates a user, not a project — an API key can never satisfy it, ' +
+      'whichever header it arrives in.' +
+      (slots.inAuthorization
+        ? ' supabase-js sends the publishable key in both the `apikey` and `Authorization` ' +
+          'headers, so an unauthenticated client lands here even though a bearer token appears ' +
+          "to have been sent; a signed-in session's access token replaces it."
+        : ''),
+  }
+}

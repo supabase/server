@@ -5,7 +5,7 @@ import type { JSONWebKeySet } from 'jose'
 import { extractCredentials } from '../../core/extract-credentials.js'
 import { resolveJwks } from '../../core/resolve-env.js'
 import {
-  ApiKeyInAuthorizationHeader,
+  apiKeyOnUserOnlyEndpoint,
   diagnoseAuthorizationHeader,
 } from '../../core/utils/authorization-header.js'
 import { classifyApiKey } from '../../core/utils/classify-credentials.js'
@@ -127,7 +127,13 @@ export const withRequiredClaims: Middleware<
               received,
               ...(diagnosis.kind === 'unreadable'
                 ? { reason: diagnosis.reason, hint: diagnosis.hint }
-                : ApiKeyInAuthorizationHeader),
+                : // This gate only ever accepts a user JWT, so an API key is
+                  // unusable here however it arrived — telling the caller to
+                  // move it to the `apikey` header would not help.
+                  apiKeyOnUserOnlyEndpoint({
+                    inAuthorization: true,
+                    inApiKeyHeader: apikey !== null,
+                  })),
             }),
       )
     }

@@ -19,7 +19,10 @@ import type {
   SupabaseEnv,
 } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
-import { ApiKeyInAuthorizationHeader } from './utils/authorization-header.js'
+import {
+  ApiKeyInAuthorizationHeader,
+  apiKeyOnUserOnlyEndpoint,
+} from './utils/authorization-header.js'
 import { classifyApiKey } from './utils/classify-credentials.js'
 import { resolveAuthOption } from './utils/deprecation.js'
 import { timingSafeEqual } from './utils/timing-safe-equal.js'
@@ -343,18 +346,47 @@ function explainFallthrough(
 
   const { authorization, apikey } = context.received
 
+  if (authorization === 'absent' && apikey === 'absent') {
+    return Errors[MissingCredentialsError](context)
+  }
+
+  // Whether any attempted mode looks at API keys at all. INVALID_API_KEY means
+  // "matched none of the configured keys", which only says something when a
+  // mode was doing that lookup — on a `user`-only endpoint the key isn't wrong,
+  // it's the wrong kind of credential, and pointing at the project's keys sends
+  // the caller hunting for a mismatch that isn't there.
+  const acceptsApiKey = context.authModes.some(
+    (mode) =>
+      mode === 'publishable' ||
+      mode.startsWith('publishable:') ||
+      mode === 'secret' ||
+      mode.startsWith('secret:'),
+  )
+
+  // supabase-js sends the publishable key in both the `apikey` and
+  // `Authorization` headers, so an unauthenticated browser call to a `user`
+  // endpoint arrives with a key in each slot. Reading the `apikey` header first
+  // would report INVALID_API_KEY; this is UNUSABLE_CREDENTIAL, and the code has
+  // to carry that on its own since `errors: { detailed: false }` strips the
+  // hint that would otherwise explain it.
+  if (!acceptsApiKey && (authorization === 'api-key' || apikey !== 'absent')) {
+    return Errors[UnusableCredentialError]({
+      ...context,
+      ...apiKeyOnUserOnlyEndpoint({
+        inAuthorization: authorization === 'api-key',
+        inApiKeyHeader: apikey !== 'absent',
+      }),
+    })
+  }
+
   // An `sb_*` value in the Authorization slot is a credential that *did*
   // arrive, so it is not "missing" — the distinction has to live in the code
-  // itself, since `errors: { detailed: false }` strips the hint that would
-  // otherwise explain it.
+  // itself, for the same `detailed: false` reason.
   if (authorization === 'api-key' && apikey === 'absent') {
     return Errors[UnusableCredentialError]({
       ...context,
       ...ApiKeyInAuthorizationHeader,
     })
-  }
-  if (authorization === 'absent' && apikey === 'absent') {
-    return Errors[MissingCredentialsError](context)
   }
   if (apikey !== 'absent') {
     return Errors[InvalidApiKeyError](context)

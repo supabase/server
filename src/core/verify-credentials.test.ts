@@ -441,10 +441,62 @@ describe('verifyCredentials', () => {
       expect(result.error!.code).toBe(UnusableCredentialError)
       expect(result.error!.status).toBe(401)
       expect(result.error!.message).toContain('sb_* API key')
-      expect(result.error!.hint).toContain('`apikey` header')
+      expect(result.error!.hint).toContain('an API key can never satisfy it')
       expect(result.error!.details!.received).toMatchObject({
         authorization: 'api-key',
       })
+    })
+
+    it('fails 401 UNUSABLE_CREDENTIAL when supabase-js sends the key in both headers', async () => {
+      // supabase-js puts the publishable key in `apikey` *and* `Authorization`,
+      // so an unauthenticated browser call arrives with a key in each slot.
+      // A user-only endpoint reads neither: reporting INVALID_API_KEY would
+      // send the caller checking their project's keys for a mismatch that
+      // isn't there. The code has to carry that on its own, because
+      // `errors: { detailed: false }` strips the hint.
+      const creds: Credentials = {
+        token: 'sb_publishable_xyz',
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(UnusableCredentialError)
+      expect(result.error!.status).toBe(401)
+      expect(result.error!.hint).toContain('supabase-js')
+      expect(result.error!.details!.received).toMatchObject({
+        authorization: 'api-key',
+        apikey: 'publishable',
+      })
+    })
+
+    it('fails 401 UNUSABLE_CREDENTIAL for an apikey header alone on a user-only endpoint', async () => {
+      const creds: Credentials = { token: null, apikey: 'sb_publishable_xyz' }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(UnusableCredentialError)
+      expect(result.error!.status).toBe(401)
+    })
+
+    it('still reports INVALID_API_KEY when a mode does read API keys', async () => {
+      // The key really did fail a lookup here, so naming the configured keys
+      // is the right next step.
+      const creds: Credentials = {
+        token: 'sb_publishable_nope',
+        apikey: 'sb_publishable_nope',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'publishable'],
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidApiKeyError)
+      expect(result.error!.status).toBe(401)
     })
 
     it('another matching mode still wins over the config error', async () => {
