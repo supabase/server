@@ -26,7 +26,8 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  * ```ts
  * const { data: ctx, error } = await createSupabaseContext(request, { auth: 'user' })
  * if (error) {
- *   return Response.json({ message: error.message }, { status: error.status })
+ *   // `toJSON()` yields { source, code, message, hint, docs, details }
+ *   return Response.json(error.toJSON(), { status: error.status })
  * }
  * const { data } = await ctx.supabase.rpc('get_my_items')
  * ```
@@ -78,10 +79,17 @@ export async function createSupabaseContext<Database = unknown>(
       error: null,
     }
   } catch (e) {
+    // An EnvError already names the exact missing variable — preserve its code,
+    // hint, and details rather than flattening it to a generic client failure.
     const error =
       e instanceof EnvError
-        ? new AuthError(e.message, e.code, 500)
-        : Errors[CreateSupabaseClientError]()
+        ? new AuthError(e.message, e.code, 500, {
+            hint: e.hint,
+            details: e.details,
+            docs: e.docs,
+            cause: e,
+          })
+        : Errors[CreateSupabaseClientError]({ cause: e })
     return { data: null, error }
   }
 }

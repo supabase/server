@@ -212,7 +212,7 @@ withPostgresClient({ connectionString: 'postgresql://...' })
 withPostgresAdminClient({ connectionString: 'postgresql://...' })
 ```
 
-`connectionString` defaults to the `SUPABASE_DB_URL` environment variable, which Supabase Edge Functions provide automatically. If neither is set the middleware short-circuits with a 500 and `{ message, code: 'ENV_ERROR' }`.
+`connectionString` defaults to the `SUPABASE_DB_URL` environment variable, which Supabase Edge Functions provide automatically. If neither is set the middleware short-circuits with a 500 and code `MISSING_CONNECTION_STRING`, whose `hint` names the option to pass.
 
 Connections are pooled per process, lazily, one pool per connection string (max 4 connections). The pool outlives individual requests — that is what makes this viable on a per-request runtime.
 

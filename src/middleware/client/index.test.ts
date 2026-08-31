@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import {
+  CreateSupabaseClientError,
   EnvError,
   MissingPublishableKeyError,
   MissingSupabaseURLError,
@@ -72,5 +73,20 @@ describe('withSupabaseClient', () => {
     await expect(
       handler(new Request('http://localhost')),
     ).rejects.toBeInstanceOf(EnvError)
+  })
+  it('attaches the underlying failure as `cause` when client creation fails', async () => {
+    // A malformed URL passes env resolution but throws inside createClient —
+    // the hint on this error tells the reader to log `cause`, so it must be set.
+    const handler = pipeline(
+      [withSupabaseClient({ env: { ...baseEnv, url: 'not-a-url' } })],
+      async () => Response.json({ ok: true }),
+    )
+
+    await expect(
+      handler(new Request('http://localhost')),
+    ).rejects.toMatchObject({
+      code: CreateSupabaseClientError,
+      cause: expect.any(Error),
+    })
   })
 })

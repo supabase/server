@@ -1,7 +1,8 @@
 import { getEnv } from '@supabase/middleware'
 import pg from 'pg'
 
-import { EnvGenericError } from '../errors.js'
+import { errorResponse } from '../error-response.js'
+import { Errors, MissingConnectionStringError } from '../errors.js'
 
 const { Pool } = pg
 
@@ -102,18 +103,12 @@ export function resolveConnectionString(
 
 /**
  * The 500 both middleware short-circuit with when no connection string is
- * available, in the package's standard `{ message, code }` error shape.
+ * available, in the package's standard error payload.
  *
  * @internal
  */
 export function missingConnectionStringResponse(
   middlewareName: string,
 ): Response {
-  return Response.json(
-    {
-      message: `A Postgres connection string is required. Set SUPABASE_DB_URL, or pass \`connectionString\` to ${middlewareName}.`,
-      code: EnvGenericError,
-    },
-    { status: 500 },
-  )
+  return errorResponse(Errors[MissingConnectionStringError](middlewareName))
 }

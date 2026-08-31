@@ -1,6 +1,12 @@
-import type { AuthError } from '../errors.js'
+import {
+  Errors,
+  MissingCredentialsError,
+  UnusableCredentialError,
+  type AuthError,
+} from '../errors.js'
 import type { AuthModeWithKey, AuthResult, SupabaseEnv } from '../types.js'
 import { extractCredentials } from './extract-credentials.js'
+import { diagnoseAuthorizationHeader } from './utils/authorization-header.js'
 import { verifyCredentials } from './verify-credentials.js'
 
 /**
@@ -66,5 +72,33 @@ export async function verifyAuth(
   { data: AuthResult; error: null } | { data: null; error: AuthError }
 > {
   const credentials = extractCredentials(request)
-  return verifyCredentials(credentials, options)
+  const result = await verifyCredentials(credentials, options)
+  if (result.error === null || credentials.token) return result
+
+  // Only reachable with the raw request in hand: `verifyCredentials` sees a
+  // null token and cannot tell "no header" from "header we couldn't read".
+  const diagnosis = diagnoseAuthorizationHeader(
+    request.headers.get('authorization'),
+  )
+  if (diagnosis.kind !== 'unreadable') return result
+
+  // Restricted to MISSING_CREDENTIALS: any other code (a bad apikey, a
+  // misconfiguration) describes the failure better than the Authorization
+  // header being malformed.
+  if (result.error.code !== MissingCredentialsError) return result
+
+  return {
+    data: null,
+    error: Errors[UnusableCredentialError]({
+      authModes: result.error.details?.acceptedAuthModes as
+        | readonly string[]
+        | undefined,
+      received: {
+        ...(result.error.details?.received as object),
+        authorization: 'non-bearer-scheme',
+      } as never,
+      reason: diagnosis.reason,
+      hint: diagnosis.hint,
+    }),
+  }
 }

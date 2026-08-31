@@ -52,9 +52,10 @@ export function createContextClient<Database = unknown>(
   const anonKey =
     keys[name] ?? (keyName == null ? Object.values(keys)[0] : undefined)
   if (!anonKey) {
+    const configuredKeyNames = Object.keys(keys)
     throw name === 'default'
-      ? Errors[MissingDefaultPublishableKeyError]()
-      : Errors[MissingPublishableKeyError](name)
+      ? Errors[MissingDefaultPublishableKeyError](configuredKeyNames)
+      : Errors[MissingPublishableKeyError](name, configuredKeyNames)
   }
 
   // Sanitize auth headers — only verified credentials control Authorization and apikey.

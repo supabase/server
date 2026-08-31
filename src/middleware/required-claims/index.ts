@@ -4,8 +4,21 @@ import type { JSONWebKeySet } from 'jose'
 
 import { extractCredentials } from '../../core/extract-credentials.js'
 import { resolveJwks } from '../../core/resolve-env.js'
+import {
+  apiKeyOnUserOnlyEndpoint,
+  diagnoseAuthorizationHeader,
+} from '../../core/utils/authorization-header.js'
+import { classifyApiKey } from '../../core/utils/classify-credentials.js'
 import { verifyUserJwt } from '../../core/verify-user-jwt.js'
-import { EnvGenericError, InvalidCredentialsError } from '../../errors.js'
+import { errorResponse } from '../../error-response.js'
+import {
+  Errors,
+  InvalidJwtError,
+  JwksFetchFailedError,
+  JwksNotConfiguredError,
+  MissingCredentialsError,
+  UnusableCredentialError,
+} from '../../errors.js'
 import type { JWTClaims } from '../../types.js'
 
 /**
@@ -33,13 +46,14 @@ export interface WithRequiredClaimsConfig {
  * if present"; composing both is a compile-time conflict on the `jwtClaims`
  * key.
  *
- * Behavior:
- * - No `Authorization: Bearer` token (or an `sb_*` API key in that position,
- *   which is an API key rather than a user JWT) → short-circuits with a
- *   401 JSON response (`{ message, code: 'INVALID_CREDENTIALS' }`, matching
- *   `withSupabase`'s error shape). The handler never runs.
- * - Token present but invalid → the same 401.
- * - Token present but no JWKS configured → short-circuits with a 500;
+ * Behavior — every short-circuit uses the standard error payload, with the same
+ * code `withSupabase({ auth: 'user' })` returns for an identical request:
+ * - No `Authorization: Bearer` token → 401 `MISSING_CREDENTIALS`. The handler
+ *   never runs.
+ * - An `sb_*` API key in that position → 401 `UNUSABLE_CREDENTIAL`: a
+ *   credential arrived, just not a user JWT.
+ * - Token present but invalid → 401 `INVALID_JWT`, naming the specific reason.
+ * - Token present but no JWKS configured → 500 `JWKS_NOT_CONFIGURED`;
  *   verification is not optional and there is no decode-only mode.
  *
  * Because the contribution is non-null, gated handlers read `ctx.jwtClaims`
@@ -87,34 +101,65 @@ export const withRequiredClaims: Middleware<
 >({
   key: 'jwtClaims',
   run: (config) => async (req) => {
-    const { token } = extractCredentials(req)
-    // `sb_*` secrets ride the Authorization header alongside the apikey
-    // header — they are API keys, not user JWTs, so they cannot pass a gate
-    // that requires verified user claims.
-    if (!token || token.startsWith('sb_')) {
-      return Response.json(
-        { message: 'Invalid credentials', code: InvalidCredentialsError },
-        { status: 401 },
+    const { token, apikey } = extractCredentials(req)
+    // Classified through the shared helper so an identical request gets an
+    // identical code here and from `withSupabase({ auth: 'user' })`. A
+    // credential that arrived but can't be used is not "missing" — and with
+    // `errors: { detailed: false }` the code is all the caller gets.
+    const diagnosis = diagnoseAuthorizationHeader(
+      req.headers.get('authorization'),
+    )
+    if (diagnosis.kind !== 'bearer' || !token) {
+      const received = {
+        authorization:
+          diagnosis.kind === 'unreadable'
+            ? ('non-bearer-scheme' as const)
+            : diagnosis.kind === 'api-key'
+              ? ('api-key' as const)
+              : ('absent' as const),
+        apikey: classifyApiKey(apikey),
+      }
+      return errorResponse(
+        diagnosis.kind === 'absent'
+          ? Errors[MissingCredentialsError]({ authModes: ['user'], received })
+          : Errors[UnusableCredentialError]({
+              authModes: ['user'],
+              received,
+              ...(diagnosis.kind === 'unreadable'
+                ? { reason: diagnosis.reason, hint: diagnosis.hint }
+                : // This gate only ever accepts a user JWT, so an API key is
+                  // unusable here however it arrived — telling the caller to
+                  // move it to the `apikey` header would not help.
+                  apiKeyOnUserOnlyEndpoint({
+                    inAuthorization: true,
+                    inApiKeyHeader: apikey !== null,
+                  })),
+            }),
       )
     }
 
     const jwks = config?.jwks ?? resolveJwks()
     if (!jwks) {
-      return Response.json(
-        {
-          message:
-            'A JWKS source is required to verify claims. Set SUPABASE_JWKS or SUPABASE_JWKS_URL, or pass `jwks` to withRequiredClaims.',
-          code: EnvGenericError,
-        },
-        { status: 500 },
+      return errorResponse(
+        Errors[JwksNotConfiguredError]({ middleware: 'withRequiredClaims' }),
       )
     }
 
     const verified = await verifyUserJwt(token, jwks)
-    if (!verified) {
-      return Response.json(
-        { message: 'Invalid credentials', code: InvalidCredentialsError },
-        { status: 401 },
+    if (!verified.ok) {
+      const { failure } = verified
+      return errorResponse(
+        failure.kind === 'jwks-source'
+          ? Errors[JwksFetchFailedError]({
+              reason: failure.reason,
+              cause: failure.cause,
+            })
+          : Errors[InvalidJwtError]({
+              reason: failure.reason,
+              hint: failure.hint,
+              jwt: failure.jwt,
+              cause: failure.cause,
+            }),
       )
     }
 

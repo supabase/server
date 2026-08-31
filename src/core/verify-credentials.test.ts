@@ -14,7 +14,16 @@ import type { JSONWebKeySet } from 'jose'
 import type { Credentials, SupabaseEnv } from '../types.js'
 import { verifyCredentials } from './verify-credentials.js'
 import { _resetAllowDeprecationWarned } from './utils/deprecation.js'
-import { EnvGenericError, InvalidCredentialsError } from '../errors.js'
+import {
+  InvalidApiKeyError,
+  InvalidCredentialsError,
+  InvalidJwtError,
+  JwksFetchFailedError,
+  JwksNotConfiguredError,
+  MissingCredentialsError,
+  NoKeysConfiguredError,
+  UnusableCredentialError,
+} from '../errors.js'
 
 function makeEnv(overrides?: Partial<SupabaseEnv>): Partial<SupabaseEnv> {
   return {
@@ -62,7 +71,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidApiKeyError)
     })
 
     it('only matches default key when bare publishable is used', async () => {
@@ -78,7 +87,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidApiKeyError)
     })
 
     it('matches named key with colon syntax and returns keyName', async () => {
@@ -113,7 +122,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidApiKeyError)
     })
 
     it('rejects wrong named key type', async () => {
@@ -129,7 +138,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(NoKeysConfiguredError)
     })
 
     it('matches any key with wildcard syntax', async () => {
@@ -191,7 +200,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidApiKeyError)
     })
 
     it('only matches default key when bare secret is used', async () => {
@@ -204,7 +213,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidApiKeyError)
     })
 
     it('matches secret named key with colon syntax and returns keyName', async () => {
@@ -230,7 +239,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidApiKeyError)
     })
 
     it('rejects wrong secret named key type', async () => {
@@ -243,7 +252,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(NoKeysConfiguredError)
     })
 
     it('matches any key with wildcard syntax', async () => {
@@ -345,7 +354,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
 
     it('fails with no token', async () => {
@@ -355,7 +364,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(MissingCredentialsError)
     })
 
     it('fails with expired JWT', async () => {
@@ -377,7 +386,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks: expiredJwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
   })
 
@@ -393,16 +402,17 @@ describe('verifyCredentials', () => {
       vi.unstubAllEnvs()
     })
 
-    it('fails 500 ENV_ERROR when a user token is present', async () => {
+    it('fails 500 JWKS_NOT_CONFIGURED when a user token is present', async () => {
       const creds: Credentials = { token: 'some.jwt.token', apikey: null }
       const result = await verifyCredentials(creds, {
         auth: 'user',
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(EnvGenericError)
+      expect(result.error!.code).toBe(JwksNotConfiguredError)
       expect(result.error!.status).toBe(500)
       expect(result.error!.message).toContain('JWKS')
+      expect(result.error!.hint).toContain('SUPABASE_JWKS_URL')
     })
 
     it('fails 401 when no token is present', async () => {
@@ -414,19 +424,78 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(MissingCredentialsError)
       expect(result.error!.status).toBe(401)
     })
 
-    it('fails 401 for an sb_* value in the Authorization slot', async () => {
-      // An API key can never pass user mode, JWKS or not.
+    it('fails 401 UNUSABLE_CREDENTIAL for an sb_* value in the Authorization slot', async () => {
+      // An API key can never pass user mode, JWKS or not. The header arrived
+      // but carried no user credential, so this is the same class of failure
+      // as sending nothing — and the hint says which mistake was made.
       const creds: Credentials = { token: 'sb_secret_xyz', apikey: null }
       const result = await verifyCredentials(creds, {
         auth: 'user',
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(UnusableCredentialError)
+      expect(result.error!.status).toBe(401)
+      expect(result.error!.message).toContain('sb_* API key')
+      expect(result.error!.hint).toContain('an API key can never satisfy it')
+      expect(result.error!.details!.received).toMatchObject({
+        authorization: 'api-key',
+      })
+    })
+
+    it('fails 401 UNUSABLE_CREDENTIAL when supabase-js sends the key in both headers', async () => {
+      // supabase-js puts the publishable key in `apikey` *and* `Authorization`,
+      // so an unauthenticated browser call arrives with a key in each slot.
+      // A user-only endpoint reads neither: reporting INVALID_API_KEY would
+      // send the caller checking their project's keys for a mismatch that
+      // isn't there. The code has to carry that on its own, because
+      // `errors: { detailed: false }` strips the hint.
+      const creds: Credentials = {
+        token: 'sb_publishable_xyz',
+        apikey: 'sb_publishable_xyz',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(UnusableCredentialError)
+      expect(result.error!.status).toBe(401)
+      expect(result.error!.hint).toContain('supabase-js')
+      expect(result.error!.details!.received).toMatchObject({
+        authorization: 'api-key',
+        apikey: 'publishable',
+      })
+    })
+
+    it('fails 401 UNUSABLE_CREDENTIAL for an apikey header alone on a user-only endpoint', async () => {
+      const creds: Credentials = { token: null, apikey: 'sb_publishable_xyz' }
+      const result = await verifyCredentials(creds, {
+        auth: 'user',
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(UnusableCredentialError)
+      expect(result.error!.status).toBe(401)
+    })
+
+    it('still reports INVALID_API_KEY when a mode does read API keys', async () => {
+      // The key really did fail a lookup here, so naming the configured keys
+      // is the right next step.
+      const creds: Credentials = {
+        token: 'sb_publishable_nope',
+        apikey: 'sb_publishable_nope',
+      }
+      const result = await verifyCredentials(creds, {
+        auth: ['user', 'publishable'],
+        env: makeEnv(),
+      })
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidApiKeyError)
       expect(result.error!.status).toBe(401)
     })
 
@@ -450,7 +519,7 @@ describe('verifyCredentials', () => {
         env: makeEnv(),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(EnvGenericError)
+      expect(result.error!.code).toBe(JwksNotConfiguredError)
       expect(result.error!.status).toBe(500)
     })
 
@@ -578,7 +647,7 @@ describe('verifyCredentials', () => {
         }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
 
     it('rejects when the remote JWKS endpoint fails', async () => {
@@ -591,7 +660,7 @@ describe('verifyCredentials', () => {
         }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(JwksFetchFailedError)
     })
 
     it('replaces the cached resolver when the URL changes', async () => {
@@ -684,7 +753,7 @@ describe('verifyCredentials', () => {
         env,
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(NoKeysConfiguredError)
     })
   })
 
@@ -732,7 +801,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
 
     it('rejects expired JWT instead of falling through to none mode', async () => {
@@ -754,7 +823,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks: expiredJwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
 
     it('falls through to always when no token is present', async () => {
@@ -777,7 +846,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
 
     it('rejects invalid JWT instead of falling through to secret mode', async () => {
@@ -790,7 +859,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
 
     it('falls through to secret when Authorization carries an sb_ secret', async () => {
@@ -842,7 +911,7 @@ describe('verifyCredentials', () => {
         env: makeEnv({ jwks: noSubJwks }),
       })
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(InvalidJwtError)
     })
   })
 
@@ -914,9 +983,144 @@ describe('verifyCredentials', () => {
     it('defaults to `user` when neither `auth` nor `allow` is provided', async () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, { env: makeEnv() })
-      // No token, no apikey, default mode is `user` → fails with invalid credentials.
+      // No token, no apikey, default mode is `user` → nothing to verify.
       expect(result.error).not.toBeNull()
-      expect(result.error!.code).toBe(InvalidCredentialsError)
+      expect(result.error!.code).toBe(MissingCredentialsError)
+    })
+  })
+
+  describe('error diagnostics', () => {
+    async function failWith(
+      creds: Credentials,
+      options: Parameters<typeof verifyCredentials>[1],
+    ) {
+      const result = await verifyCredentials(creds, options)
+      expect(result.error).not.toBeNull()
+      return result.error!
+    }
+
+    it('names the accepted auth modes and what the request carried', async () => {
+      const error = await failWith(
+        { token: null, apikey: null },
+        { auth: ['user', 'publishable'], env: makeEnv() },
+      )
+      expect(error.code).toBe(MissingCredentialsError)
+      expect(error.status).toBe(401)
+      expect(error.message).toContain('"user", "publishable"')
+      expect(error.hint).toContain('Authorization: Bearer <jwt>')
+      expect(error.hint).toContain('apikey: <publishable key>')
+      expect(error.details).toMatchObject({
+        acceptedAuthModes: ['user', 'publishable'],
+        received: { authorization: 'absent', apikey: 'absent' },
+      })
+    })
+
+    it('calls out a secret key sent to a publishable-only endpoint', async () => {
+      const error = await failWith(
+        { token: null, apikey: 'sb_secret_xyz' },
+        { auth: 'publishable', env: makeEnv() },
+      )
+      expect(error.code).toBe(InvalidApiKeyError)
+      expect(error.status).toBe(401)
+      expect(error.hint).toContain('only accepts publishable keys')
+      expect(error.details).toMatchObject({
+        received: { apikey: 'secret' },
+      })
+    })
+
+    it('calls out a publishable key sent to a secret-only endpoint', async () => {
+      const error = await failWith(
+        { token: null, apikey: 'sb_publishable_xyz' },
+        { auth: 'secret', env: makeEnv() },
+      )
+      expect(error.code).toBe(InvalidApiKeyError)
+      expect(error.hint).toContain('only accepts secret keys')
+    })
+
+    it('calls out a legacy JWT-style anon/service_role key', async () => {
+      const error = await failWith(
+        { token: null, apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.legacy' },
+        { auth: 'publishable', env: makeEnv() },
+      )
+      expect(error.code).toBe(InvalidApiKeyError)
+      expect(error.hint).toContain('legacy JWT-based key')
+      expect(error.details).toMatchObject({
+        received: { apikey: 'legacy-jwt' },
+      })
+    })
+
+    it('lists configured key names, never key values', async () => {
+      const error = await failWith(
+        { token: null, apikey: 'sb_publishable_nope' },
+        {
+          auth: 'publishable:*',
+          env: makeEnv({
+            publishableKeys: {
+              web: 'sb_publishable_web',
+              mobile: 'sb_publishable_mobile',
+            },
+          }),
+        },
+      )
+      expect(error.details).toMatchObject({
+        configuredKeyNames: { publishable: ['web', 'mobile'] },
+      })
+      const serialized = JSON.stringify(error.toJSON())
+      expect(serialized).toContain('web')
+      expect(serialized).not.toContain('sb_publishable_web')
+      expect(serialized).not.toContain('sb_publishable_nope')
+    })
+
+    it('reports a missing JWKS as a 500, not a 401', async () => {
+      const error = await failWith(
+        { token: 'header.payload.signature', apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: null }) },
+      )
+      expect(error.code).toBe(JwksNotConfiguredError)
+      expect(error.status).toBe(500)
+      expect(error.hint).toContain('SUPABASE_JWKS_URL')
+    })
+
+    it('reports an unmatched named key as a 500 misconfiguration', async () => {
+      const error = await failWith(
+        { token: null, apikey: 'sb_publishable_xyz' },
+        {
+          auth: 'publishable:mobile',
+          env: makeEnv({ publishableKeys: { default: 'sb_publishable_xyz' } }),
+        },
+      )
+      expect(error.code).toBe(NoKeysConfiguredError)
+      expect(error.status).toBe(500)
+      expect(error.message).toContain('"publishable:mobile"')
+      expect(error.hint).toContain('"default"')
+      expect(error.details).toMatchObject({
+        mode: 'publishable:mobile',
+        keyKind: 'publishable',
+      })
+    })
+
+    it('still lets a later mode match when an earlier one is unreachable', async () => {
+      // `publishable:mobile` can never match, but `secret` can — the
+      // misconfiguration must not short-circuit the chain.
+      const result = await verifyCredentials(
+        { token: null, apikey: 'sb_secret_xyz' },
+        {
+          auth: ['publishable:mobile', 'secret'],
+          env: makeEnv(),
+        },
+      )
+      expect(result.error).toBeNull()
+      expect(result.data!.authMode).toBe('secret')
+    })
+
+    it('stamps provenance on every error', async () => {
+      const error = await failWith(
+        { token: null, apikey: null },
+        { auth: 'user', env: makeEnv() },
+      )
+      expect(error.source).toBe('@supabase/server')
+      expect(error.message.startsWith('[@supabase/server] ')).toBe(true)
+      expect(error.docs).toContain('error-handling.md#missing_credentials')
     })
   })
 })

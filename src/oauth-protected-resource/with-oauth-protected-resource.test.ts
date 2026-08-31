@@ -738,7 +738,11 @@ describe('withOAuthProtectedResource - off-platform defaults fail loudly', () =>
       req('GET', '/api/mcp/oauth-protected-resource'),
     )
     await expect(call).rejects.toThrow(/resourceServer/)
-    await expect(call).rejects.toThrow(/withOAuthProtectedResource\(\)/)
+    // The message names what is missing; `hint` names how to supply it.
+    await expect(call).rejects.toMatchObject({
+      code: MissingResourceServerError,
+      hint: expect.stringMatching(/withOAuthProtectedResource\(\)/),
+    })
   })
 
   it('a fully configured stack never reaches the env at all', async () => {

@@ -53,9 +53,10 @@ export function createAdminClient<Database = unknown>(
   const secretKey =
     keys[name] ?? (keyName == null ? Object.values(keys)[0] : undefined)
   if (!secretKey) {
+    const configuredKeyNames = Object.keys(keys)
     throw name === 'default'
-      ? Errors[MissingDefaultSecretKeyError]()
-      : Errors[MissingSecretKeyError](name)
+      ? Errors[MissingDefaultSecretKeyError](configuredKeyNames)
+      : Errors[MissingSecretKeyError](name, configuredKeyNames)
   }
 
   // Sanitize auth headers — only the service-role key controls Authorization and apikey.
