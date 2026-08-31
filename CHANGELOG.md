@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.5.1](https://github.com/supabase/server/compare/server-v1.4.1...server-v1.5.1) (2026-08-31)
+
+
+### Features
+
+* `withOAuthProtectedResource` url config ([#117](https://github.com/supabase/server/issues/117)) ([11cce29](https://github.com/supabase/server/commit/11cce29d1a1dda312a72a17f496e369ebdb56b49))
+* add `withOAuthProtectedResource` ([#113](https://github.com/supabase/server/issues/113)) ([3908590](https://github.com/supabase/server/commit/39085907d163a434f18132639f92ab4b5082b5ab))
+* add withRequiredClaims user-mode auth gate ([#127](https://github.com/supabase/server/issues/127)) ([05a95b6](https://github.com/supabase/server/commit/05a95b6dcb69d74e9fddf5d57b8d8e04e72e6696))
+* **errors:** add self-identifying errors with hints and diagnostics ([#130](https://github.com/supabase/server/issues/130)) ([b8b086c](https://github.com/supabase/server/commit/b8b086c021b356d414c4e85ee8980594c4dc539e))
+* flow upstream ctx types through withSupabase nesting ([#119](https://github.com/supabase/server/issues/119)) ([f393c6e](https://github.com/supabase/server/commit/f393c6e7257fb103017d70a56e0437fcc7a9f060))
+* **middleware:** ship withPostgresClient and withPostgresAdminClient ([#115](https://github.com/supabase/server/issues/115)) ([77656ba](https://github.com/supabase/server/commit/77656bae3b76d37cebcf53a089230fe59c94161b))
+* validate middleware prereqs against Supabase context ([#126](https://github.com/supabase/server/issues/126)) ([1576369](https://github.com/supabase/server/commit/15763696d4600508e00402e08af80853bae14b42))
+* withSupabase on the @supabase/middleware engine ([#88](https://github.com/supabase/server/issues/88)) ([2b5d4fd](https://github.com/supabase/server/commit/2b5d4fd82e2b38e5de3b19c840b3ca1a9813d893))
+
+
+### Bug Fixes
+
+* construct supabaseAdmin lazily on first access ([#124](https://github.com/supabase/server/issues/124)) ([fbb652f](https://github.com/supabase/server/commit/fbb652f55e28669cc57f4319126b4734c9a40e6f))
+* declare pg and keep it out of the root CJS bundle ([#122](https://github.com/supabase/server/issues/122)) ([f05307f](https://github.com/supabase/server/commit/f05307ff4a6128940deb3151ef13b27bcf5c4116))
+* harden oauth-protected-resource header and URL edge cases ([#131](https://github.com/supabase/server/issues/131)) ([0c1a2b6](https://github.com/supabase/server/commit/0c1a2b67e4af10464104f963437b9061a4064684))
+* migrate `withOAuthProtectedResource` to `defineMiddleware` ([#116](https://github.com/supabase/server/issues/116)) ([04831ce](https://github.com/supabase/server/commit/04831cedcccedfdbdce99fbbaf6ee80fc8fc49b3))
+* report missing JWKS as ENV_ERROR in user-mode verification ([#128](https://github.com/supabase/server/issues/128)) ([9c064c5](https://github.com/supabase/server/commit/9c064c58df01f741b0941641245e81be3d15e350))
+* require node &gt;=22 to match @supabase/middleware ([#132](https://github.com/supabase/server/issues/132)) ([d60afcf](https://github.com/supabase/server/commit/d60afcfa113377d1f62d42d42c1eb0f6459d140d))
+
+
+### Miscellaneous Chores
+
+* force release 1.5.1 ([#133](https://github.com/supabase/server/issues/133)) ([0eed2d8](https://github.com/supabase/server/commit/0eed2d8a282d4acfb3d55a8546826a34551d11ee))
+* rewind phantom 1.5.0 version files ([#135](https://github.com/supabase/server/issues/135)) ([b9e3874](https://github.com/supabase/server/commit/b9e38740e465a6844cc383b974e01a11344703c7))
+
 ## [1.4.1](https://github.com/supabase/server/compare/server-v1.4.0...server-v1.4.1) (2026-07-22)
 
 
