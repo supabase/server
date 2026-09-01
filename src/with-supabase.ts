@@ -106,6 +106,9 @@ export function withSupabase<
  * on top. (This is the server leg of a Plugin: the package's middleware goes
  * here; its client namespace goes in `createClient`'s `plugins` array.)
  *
+ * > **Alpha.** The `middleware` option is in alpha, alongside
+ * > `@supabase/middleware` 0.x. Its shape may change between 0.x releases.
+ *
  * @example
  * ```ts
  * import { withSupabase } from '@supabase/server'
