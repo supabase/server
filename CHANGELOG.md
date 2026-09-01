@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.2](https://github.com/supabase/server/compare/server-v1.5.1...server-v1.5.2) (2026-09-01)
+
+
+### Bug Fixes
+
+* attach error listeners to pooled pg connections ([#136](https://github.com/supabase/server/issues/136)) ([c231b95](https://github.com/supabase/server/commit/c231b95e940d922af3986a81576fe55640f527d3))
+
 ## [1.5.1](https://github.com/supabase/server/compare/server-v1.4.1...server-v1.5.1) (2026-08-31)
 
 
