@@ -89,6 +89,25 @@ export function getPool(connectionString: string): pg.Pool {
   let pool = pools.get(connectionString)
   if (!pool) {
     pool = new Pool({ connectionString, max: 4 })
+    // A backend can die under any pooled connection at any time — pooler
+    // restart, failover, idle-connection reap. pg surfaces that as an 'error'
+    // event on the pool (idle client) or on the client itself (checked out
+    // with no query in flight), and an 'error' event with no listener is
+    // fatal to the whole process. Both listeners must exist so a dropped
+    // connection stays a per-request failure: the in-flight query rejects
+    // and the pool discards the dead client.
+    pool.on('error', (e) => {
+      console.error(
+        `[@supabase/server] postgres pool: idle connection lost (discarded): ${e.message}`,
+      )
+    })
+    pool.on('connect', (client) => {
+      client.on('error', (e) => {
+        console.error(
+          `[@supabase/server] postgres pool: connection lost: ${e.message}`,
+        )
+      })
+    })
     pools.set(connectionString, pool)
   }
   return pool
