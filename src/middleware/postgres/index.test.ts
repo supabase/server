@@ -17,10 +17,14 @@ const h = vi.hoisted(() => {
   return { issued, params, pooled, clientQuery, release, connect }
 })
 
-vi.mock('pg', () => {
-  class Pool {
+vi.mock('pg', async () => {
+  const { EventEmitter } = await import('node:events')
+  // Real pg pools are EventEmitters; getPool attaches 'error' and 'connect'
+  // listeners on construction, so the mock must accept them.
+  class Pool extends EventEmitter {
     connect = h.connect
     constructor(config: { connectionString: string }) {
+      super()
       h.pooled.push(config.connectionString)
     }
   }
