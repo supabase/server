@@ -231,7 +231,7 @@
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/platform-fastify": "^11.1.19",
     "@nestjs/testing": "^11.1.19",
-    "@supabase/supabase-js": "^2.105.4",
+    "@supabase/supabase-js": "^2.114.0",
     "@swc/core": "^1.15.33",
     "@types/node": "^26.0.1",
     "@types/pg": "^8.11.0",
