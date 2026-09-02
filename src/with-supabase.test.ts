@@ -852,12 +852,19 @@ describe('withSupabase error responses through middleware', () => {
       { auth: 'user', env: baseEnv, middleware: [withBoom()] },
       async () => Response.json({ ok: true }),
     )
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const res = await handler(new Request('http://localhost'))
     expect(res.status).toBe(401)
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('threw while the error response'),
+      expect.any(TypeError),
+    )
+    error.mockRestore()
   })
 
-  it('seeds null claims on the error path', async () => {
-    let observed: unknown = 'unset'
+  it('seeds null claims and no auth mode on the error path', async () => {
+    let observedClaims: unknown = 'unset'
+    let observedAuthMode: unknown = 'unset'
     const withProbe = defineMiddleware<
       'probe',
       undefined,
@@ -866,7 +873,8 @@ describe('withSupabase error responses through middleware', () => {
     >({
       key: 'probe',
       run: () => async (_req, ctx) => {
-        observed = (ctx as { jwtClaims?: unknown }).jwtClaims
+        observedClaims = (ctx as { jwtClaims?: unknown }).jwtClaims
+        observedAuthMode = (ctx as { authMode?: unknown }).authMode
         return { probe: true as const }
       },
     })
@@ -875,7 +883,8 @@ describe('withSupabase error responses through middleware', () => {
       async () => Response.json({ ok: true }),
     )
     await handler(new Request('http://localhost'))
-    expect(observed).toBeNull()
+    expect(observedClaims).toBeNull()
+    expect(observedAuthMode).toBeUndefined()
   })
 
   it('routes client-construction failures through the response phase', async () => {

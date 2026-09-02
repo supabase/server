@@ -109,11 +109,13 @@ export function withSupabase<
  * When `withSupabase` itself produces a response — an auth failure or a
  * client-construction failure — that response passes through the array's
  * response phase, so a generator entry can decorate it (headers, logging,
- * timing). On that path the context carries `userClaims`/`jwtClaims` as
- * verified (or `null` on auth failure) and no Supabase clients, and a
- * replacement response of a different status is discarded. A middleware that
- * must *answer* unauthenticated requests — OAuth discovery, custom
- * preflight — wraps around `withSupabase` instead of sitting in the array.
+ * timing). The auth-failure context carries `userClaims`/`jwtClaims` as
+ * `null` and omits `authMode`, `authKeyName`, and the Supabase clients — no
+ * caller was verified, so none of those exist. A replacement response of a
+ * different status is discarded, and an entry that throws on this path is
+ * logged and the response returned undecorated. A middleware that must
+ * *answer* unauthenticated requests — OAuth discovery, custom preflight —
+ * wraps around `withSupabase` instead of sitting in the array.
  *
  * > **Alpha.** The `middleware` option is in alpha, alongside
  * > `@supabase/middleware` 0.x. Its shape may change between 0.x releases.
@@ -232,7 +234,11 @@ export function withSupabase<Database = unknown>(
       try {
         const result = await folded(req, ctx)
         return result.status === original.status ? result : original
-      } catch {
+      } catch (err) {
+        console.error(
+          'withSupabase: a middleware entry threw while the error response passed through the response phase; the response is returned undecorated. Entries on this path see null claims and no Supabase clients.',
+          err,
+        )
         return original
       }
     }
