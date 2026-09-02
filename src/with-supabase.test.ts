@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { defineMiddleware, getEnv } from '@supabase/middleware'
+import { defineMiddleware, getEnv, pipeline } from '@supabase/middleware'
 import type { Entry, FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
@@ -903,6 +903,60 @@ describe('withSupabase error responses through middleware', () => {
     expect(seen).toEqual([500])
   })
 
+  it('keeps entry state across error-path requests', async () => {
+    let calls = 0
+    const withCounter = defineMiddleware<
+      'counter',
+      undefined,
+      Record<never, never>,
+      number
+    >({
+      key: 'counter',
+      run: () => {
+        let seen = 0
+        return async () => {
+          seen += 1
+          calls = seen
+          return { counter: seen }
+        }
+      },
+    })
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withCounter()] },
+      async () => Response.json({ ok: true }),
+    )
+    await handler(new Request('http://localhost'))
+    await handler(new Request('http://localhost'))
+    expect(calls).toBe(2)
+  })
+
+  it('restores error CORS headers on a same-status replacement', async () => {
+    const withReplace = defineMiddleware<
+      'replace',
+      undefined,
+      Record<never, never>,
+      true
+    >({
+      key: 'replace',
+      run: () =>
+        async function* () {
+          const res = yield { replace: true as const }
+          return new Response('shaped', { status: res.status })
+        },
+    })
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withReplace()] },
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+    expect(await res.text()).toBe('shaped')
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    expect(res.headers.get('Access-Control-Expose-Headers')).toContain(
+      ErrorCodeHeader,
+    )
+  })
+
   it('leaves responses untouched when the array is empty', async () => {
     const handler = withSupabase({ auth: 'user', env: baseEnv }, async () =>
       Response.json({ ok: true }),
@@ -980,6 +1034,26 @@ describe('withOAuthProtectedResource array-placement warning', () => {
     await handler(new Request('http://localhost/functions/v1/mcp'))
     await handler(new Request('http://localhost/functions/v1/mcp'))
     expect(placementWarnings(warn)).toHaveLength(1)
+    warn.mockRestore()
+  })
+
+  it('does not warn when an unrelated upstream entry contributes userClaims', async () => {
+    const withFakeClaims = defineMiddleware<
+      'userClaims',
+      undefined,
+      Record<never, never>,
+      null
+    >({
+      key: 'userClaims',
+      run: () => async () => ({ userClaims: null }),
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const handler = pipeline(
+      [withFakeClaims(), withOAuthProtectedResource(oauthCfg)],
+      async () => new Response('ok'),
+    )
+    await handler(new Request('http://localhost/functions/v1/mcp'))
+    expect(placementWarnings(warn)).toHaveLength(0)
     warn.mockRestore()
   })
 

@@ -14,8 +14,11 @@ import type {
   UpstreamAuth,
   WithSupabaseConfig,
 } from './types.js'
+import { withSupabaseCtxMarker } from './core/composition-marker.js'
 import { isContext, seedContext } from '@supabase/middleware'
 import type { BaseContext, Entry, ValidateEntries } from '@supabase/middleware'
+
+const originalResponseKey = Symbol('withSupabase.originalResponse')
 
 type AnyEntry = Entry<string, object, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,13 +112,18 @@ export function withSupabase<
  * When `withSupabase` itself produces a response — an auth failure or a
  * client-construction failure — that response passes through the array's
  * response phase, so a generator entry can decorate it (headers, logging,
- * timing). The auth-failure context carries `userClaims`/`jwtClaims` as
- * `null` and omits `authMode`, `authKeyName`, and the Supabase clients — no
- * caller was verified, so none of those exist. A replacement response of a
- * different status is discarded, and an entry that throws on this path is
- * logged and the response returned undecorated. A middleware that must
- * *answer* unauthenticated requests — OAuth discovery, custom preflight —
- * wraps around `withSupabase` instead of sitting in the array.
+ * timing). Entries' request phases run for these responses too — the seam
+ * is a resumed generator — so a side-effecting entry (rate limiting, audit
+ * logging) observes unauthenticated requests, with its state shared with
+ * the success path (the chain folds once). The auth-failure context carries
+ * `userClaims`/`jwtClaims` as `null` and omits `authMode`, `authKeyName`,
+ * and the Supabase clients — no caller was verified, so none of those
+ * exist. A replacement response of a different status is discarded; a
+ * same-status replacement keeps the error CORS headers where the entry set
+ * none of its own; and an entry that throws on this path is logged and the
+ * response returned undecorated. A middleware that must *answer*
+ * unauthenticated requests — OAuth discovery, custom preflight — wraps
+ * around `withSupabase` instead of sitting in the array.
  *
  * > **Alpha.** The `middleware` option is in alpha, alongside
  * > `@supabase/middleware` 0.x. Its shape may change between 0.x releases.
@@ -187,10 +195,22 @@ export function withSupabase<Database = unknown>(
       supabaseOptions: config.supabaseOptions,
     }) as AnyEntry,
   ]
-  // The user's middleware and handler fold once at wrap time.
+  // The user's middleware and handler fold once at wrap time — entry state
+  // (rate-limit counters, caches) lives in closures created here, so every
+  // request, including one carrying an error response, reaches the same
+  // entry instances. The terminal serves both paths: normally it is the
+  // user handler; when the context carries a response withSupabase built
+  // itself (auth failure, client-construction failure), the chain is
+  // re-entered only to shape that response, and the terminal returns it.
+  // A symbol key keeps the response off the entries' typed context and
+  // makes concurrent requests race-free (no shared slot).
+  const userTerminal: AnyHandler = (r, ctx) =>
+    originalResponseKey in ctx
+      ? Promise.resolve((ctx as Record<symbol, Response>)[originalResponseKey])
+      : handler(r, ctx)
   const userComposed = (config.middleware ?? []).reduceRight<AnyHandler>(
     (h, entry) => entry(h),
-    handler,
+    userTerminal,
   )
 
   return async (req: Request, platformArg?: unknown) => {
@@ -225,15 +245,24 @@ export function withSupabase<Database = unknown>(
       original: Response,
       ctx: object,
     ): Promise<Response> => {
-      const entries = config.middleware ?? []
-      if (entries.length === 0) return original
-      const folded = entries.reduceRight<AnyHandler>(
-        (h, entry) => entry(h),
-        async () => original,
-      )
+      if ((config.middleware ?? []).length === 0) return original
       try {
-        const result = await folded(req, ctx)
-        return result.status === original.status ? result : original
+        const result = await userComposed(req, {
+          ...ctx,
+          [withSupabaseCtxMarker]: true,
+          [originalResponseKey]: original,
+        })
+        if (result.status !== original.status) return original
+        if (result === original) return result
+        // A same-status replacement is a fresh Response, so the error CORS
+        // headers (and the exposed error-code header) are re-applied where
+        // the entry did not set its own values — a decorated 401 must stay
+        // readable cross-origin.
+        const restored = new Response(result.body, result)
+        for (const [key, value] of Object.entries(errorHeaders())) {
+          if (!restored.headers.has(key)) restored.headers.set(key, value)
+        }
+        return restored
       } catch (err) {
         console.error(
           'withSupabase: a middleware entry threw while the error response passed through the response phase; the response is returned undecorated. Entries on this path see null claims and no Supabase clients.',
@@ -302,6 +331,7 @@ export function withSupabase<Database = unknown>(
         userClaims: auth.userClaims,
         jwtClaims: auth.jwtClaims,
         ...upstreamAuth,
+        [withSupabaseCtxMarker]: true,
       })
     } catch (e) {
       // Client-phase construction failures map to JSON error responses:

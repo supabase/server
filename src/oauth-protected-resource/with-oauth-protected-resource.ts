@@ -1,6 +1,7 @@
 import { defineMiddleware } from '@supabase/middleware'
 import type { Middleware } from '@supabase/middleware'
 
+import { withSupabaseCtxMarker } from '../core/composition-marker.js'
 import { resourceMetadataResponse } from './responses.js'
 import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
 import type { UrlOption } from './url.js'
@@ -142,11 +143,11 @@ export const withOAuthProtectedResource: Middleware<
   key: 'oauthProtectedResource',
   run: (config) =>
     async function* (req, ctx) {
-      // `userClaims` / `authMode` on the upstream context mean this middleware
-      // sits inside `withSupabase`'s post-auth array, where the auth gate
-      // answers discovery and preflight requests before this middleware can
-      // serve them. The supported placement wraps `withSupabase`.
-      if (!warnedArrayPlacement && ('userClaims' in ctx || 'authMode' in ctx)) {
+      // The marker identifies a context assembled by `withSupabase` for its
+      // post-auth array, where the auth gate answers discovery and preflight
+      // requests before this middleware can serve them. The supported
+      // placement wraps `withSupabase`.
+      if (!warnedArrayPlacement && withSupabaseCtxMarker in ctx) {
         warnedArrayPlacement = true
         console.warn(
           'withOAuthProtectedResource is inside a withSupabase middleware array, where OAuth discovery and CORS preflight cannot be served. Wrap it around withSupabase instead: withOAuthProtectedResource(config, withSupabase(config, handler)).',
