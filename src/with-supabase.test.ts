@@ -955,6 +955,35 @@ describe('withSupabase error responses through middleware', () => {
     expect(res.headers.get('Access-Control-Expose-Headers')).toContain(
       ErrorCodeHeader,
     )
+    expect(res.headers.get(ErrorCodeHeader)).toBe(MissingCredentialsError)
+    expect(res.headers.get('Content-Type')).not.toContain('application/json')
+  })
+
+  it('rebuilds the body when an entry drains it for logging', async () => {
+    const withDrain = defineMiddleware<
+      'drain',
+      undefined,
+      Record<never, never>,
+      true
+    >({
+      key: 'drain',
+      run: () =>
+        async function* () {
+          const res = yield { drain: true as const }
+          await res.text()
+          res.headers.set('x-logged', 'yes')
+          return res
+        },
+    })
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withDrain()] },
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+    expect(res.headers.get('x-logged')).toBe('yes')
+    const body = await res.json()
+    expect(body.code).toBe(MissingCredentialsError)
   })
 
   it('leaves responses untouched when the array is empty', async () => {

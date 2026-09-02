@@ -118,10 +118,13 @@ export function withSupabase<
  * the success path (the chain folds once). The auth-failure context carries
  * `userClaims`/`jwtClaims` as `null` and omits `authMode`, `authKeyName`,
  * and the Supabase clients — no caller was verified, so none of those
- * exist. A replacement response of a different status is discarded; a
- * same-status replacement keeps the error CORS headers where the entry set
- * none of its own; and an entry that throws on this path is logged and the
- * response returned undecorated. A middleware that must *answer*
+ * exist. A client-construction failure keeps the verified claims and
+ * `authMode`/`authKeyName`; only the clients are absent. A replacement
+ * response of a different status is discarded; a same-status replacement
+ * keeps the error response's headers (CORS, the error-code header) where
+ * the entry set no value of its own; a drained body is rebuilt; and an
+ * entry that throws on this path is logged and the response returned
+ * undecorated. A middleware that must *answer*
  * unauthenticated requests — OAuth discovery, custom preflight — wraps
  * around `withSupabase` instead of sitting in the array.
  *
@@ -241,34 +244,53 @@ export function withSupabase<Database = unknown>(
     // clients. The composed result is kept only when it has the same status
     // as the original: the array may shape an error response, never
     // commandeer it. An entry that throws here falls back to the original.
+    // `makeOriginal` rebuilds the error response on demand: an entry may
+    // legitimately drain the response body (logging), and a drained body
+    // cannot be re-sent — every fallback and reconstruction path needs a
+    // fresh copy, never the instance the entries touched.
     const respondThroughMiddleware = async (
-      original: Response,
+      makeOriginal: () => Response,
       ctx: object,
     ): Promise<Response> => {
-      if ((config.middleware ?? []).length === 0) return original
+      if ((config.middleware ?? []).length === 0) return makeOriginal()
+      const original = makeOriginal()
       try {
         const result = await userComposed(req, {
           ...ctx,
           [withSupabaseCtxMarker]: true,
           [originalResponseKey]: original,
         })
-        if (result.status !== original.status) return original
-        if (result === original) return result
-        // A same-status replacement is a fresh Response, so the error CORS
-        // headers (and the exposed error-code header) are re-applied where
-        // the entry did not set its own values — a decorated 401 must stay
-        // readable cross-origin.
-        const restored = new Response(result.body, result)
-        for (const [key, value] of Object.entries(errorHeaders())) {
-          if (!restored.headers.has(key)) restored.headers.set(key, value)
+        if (result.status !== original.status) return makeOriginal()
+        if (result === original) {
+          if (!result.bodyUsed) return result
+          // An entry read the body and returned the same instance: the
+          // decorated headers are kept, the body comes from a fresh copy.
+          return new Response(makeOriginal().body, {
+            status: result.status,
+            statusText: result.statusText,
+            headers: result.headers,
+          })
         }
+        // A drained same-status replacement cannot be sent at all.
+        if (result.bodyUsed) return makeOriginal()
+        // A same-status replacement is a fresh Response, so the error
+        // response's headers (CORS, the exposed error-code header) are
+        // re-applied where the entry set no value of its own — a shaped 401
+        // must stay readable cross-origin and keep its machine-readable
+        // code. Body-derived headers stay the replacement's own.
+        const restored = new Response(result.body, result)
+        makeOriginal().headers.forEach((value, key) => {
+          const name = key.toLowerCase()
+          if (name === 'content-type' || name === 'content-length') return
+          if (!restored.headers.has(key)) restored.headers.set(key, value)
+        })
         return restored
       } catch (err) {
         console.error(
           'withSupabase: a middleware entry threw while the error response passed through the response phase; the response is returned undecorated. Entries on this path see null claims and no Supabase clients.',
           err,
         )
-        return original
+        return makeOriginal()
       }
     }
 
@@ -294,10 +316,11 @@ export function withSupabase<Database = unknown>(
     })
     if (error) {
       return respondThroughMiddleware(
-        errorResponse(error, {
-          headers: errorHeaders(),
-          errors: config.errors,
-        }),
+        () =>
+          errorResponse(error, {
+            headers: errorHeaders(),
+            errors: config.errors,
+          }),
         { ...baseContext, userClaims: null, jwtClaims: null },
       )
     }
@@ -354,10 +377,11 @@ export function withSupabase<Database = unknown>(
             : null
       if (!mapped) throw e
       return respondThroughMiddleware(
-        errorResponse(mapped, {
-          headers: errorHeaders(),
-          errors: config.errors,
-        }),
+        () =>
+          errorResponse(mapped, {
+            headers: errorHeaders(),
+            errors: config.errors,
+          }),
         {
           ...baseContext,
           userClaims: auth.userClaims,
