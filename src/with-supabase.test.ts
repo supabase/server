@@ -14,7 +14,10 @@ import {
 import type { WithSupabaseConfig } from './types.js'
 import { withClaims } from './middleware/claims/index.js'
 import { withPostgresClient } from './middleware/postgres/index.js'
-import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
+import {
+  withOAuthProtectedResource,
+  _resetOAuthPlacementWarned,
+} from './oauth-protected-resource/with-oauth-protected-resource.js'
 import { withSupabase } from './with-supabase.js'
 
 const baseEnv = {
@@ -775,5 +778,213 @@ describe('type guarantees (tsc-verified)', () => {
       },
     )
     void _handler
+  })
+})
+
+describe('withSupabase error responses through middleware', () => {
+  const stampProbe = () => {
+    const seen: number[] = []
+    const withStamp = defineMiddleware<
+      'stamp',
+      undefined,
+      Record<never, never>,
+      true
+    >({
+      key: 'stamp',
+      run: () =>
+        async function* () {
+          const res = yield { stamp: true as const }
+          seen.push(res.status)
+          res.headers.set('x-stamped', 'yes')
+          return res
+        },
+    })
+    return { withStamp, seen }
+  }
+
+  it('routes auth-failure responses through the response phase', async () => {
+    const { withStamp, seen } = stampProbe()
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withStamp()] },
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+    expect(res.headers.get('x-stamped')).toBe('yes')
+    expect(seen).toEqual([401])
+  })
+
+  it('discards a middleware response of a different status on the error path', async () => {
+    const withHijack = defineMiddleware<
+      'hijack',
+      undefined,
+      Record<never, never>,
+      true
+    >({
+      key: 'hijack',
+      run: () => async () => new Response('cached', { status: 200 }),
+    })
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withHijack()] },
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+    expect(await res.text()).not.toBe('cached')
+  })
+
+  it('falls back to the plain error response when an entry throws on the error path', async () => {
+    const withBoom = defineMiddleware<
+      'boom',
+      undefined,
+      Record<never, never>,
+      true
+    >({
+      key: 'boom',
+      run: () => async (_req, ctx) => {
+        void (
+          ctx as { supabase: { from: (t: string) => unknown } }
+        ).supabase.from('items')
+        return { boom: true as const }
+      },
+    })
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withBoom()] },
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+  })
+
+  it('seeds null claims on the error path', async () => {
+    let observed: unknown = 'unset'
+    const withProbe = defineMiddleware<
+      'probe',
+      undefined,
+      Record<never, never>,
+      true
+    >({
+      key: 'probe',
+      run: () => async (_req, ctx) => {
+        observed = (ctx as { jwtClaims?: unknown }).jwtClaims
+        return { probe: true as const }
+      },
+    })
+    const handler = withSupabase(
+      { auth: 'user', env: baseEnv, middleware: [withProbe()] },
+      async () => Response.json({ ok: true }),
+    )
+    await handler(new Request('http://localhost'))
+    expect(observed).toBeNull()
+  })
+
+  it('routes client-construction failures through the response phase', async () => {
+    const { withStamp, seen } = stampProbe()
+    const handler = withSupabase(
+      {
+        auth: 'none',
+        env: { ...baseEnv, publishableKeys: {} },
+        middleware: [withStamp()],
+      },
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(500)
+    expect(res.headers.get('x-stamped')).toBe('yes')
+    expect(seen).toEqual([500])
+  })
+
+  it('leaves responses untouched when the array is empty', async () => {
+    const handler = withSupabase({ auth: 'user', env: baseEnv }, async () =>
+      Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('withOAuthProtectedResource inside the middleware array', () => {
+  const oauthCfg = {
+    resourceServer: 'http://localhost/functions/v1/mcp',
+    authorizationServer: 'https://test.supabase.co/auth/v1',
+  }
+
+  it('enriches an auth 401 with WWW-Authenticate', async () => {
+    const handler = withSupabase(
+      {
+        auth: 'user',
+        env: baseEnv,
+        middleware: [withOAuthProtectedResource(oauthCfg)],
+      },
+      async () => new Response('handler ran'),
+    )
+    const res = await handler(
+      new Request('http://localhost/functions/v1/mcp', { method: 'POST' }),
+    )
+    expect(res.status).toBe(401)
+    expect(res.headers.get('WWW-Authenticate')).toContain('resource_metadata')
+  })
+
+  it('does not serve discovery from inside the array (wrap form owns discovery)', async () => {
+    const handler = withSupabase(
+      {
+        auth: 'user',
+        env: baseEnv,
+        middleware: [withOAuthProtectedResource(oauthCfg)],
+      },
+      async () => new Response('handler ran'),
+    )
+    const res = await handler(
+      new Request(
+        'http://localhost/functions/v1/mcp/.well-known/oauth-protected-resource',
+      ),
+    )
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('withOAuthProtectedResource array-placement warning', () => {
+  const oauthCfg = {
+    resourceServer: 'http://localhost/functions/v1/mcp',
+    authorizationServer: 'https://test.supabase.co/auth/v1',
+  }
+
+  beforeEach(() => {
+    _resetOAuthPlacementWarned()
+  })
+
+  const placementWarnings = (warn: { mock: { calls: unknown[][] } }) =>
+    warn.mock.calls.filter(([msg]) =>
+      String(msg).includes('withOAuthProtectedResource'),
+    )
+
+  it('warns once when placed inside a withSupabase middleware array', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const handler = withSupabase(
+      {
+        auth: 'none',
+        env: baseEnv,
+        middleware: [withOAuthProtectedResource(oauthCfg)],
+      },
+      async () => new Response('ok'),
+    )
+    await handler(new Request('http://localhost/functions/v1/mcp'))
+    await handler(new Request('http://localhost/functions/v1/mcp'))
+    expect(placementWarnings(warn)).toHaveLength(1)
+    warn.mockRestore()
+  })
+
+  it('does not warn in the wrap form', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const handler = withOAuthProtectedResource(
+      oauthCfg,
+      withSupabase(
+        { auth: 'none', env: baseEnv },
+        async () => new Response('ok'),
+      ),
+    )
+    await handler(new Request('http://localhost/functions/v1/mcp'))
+    expect(placementWarnings(warn)).toHaveLength(0)
+    warn.mockRestore()
   })
 })

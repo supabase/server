@@ -106,6 +106,15 @@ export function withSupabase<
  * on top. (This is the server leg of a Plugin: the package's middleware goes
  * here; its client namespace goes in `createClient`'s `plugins` array.)
  *
+ * When `withSupabase` itself produces a response — an auth failure or a
+ * client-construction failure — that response passes through the array's
+ * response phase, so a generator entry can decorate it (headers, logging,
+ * timing). On that path the context carries `userClaims`/`jwtClaims` as
+ * verified (or `null` on auth failure) and no Supabase clients, and a
+ * replacement response of a different status is discarded. A middleware that
+ * must *answer* unauthenticated requests — OAuth discovery, custom
+ * preflight — wraps around `withSupabase` instead of sitting in the array.
+ *
  * > **Alpha.** The `middleware` option is in alpha, alongside
  * > `@supabase/middleware` 0.x. Its shape may change between 0.x releases.
  *
@@ -202,6 +211,32 @@ export function withSupabase<Database = unknown>(
       }
     }
 
+    // withSupabase's own responses (auth failure, client-construction
+    // failure) pass through the user middleware's response phase, so a
+    // response-seam entry can decorate them on the way out. The engine's
+    // seam is a resumed generator, so entries' request phases run too — on
+    // the auth-failure path the context carries null claims and no Supabase
+    // clients. The composed result is kept only when it has the same status
+    // as the original: the array may shape an error response, never
+    // commandeer it. An entry that throws here falls back to the original.
+    const respondThroughMiddleware = async (
+      original: Response,
+      ctx: object,
+    ): Promise<Response> => {
+      const entries = config.middleware ?? []
+      if (entries.length === 0) return original
+      const folded = entries.reduceRight<AnyHandler>(
+        (h, entry) => entry(h),
+        async () => original,
+      )
+      try {
+        const result = await folded(req, ctx)
+        return result.status === original.status ? result : original
+      } catch {
+        return original
+      }
+    }
+
     if (!isCorsDisabled(config.cors) && req.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -209,17 +244,35 @@ export function withSupabase<Database = unknown>(
       })
     }
 
+    // As the entry point, `platformArg` is the host env — seed a context from
+    // it (captured behind getEnv). Nested under another middleware, it's an
+    // already-seeded context: reuse it, or reseeding would clobber the platform
+    // env and drop upstream ctx keys.
+    const baseContext = isContext(platformArg)
+      ? platformArg
+      : seedContext(platformArg)
+
     const { data: auth, error } = await verifyAuth(req, {
       auth: config.auth,
       allow: config.allow,
       env: config.env,
     })
     if (error) {
-      return errorResponse(error, {
-        headers: errorHeaders(),
-        errors: config.errors,
-      })
+      return respondThroughMiddleware(
+        errorResponse(error, {
+          headers: errorHeaders(),
+          errors: config.errors,
+        }),
+        { ...baseContext, userClaims: null, jwtClaims: null },
+      )
     }
+
+    // The client entries read these two keys back off the context;
+    // `satisfies` holds the seed to that shape without widening it.
+    const upstreamAuth = {
+      authMode: auth.authMode,
+      authKeyName: auth.keyName ?? undefined,
+    } satisfies UpstreamAuth
 
     // Track whether the request has moved past the client entries: only
     // client-phase construction failures (the `supabase` entry) map to JSON
@@ -238,19 +291,6 @@ export function withSupabase<Database = unknown>(
 
     let response: Response
     try {
-      // As the entry point, `platformArg` is the host env — seed a context from
-      // it (captured behind getEnv). Nested under another middleware, it's an
-      // already-seeded context: reuse it, or reseeding would clobber the platform
-      // env and drop upstream ctx keys.
-      const baseContext = isContext(platformArg)
-        ? platformArg
-        : seedContext(platformArg)
-      // The client entries read these two keys back off the context;
-      // `satisfies` holds the seed to that shape without widening it.
-      const upstreamAuth = {
-        authMode: auth.authMode,
-        authKeyName: auth.keyName ?? undefined,
-      } satisfies UpstreamAuth
       response = await composed(req, {
         ...baseContext,
         userClaims: auth.userClaims,
@@ -277,10 +317,18 @@ export function withSupabase<Database = unknown>(
             ? e
             : null
       if (!mapped) throw e
-      return errorResponse(mapped, {
-        headers: errorHeaders(),
-        errors: config.errors,
-      })
+      return respondThroughMiddleware(
+        errorResponse(mapped, {
+          headers: errorHeaders(),
+          errors: config.errors,
+        }),
+        {
+          ...baseContext,
+          userClaims: auth.userClaims,
+          jwtClaims: auth.jwtClaims,
+          ...upstreamAuth,
+        },
+      )
     }
 
     if (!isCorsDisabled(config.cors)) {

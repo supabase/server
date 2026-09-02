@@ -42,6 +42,18 @@ export interface OAuthProtectedResourceConfig {
   authorizationServer?: UrlOption
 }
 
+let warnedArrayPlacement = false
+
+/**
+ * Test-only helper to reset the one-shot array-placement warning latch so
+ * each test can independently observe the warning.
+ *
+ * @internal
+ */
+export function _resetOAuthPlacementWarned(): void {
+  warnedArrayPlacement = false
+}
+
 /**
  * Wraps a request handler with OAuth 2.1 Protected Resource behavior (RFC 9728).
  *
@@ -65,6 +77,13 @@ export interface OAuthProtectedResourceConfig {
  * downstream context. Nested under `withSupabase`, the key is typed on the
  * handler's `ctx` when the outermost call is anchored with
  * `satisfies FetchHandler` — see `withSupabase`'s type note.
+ *
+ * Compose the wrap form shown below, or its flat spelling —
+ * `pipeline([withOAuthProtectedResource(config)], withSupabase(config, handler))`
+ * — which folds to the same composition. Inside `withSupabase`'s `middleware`
+ * array the auth gate answers discovery and preflight requests before this
+ * middleware sees them; only the `WWW-Authenticate` enrichment survives
+ * there, and a runtime warning is emitted.
  *
  * @category Middleware
  *
@@ -122,7 +141,18 @@ export const withOAuthProtectedResource: Middleware<
 >({
   key: 'oauthProtectedResource',
   run: (config) =>
-    async function* (req) {
+    async function* (req, ctx) {
+      // `userClaims` / `authMode` on the upstream context mean this middleware
+      // sits inside `withSupabase`'s post-auth array, where the auth gate
+      // answers discovery and preflight requests before this middleware can
+      // serve them. The supported placement wraps `withSupabase`.
+      if (!warnedArrayPlacement && ('userClaims' in ctx || 'authMode' in ctx)) {
+        warnedArrayPlacement = true
+        console.warn(
+          'withOAuthProtectedResource is inside a withSupabase middleware array, where OAuth discovery and CORS preflight cannot be served. Wrap it around withSupabase instead: withOAuthProtectedResource(config, withSupabase(config, handler)).',
+        )
+      }
+
       const url = new URL(req.url)
       // The metadata document lives at `{resource}/oauth-protected-resource`.
       // Matching on the suffix keeps this working wherever the endpoint is
