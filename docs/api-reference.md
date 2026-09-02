@@ -21,6 +21,8 @@ Wraps a fetch handler with auth, CORS, and client creation. Returns a `(req: Req
 - Verifies credentials per `config.auth`
 - Returns JSON error response on auth failure
 - Adds CORS headers to all responses
+- Composes a `middleware: [...]` array of entries after auth and client creation; entries receive `ctx.supabase`, `ctx.jwtClaims`, and the rest already present
+- Auth and client-creation error responses pass through the array's response phase, so a generator entry can decorate them (same-status only; drained bodies are rebuilt; a throwing entry is logged and the response returned undecorated). A middleware that must answer unauthenticated requests wraps around `withSupabase` instead — see [Placement](#placement).
 
 ### createSupabaseContext
 
@@ -389,6 +391,68 @@ interface WithPostgresAdminClientConfig {
 ```
 
 Defaults to the `SUPABASE_DB_URL` environment variable.
+
+---
+
+## @supabase/server/oauth-protected-resource
+
+### withOAuthProtectedResource
+
+```ts
+const withOAuthProtectedResource: Middleware<
+  'oauthProtectedResource',
+  OAuthProtectedResourceConfig | undefined,
+  Record<never, never>,
+  OAuthProtectedResourceContribution
+>
+```
+
+Wraps a handler with OAuth 2.1 Protected Resource behavior (RFC 9728):
+
+- Serves the Protected Resource Metadata document at `GET {resource}/oauth-protected-resource`, including a permissive preflight for that route that allows `mcp-protocol-version`
+- Enriches a downstream `401` with `WWW-Authenticate: Bearer resource_metadata="…"` unless the response already carries one
+- Passes every other request through unchanged
+
+Contributes `ctx.oauthProtectedResource` (the resolved metadata URL) downstream. Zero-config on Supabase Edge Functions; elsewhere `resourceServer` is required and `authorizationServer` falls back to `SUPABASE_URL`-derived values (each throws an `EnvError` when unresolvable).
+
+### Placement
+
+Discovery and preflight are answered from the request phase, before any authentication, so the middleware wraps **around** `withSupabase` — outside the auth gate:
+
+```ts
+withOAuthProtectedResource(config, withSupabase({ auth: 'user' }, handler))
+```
+
+or, as a flat pipeline:
+
+```ts
+pipeline(
+  [withOAuthProtectedResource(config)],
+  withSupabase({ auth: 'user' }, handler),
+)
+```
+
+Inside `withSupabase`'s `middleware` array the auth gate runs first and answers discovery and preflight itself, so only part of the behavior works there:
+
+| Behavior                                        | Wrap / `pipeline` | Inside `middleware: [...]`                                                                   |
+| ----------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
+| `WWW-Authenticate` on `401` responses           | Yes               | Yes                                                                                          |
+| Discovery (`GET …/oauth-protected-resource`)    | Yes               | No — the auth gate returns `401 MISSING_CREDENTIALS` first                                   |
+| Metadata-route preflight `mcp-protocol-version` | Yes               | No — the generic preflight answers first; workaround: add the header via `cors: { headers }` |
+| Authenticated requests                          | Yes               | Yes                                                                                          |
+
+Array placement emits a once-per-process `console.warn` naming the wrap form.
+
+### OAuthProtectedResourceConfig
+
+```ts
+interface OAuthProtectedResourceConfig {
+  resourceServer?: UrlOption
+  authorizationServer?: UrlOption
+}
+```
+
+Both options accept a fixed string or a function of the request. `fromSupabaseUrl(url)` builds an `authorizationServer` for a specific project.
 
 ---
 
