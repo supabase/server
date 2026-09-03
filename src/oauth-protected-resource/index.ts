@@ -1,5 +1,12 @@
 /**
- * OAuth 2.1 Protected Resource middleware (RFC 9728) for Supabase Edge Functions.
+ * **Alpha.** OAuth 2.1 Protected Resource middleware (RFC 9728) for Supabase
+ * Edge Functions.
+ *
+ * The OAuth Protected Resource surface is alpha — the config shape, the
+ * contributed context key, and the metadata route may change in a minor
+ * release.
+ *
+ * @alpha
  * @module
  * @packageDocumentation
  */

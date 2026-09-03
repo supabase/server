@@ -56,12 +56,17 @@ function resolveRole(claims: RequestClaims | null): string | Response {
 }
 
 /**
- * Minimal claims shape {@link withPostgresClient} needs on the upstream context.
+ * **Alpha.** Minimal claims shape {@link withPostgresClient} needs on the
+ * upstream context.
  *
  * Satisfied both by `withSupabase`'s JWKS-verified `ctx.jwtClaims` and by the
  * standalone `withClaims` middleware — `withPostgresClient` only reads `role`
  * and serializes the whole object into `request.jwt.claims`.
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export interface RequestClaims {
@@ -70,8 +75,12 @@ export interface RequestClaims {
 }
 
 /**
- * Configuration for {@link withPostgresClient}.
+ * **Alpha.** Configuration for {@link withPostgresClient}.
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export interface WithPostgresClientConfig {
@@ -80,10 +89,11 @@ export interface WithPostgresClientConfig {
 }
 
 /**
- * Contributes `ctx.postgres` — an RLS-scoped `pg` client, the safe version of
- * "authenticate, then query as the user". This is the direct-connection
- * counterpart to `withSupabaseClient`, and its service-role companion is
- * `withPostgresAdminClient` (`@supabase/server/middleware/postgres-admin`).
+ * **Alpha.** Contributes `ctx.postgres` — an RLS-scoped `pg` client, the safe
+ * version of "authenticate, then query as the user". This is the
+ * direct-connection counterpart to `withSupabaseClient`, and its service-role
+ * companion is `withPostgresAdminClient`
+ * (`@supabase/server/middleware/postgres-admin`).
  *
  * Every query runs in its own short transaction that injects the caller's
  * claims and drops to their role, exactly like PostgREST:
@@ -127,6 +137,10 @@ export interface WithPostgresClientConfig {
  * > **Runtime note.** `pg` needs raw TCP, so this runs on Node/Deno (including
  * > the Supabase Edge runtime), **not** on Workers-style isolates.
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export const withPostgresClient: Middleware<

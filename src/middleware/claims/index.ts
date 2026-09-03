@@ -15,8 +15,12 @@ import {
 import type { JWTClaims } from '../../types.js'
 
 /**
- * Configuration for {@link withClaims}.
+ * **Alpha.** Configuration for {@link withClaims}.
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export interface WithClaimsConfig {
@@ -29,9 +33,9 @@ export interface WithClaimsConfig {
 }
 
 /**
- * Contributes `ctx.jwtClaims` by verifying the caller's Bearer token against
- * the project JWKS — the same verification core `withSupabase` uses for its
- * `user` auth mode.
+ * **Alpha.** Contributes `ctx.jwtClaims` by verifying the caller's Bearer
+ * token against the project JWKS — the same verification core `withSupabase`
+ * uses for its `user` auth mode.
  *
  * Use this when composing a standalone `pipeline([...], handler)` that is
  * **not** wrapped by `withSupabase` — for example a Supabase-agnostic Edge
@@ -70,6 +74,10 @@ export interface WithClaimsConfig {
  * }
  * ```
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export const withClaims: Middleware<
