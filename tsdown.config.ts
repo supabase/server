@@ -16,6 +16,7 @@ export default defineConfig({
     'src/middleware/client/index.ts',
     'src/middleware/admin-client/index.ts',
     'src/oauth-protected-resource/index.ts',
+    'src/mcp/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
@@ -26,5 +27,6 @@ export default defineConfig({
     'elysia',
     '@nestjs/common',
     'pg',
+    '@modelcontextprotocol/server',
   ],
 })

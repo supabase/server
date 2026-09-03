@@ -9,7 +9,11 @@ import {
   MissingDefaultSecretKeyError,
   MissingSecretKeyError,
   MissingSupabaseURLError,
+  SpecFetchFailedError,
   SupabaseServerError,
+  ToolGenerationError,
+  ToolGenerationGenericError,
+  ToolNameCollisionError,
 } from './errors.js'
 
 describe('SupabaseServerError', () => {
@@ -138,5 +142,60 @@ describe('Errors factory map', () => {
     )
     expect(Errors[InvalidCredentialsError]().code).toBe(InvalidCredentialsError)
     expect(Errors[InvalidCredentialsError]().status).toBe(401)
+  })
+})
+
+describe('ToolGenerationError', () => {
+  it('is a SupabaseServerError that is always a 500', () => {
+    const error = new ToolGenerationError('nope')
+    expect(error).toBeInstanceOf(SupabaseServerError)
+    expect(error).toBeInstanceOf(Error)
+    expect(error).not.toBeInstanceOf(EnvError)
+    expect(error).not.toBeInstanceOf(AuthError)
+    expect(error.name).toBe('ToolGenerationError')
+    expect(error.status).toBe(500)
+    expect(error.code).toBe(ToolGenerationGenericError)
+    expect(error.message).toBe('[@supabase/server] nope')
+  })
+
+  it('builds a SPEC_FETCH_FAILED error for each failure shape', () => {
+    const unsupported = Errors[SpecFetchFailedError]({
+      reason: 'unsupported-client',
+    })
+    expect(unsupported.code).toBe(SpecFetchFailedError)
+    expect(unsupported.hint).toContain('2.115.0')
+    expect(unsupported.docs).toBe(
+      'https://github.com/supabase/server/blob/main/docs/error-handling.md#spec_fetch_failed',
+    )
+
+    const cause = new Error('boom')
+    const request = Errors[SpecFetchFailedError]({
+      reason: 'request',
+      status: 404,
+      message: 'Not Found',
+      cause,
+    })
+    expect(request.message).toContain('(HTTP 404): Not Found')
+    expect(request.details).toEqual({ status: 404 })
+    expect(request.cause).toBe(cause)
+
+    const malformed = Errors[SpecFetchFailedError]({ reason: 'malformed' })
+    expect(malformed.details).toBeUndefined()
+    expect(malformed.toJSON()).not.toHaveProperty('details')
+  })
+
+  it('builds a TOOL_NAME_COLLISION error naming both operations', () => {
+    const error = Errors[ToolNameCollisionError]({
+      name: 'list_notes',
+      operations: ['relation "notes" (GET)', 'function "list_notes" (POST)'],
+    })
+    expect(error.code).toBe(ToolNameCollisionError)
+    expect(error.message).toBe(
+      '[@supabase/server] Two operations produce the tool name "list_notes": relation "notes" (GET) and function "list_notes" (POST).',
+    )
+    expect(error.details).toEqual({
+      name: 'list_notes',
+      operations: ['relation "notes" (GET)', 'function "list_notes" (POST)'],
+    })
   })
 })
