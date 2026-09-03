@@ -1,5 +1,10 @@
 # Postgres (`ctx.postgres`)
 
+> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
+> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
+> config options may change between 0.x releases. Everything else in
+> `@supabase/server` is stable.
+
 Two middleware give you a direct Postgres connection, mirroring the `ctx.supabase` / `ctx.supabaseAdmin` pair:
 
 | Middleware                | Subpath                       | Contributes         | RLS                            |

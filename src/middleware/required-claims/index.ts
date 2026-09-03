@@ -22,8 +22,12 @@ import {
 import type { JWTClaims } from '../../types.js'
 
 /**
- * Configuration for {@link withRequiredClaims}.
+ * **Alpha.** Configuration for {@link withRequiredClaims}.
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export interface WithRequiredClaimsConfig {
@@ -36,9 +40,9 @@ export interface WithRequiredClaimsConfig {
 }
 
 /**
- * The user-mode auth gate: requires a valid user JWT and contributes
- * **non-null** `ctx.jwtClaims`. Verification runs against the project JWKS,
- * the same core `withSupabase` uses for its `user` auth mode.
+ * **Alpha.** The user-mode auth gate: requires a valid user JWT and
+ * contributes **non-null** `ctx.jwtClaims`. Verification runs against the
+ * project JWKS, the same core `withSupabase` uses for its `user` auth mode.
  *
  * This is the required-caller counterpart to `withClaims`, which contributes
  * claims when a token is present and lets token-less requests proceed as
@@ -86,6 +90,10 @@ export interface WithRequiredClaimsConfig {
  * }
  * ```
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export const withRequiredClaims: Middleware<

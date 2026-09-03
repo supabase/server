@@ -5,19 +5,32 @@ import { resourceMetadataResponse } from './responses.js'
 import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
 import type { UrlOption } from './url.js'
 
-/** Shape contributed at `ctx.oauthProtectedResource`. */
+/**
+ * **Alpha.** Shape contributed at `ctx.oauthProtectedResource`.
+ *
+ * The OAuth Protected Resource surface is alpha — the config shape, the
+ * contributed context key, and the metadata route may change in a minor
+ * release.
+ *
+ * @alpha
+ */
 export interface OAuthProtectedResourceContribution {
   /** Absolute URL of this resource's OAuth Protected Resource Metadata document (RFC 9728). */
   resourceMetadataUrl: string
 }
 
 /**
- * Configuration for {@link withOAuthProtectedResource}.
+ * **Alpha.** Configuration for {@link withOAuthProtectedResource}.
  *
  * Both options accept a fixed string or a function of the request. Both default
  * to values derived from the request as it arrives through the Supabase Edge
  * Functions proxy, so no configuration is needed there.
  *
+ * The OAuth Protected Resource surface is alpha — the config shape, the
+ * contributed context key, and the metadata route may change in a minor
+ * release.
+ *
+ * @alpha
  * @category Types
  */
 export interface OAuthProtectedResourceConfig {
@@ -43,7 +56,8 @@ export interface OAuthProtectedResourceConfig {
 }
 
 /**
- * Wraps a request handler with OAuth 2.1 Protected Resource behavior (RFC 9728).
+ * **Alpha.** Wraps a request handler with OAuth 2.1 Protected Resource
+ * behavior (RFC 9728).
  *
  * - Serves OAuth Protected Resource Metadata at `GET {resource}/oauth-protected-resource`
  *   (with permissive CORS, including the `OPTIONS` preflight, so browser-based clients can read it)
@@ -66,6 +80,11 @@ export interface OAuthProtectedResourceConfig {
  * handler's `ctx` when the outermost call is anchored with
  * `satisfies FetchHandler` — see `withSupabase`'s type note.
  *
+ * The OAuth Protected Resource surface is alpha — the config shape, the
+ * contributed context key, and the metadata route may change in a minor
+ * release.
+ *
+ * @alpha
  * @category Middleware
  *
  * @example Supabase Edge Functions — zero config

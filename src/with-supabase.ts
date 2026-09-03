@@ -83,7 +83,13 @@ export function withSupabase<
   Database = unknown,
   Base extends BaseContext = BaseContext,
 >(
-  config: WithSupabaseConfig & { middleware?: never },
+  config: WithSupabaseConfig & {
+    /**
+     * Absent in this overload. Supplying a `middleware` array selects the
+     * composable-middleware variant, which is alpha.
+     */
+    middleware?: never
+  },
   // `NoInfer<Base>` blocks inference from the handler argument, leaving the
   // contextual return type as the single source of `Base` — the same split the
   // engine's `Middleware` interface documents. Without it, an annotated handler
@@ -99,15 +105,17 @@ export function withSupabase<
 ): (req: Request, ctx?: Base) => Promise<Response>
 
 /**
- * Variant that accepts a `middleware` array — each `withFoo(config)` call
- * returns an `Entry` from `@supabase/middleware`. Middleware run **after**
- * the Supabase context is established; they receive `ctx.supabase`,
- * `ctx.userClaims`, etc. already present and contribute their own typed keys
- * on top. (This is the server leg of a Plugin: the package's middleware goes
- * here; its client namespace goes in `createClient`'s `plugins` array.)
+ * **Alpha.** Variant that accepts a `middleware` array — each
+ * `withFoo(config)` call returns an `Entry` from `@supabase/middleware`.
+ * Middleware run **after** the Supabase context is established; they receive
+ * `ctx.supabase`, `ctx.userClaims`, etc. already present and contribute their
+ * own typed keys on top. (This is the server leg of a Plugin: the package's
+ * middleware goes here; its client namespace goes in `createClient`'s
+ * `plugins` array.)
  *
- * > **Alpha.** The `middleware` option is in alpha, alongside
- * > `@supabase/middleware` 0.x. Its shape may change between 0.x releases.
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ * The no-`middleware` overload above is stable.
  *
  * @example
  * ```ts
@@ -137,13 +145,28 @@ export function withSupabase<
  * fails to compile. The failure sentinel occupies the handler parameter, never
  * `entries`, so `const Entries` tuple inference stays intact, as in the
  * engine's `pipeline`.
+ *
+ * @alpha
  */
 export function withSupabase<
   Database = unknown,
   const Entries extends readonly AnyEntry[] = readonly AnyEntry[],
   Base extends BaseContext = BaseContext,
 >(
-  config: WithSupabaseConfig & { middleware: Entries },
+  config: WithSupabaseConfig & {
+    /**
+     * **Alpha.** Entries to run after the Supabase context is established.
+     * Each receives `ctx.supabase`, `ctx.jwtClaims`, and the rest already
+     * present, and contributes its own typed keys on top.
+     *
+     * The composable middleware surface tracks `@supabase/middleware` 0.x —
+     * entry shapes, context keys, and config options may change between 0.x
+     * releases.
+     *
+     * @alpha
+     */
+    middleware: Entries
+  },
   // Validation sits on the handler parameter (never on `entries`) so it does
   // not disrupt `const Entries` tuple inference; the seed is the context the
   // entries actually see at runtime.

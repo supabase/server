@@ -9,10 +9,14 @@ import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
 import type { CreateAdminClientOptions } from '../../types.js'
 
 /**
- * Configuration for {@link withSupabaseAdminClient} — the same environment and
- * client options `createAdminClient` accepts, minus the per-request auth
- * identity (which is read from the upstream context).
+ * **Alpha.** Configuration for {@link withSupabaseAdminClient} — the same
+ * environment and client options `createAdminClient` accepts, minus the
+ * per-request auth identity (which is read from the upstream context).
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export type WithSupabaseAdminClientConfig = Omit<
@@ -55,9 +59,9 @@ const base = defineMiddleware<
 })
 
 /**
- * Contributes `ctx.supabaseAdmin` — an admin Supabase client that bypasses
- * Row-Level Security, authenticated with a secret key. This is the same
- * middleware `withSupabase` composes internally to build its context.
+ * **Alpha.** Contributes `ctx.supabaseAdmin` — an admin Supabase client that
+ * bypasses Row-Level Security, authenticated with a secret key. This is the
+ * same middleware `withSupabase` composes internally to build its context.
  *
  * The client is constructed on the first property access of
  * `ctx.supabaseAdmin` and memoized for the request. A handler that never
@@ -80,6 +84,10 @@ const base = defineMiddleware<
  * }
  * ```
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export function withSupabaseAdminClient<Database = unknown>(

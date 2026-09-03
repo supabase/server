@@ -38,7 +38,7 @@ Access-Control-Expose-Headers: x-supabase-server-error
 
 The code is repeated in the `x-supabase-server-error` response header, and added to `Access-Control-Expose-Headers` so cross-origin browser code can actually read it.
 
-Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`).
+Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`). The `@supabase/server/middleware/*` subpaths and `@supabase/server/oauth-protected-resource` are alpha; the error payload documented here is stable either way.
 
 ## Trimming the response body
 

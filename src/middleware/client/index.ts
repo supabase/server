@@ -9,10 +9,15 @@ import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
 import type { CreateContextClientOptions } from '../../types.js'
 
 /**
- * Configuration for {@link withSupabaseClient} — the same environment and
- * client options `createContextClient` accepts, minus the per-request auth
- * identity (which is read from the request and the upstream context).
+ * **Alpha.** Configuration for {@link withSupabaseClient} — the same
+ * environment and client options `createContextClient` accepts, minus the
+ * per-request auth identity (which is read from the request and the upstream
+ * context).
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export type WithSupabaseClientConfig = Omit<CreateContextClientOptions, 'auth'>
@@ -58,12 +63,12 @@ const base = defineMiddleware<
 })
 
 /**
- * Contributes `ctx.supabase` — a Supabase client scoped to the caller's
- * identity, so Row-Level Security policies apply. This is the same middleware
- * `withSupabase` composes internally to build its context.
+ * **Alpha.** Contributes `ctx.supabase` — a Supabase client scoped to the
+ * caller's identity, so Row-Level Security policies apply. This is the same
+ * middleware `withSupabase` composes internally to build its context.
  *
  * Standalone, the caller's Bearer token (when present) is attached unverified —
- * PostgREST verifies it on every query. Compose {@link claims.withClaims}
+ * PostgREST verifies it on every query. Compose {@link middleware/claims!withClaims}
  * upstream when the pipeline itself needs verified claims.
  *
  * @throws {@link index.EnvError} When `SUPABASE_URL` or the publishable key is
@@ -83,6 +88,10 @@ const base = defineMiddleware<
  * }
  * ```
  *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
  * @category Middleware
  */
 export function withSupabaseClient<Database = unknown>(

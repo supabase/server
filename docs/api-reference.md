@@ -22,6 +22,27 @@ Wraps a fetch handler with auth, CORS, and client creation. Returns a `(req: Req
 - Returns JSON error response on auth failure
 - Adds CORS headers to all responses
 
+A `middleware` array selects a second overload, which accumulates each entry's
+contribution onto the handler's `ctx`:
+
+```ts
+function withSupabase<
+  Database = unknown,
+  const Entries extends readonly Entry[] = readonly Entry[],
+>(
+  config: WithSupabaseConfig & { middleware: Entries },
+  handler: (
+    req: Request,
+    ctx: SupabaseContext<Database> & MiddlewareCtx<Entries>,
+  ) => Promise<Response>,
+): (req: Request) => Promise<Response>
+```
+
+> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
+> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
+> config options may change between 0.x releases. Everything else in
+> `@supabase/server` is stable.
+
 ### createSupabaseContext
 
 ```ts
@@ -168,6 +189,11 @@ Defaults to `auth: 'user'` when config is omitted.
 
 ## @supabase/server/middleware/claims
 
+> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
+> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
+> config options may change between 0.x releases. Everything else in
+> `@supabase/server` is stable.
+
 ### withClaims
 
 ```ts
@@ -205,6 +231,11 @@ Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint
 ---
 
 ## @supabase/server/middleware/required-claims
+
+> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
+> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
+> config options may change between 0.x releases. Everything else in
+> `@supabase/server` is stable.
 
 ### withRequiredClaims
 
@@ -264,6 +295,11 @@ Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint
 ---
 
 ## @supabase/server/middleware/postgres
+
+> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
+> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
+> config options may change between 0.x releases. Everything else in
+> `@supabase/server` is stable.
 
 ### withPostgresClient
 
@@ -360,6 +396,11 @@ The minimal claims shape `withPostgresClient` requires upstream at `ctx.jwtClaim
 ---
 
 ## @supabase/server/middleware/postgres-admin
+
+> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
+> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
+> config options may change between 0.x releases. Everything else in
+> `@supabase/server` is stable.
 
 ### withPostgresAdminClient
 
