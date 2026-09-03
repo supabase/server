@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.3](https://github.com/supabase/server/compare/server-v1.5.2...server-v1.5.3) (2026-09-03)
+
+
+### Miscellaneous Chores
+
+* release 1.5.3 ([#142](https://github.com/supabase/server/issues/142)) ([96243af](https://github.com/supabase/server/commit/96243afa5cd725dfa6e891c37e39ed505312c7ee))
+
 ## [1.5.2](https://github.com/supabase/server/compare/server-v1.5.1...server-v1.5.2) (2026-09-01)
 
 
