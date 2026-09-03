@@ -11,7 +11,8 @@
     "src/middleware/postgres/index.ts",
     "src/middleware/postgres-admin/index.ts",
     "src/middleware/claims/index.ts",
-    "src/middleware/required-claims/index.ts"
+    "src/middleware/required-claims/index.ts",
+    "src/mcp/index.ts"
   ],
   "out": "api-docs",
   "json": "api-docs/spec.json",
@@ -34,7 +35,8 @@
     "docs/security.md",
     "docs/ssr-frameworks.md",
     "docs/postgres.md",
-    "docs/typescript-generics.md"
+    "docs/typescript-generics.md",
+    "docs/mcp.md"
   ],
   "highlightLanguages": [
     "typescript",

@@ -70,7 +70,8 @@ The status code and the `x-supabase-server-error` header are unaffected, and `me
 Error
 └── SupabaseServerError    ← catch this for anything from @supabase/server
     ├── EnvError           ← always status 500
-    └── AuthError          ← status 401 or 500
+    ├── AuthError          ← status 401 or 500
+    └── ToolGenerationError ← always status 500
 ```
 
 ```ts
@@ -261,6 +262,38 @@ Set `SUPABASE_DB_URL`, or pass `connectionString` to the middleware — `details
 
 Generic environment error. The default code when constructing an `EnvError` yourself.
 
+## ToolGenerationError codes
+
+Thrown by `generateTools()` from `@supabase/server/mcp` when MCP tools cannot be generated from the PostgREST description. Always `status: 500` — neither cause is the caller's fault.
+
+| Code                                              | Meaning                                             |
+| ------------------------------------------------- | --------------------------------------------------- |
+| [`SPEC_FETCH_FAILED`](#spec_fetch_failed)         | The PostgREST OpenAPI description could not be read |
+| [`TOOL_NAME_COLLISION`](#tool_name_collision)     | Two generated operations produce the same tool name |
+| [`TOOL_GENERATION_ERROR`](#tool_generation_error) | Generic tool generation error                       |
+
+### `SPEC_FETCH_FAILED`
+
+`supabase.getOpenApiSpec()` did not return a Swagger 2.0 document. The `hint` branches on what happened:
+
+- **404 or 406** — PostgREST is not serving an OpenAPI description. OpenAPI output is disabled on the project's Data API (`openapi-mode`), or the client URL does not point at a PostgREST endpoint.
+- **401 or 403** — PostgREST rejected the credentials. The Supabase client must carry a valid API key and, for caller-scoped generation, the caller's access token.
+- **0** — the request never reached PostgREST. Check the project URL and network connectivity.
+- **A body without `swagger` and `definitions`** — another service answered, or OpenAPI output is disabled.
+- **No `getOpenApiSpec` method** — the `@supabase/supabase-js` client predates 2.115.0. Upgrade.
+
+`details.status` carries the HTTP status when there was a response; `cause` carries the `PostgrestError`.
+
+### `TOOL_NAME_COLLISION`
+
+Two operations would produce the same tool name — typically a database function named exactly like a generated relation tool, such as a function `list_notes` next to a table `notes`. Generation fails rather than silently replacing one.
+
+Tool names are one namespace across tables, views and functions. Rename the database function, or revoke the role's privilege on one of the two so it leaves the description. `details.name` is the colliding name and `details.operations` names both operations.
+
+### `TOOL_GENERATION_ERROR`
+
+Generic tool generation error. The default code when constructing a `ToolGenerationError` yourself.
+
 ## How errors surface in each layer
 
 | Function                       | Pattern       | What happens on error                                                   |
@@ -276,6 +309,7 @@ Generic environment error. The default code when constructing an `EnvError` your
 | `createContextClient()`        | **Throws**    | Throws `EnvError`                                                       |
 | `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                       |
 | `withOAuthProtectedResource()` | **Throws**    | Throws `EnvError` when required off Edge Functions and unconfigured     |
+| `generateTools()`              | **Throws**    | Throws `ToolGenerationError` (`@supabase/server/mcp`)                   |
 | Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                          |
 
 `verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
