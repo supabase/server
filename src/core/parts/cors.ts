@@ -51,10 +51,15 @@ export const withSupabaseCors: Middleware<
       const stamped = addCorsHeaders(response, config.cors)
       if (stamped.headers.has(ErrorCodeHeader)) {
         const exposed = stamped.headers.get('Access-Control-Expose-Headers')
-        stamped.headers.set(
-          'Access-Control-Expose-Headers',
-          exposed ? `${exposed}, ${ErrorCodeHeader}` : ErrorCodeHeader,
-        )
+        const listed = exposed
+          ? exposed.split(',').map((name) => name.trim().toLowerCase())
+          : []
+        if (!listed.includes(ErrorCodeHeader.toLowerCase())) {
+          stamped.headers.set(
+            'Access-Control-Expose-Headers',
+            exposed ? `${exposed}, ${ErrorCodeHeader}` : ErrorCodeHeader,
+          )
+        }
       }
       return stamped
     },
