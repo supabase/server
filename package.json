@@ -256,7 +256,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@supabase/middleware": "^0.4.0",
+    "@supabase/middleware": "^0.5.0",
     "jose": "^6.2.0"
   }
 }

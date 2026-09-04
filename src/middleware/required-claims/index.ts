@@ -71,10 +71,10 @@ export interface WithRequiredClaimsConfig {
  * the gate runs and stamps `Access-Control-*` headers on the short-circuit
  * responses.
  *
- * Inside `withSupabase` the context already carries verified `jwtClaims`, so
- * this gate is unnecessary there and composing it through the `middleware`
- * option is a compile-time conflict. Use `withSupabase({ auth: 'user' })` to
- * gate that path.
+ * After `withSupabase` in a pipeline the context already carries verified
+ * `jwtClaims`, so this gate is unnecessary there and placing it after
+ * `withSupabase` is a compile-time conflict. Use `withSupabase({ auth: 'user' })`
+ * to gate that path.
  *
  * @example Gated standalone pipeline
  * ```ts

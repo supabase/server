@@ -449,8 +449,9 @@ export interface SupabaseContext<Database = unknown> {
  * from the entries' `In` — a declared prerequisite is mandatory, and this one
  * is not.
  *
- * Seeding both keys takes a wrapper that writes the context directly, as
- * `withSupabase` does; a `defineMiddleware` entry contributes exactly one key.
+ * Inside `withSupabase`, two projection parts contribute these keys, one
+ * each, ahead of the client parts; a `defineMiddleware` entry contributes
+ * exactly one key.
  *
  * @internal
  */

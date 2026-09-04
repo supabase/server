@@ -1,40 +1,99 @@
-import { addCorsHeaders, buildCorsHeaders, isCorsDisabled } from './cors.js'
-import { verifyAuth } from './core/verify-auth.js'
-import { errorResponse } from './error-response.js'
+import { defineComposite } from '@supabase/middleware'
+import type { BaseContext, Entry } from '@supabase/middleware'
+
+import { preAuthName } from './core/pre-auth.js'
+import { withConstructionBoundary } from './core/parts/boundary.js'
+import { withSupabaseCors } from './core/parts/cors.js'
+import { withAuthGate } from './core/parts/gate.js'
 import {
-  AuthError,
-  CreateSupabaseClientError,
-  EnvError,
-  ErrorCodeHeader,
-} from './errors.js'
+  withAuthKeyName,
+  withAuthMode,
+  withJwtClaims,
+  withUserClaims,
+} from './core/parts/projections.js'
 import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
-import type {
-  SupabaseContext,
-  UpstreamAuth,
-  WithSupabaseConfig,
-} from './types.js'
-import { isContext, seedContext } from '@supabase/middleware'
-import type { BaseContext, Entry, ValidateEntries } from '@supabase/middleware'
+import type { SupabaseContext, WithSupabaseConfig } from './types.js'
 
-type AnyEntry = Entry<string, object, unknown>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyHandler = (req: Request, ctx: any) => Promise<Response>
 
 /**
- * Accumulate the ctx contributions of a middleware tuple — same logic as
- * `pipeline`'s internal `Accumulate`, seeded from `object` (the engine reserves
- * no ctx keys; see implementation note below).
+ * The parts `withSupabase` is made of, outermost first. Each contributes one
+ * key; the composite derives its contributions from them and keeps
+ * `supabaseCors`, `supabaseBoundary` and `supabaseAuth` internal, so the
+ * handler sees exactly {@link SupabaseContext}.
+ *
+ * Order is load-bearing: the CORS part must see every response on the way
+ * out, the boundary must sit above the client parts whose construction
+ * errors it maps, the gate must run before the projections that read its
+ * result, and the projections must run before the client parts, which read
+ * the flat `authMode` / `authKeyName` keys to mirror the matched credential.
  */
-type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
-  Entries extends readonly [
-    Entry<infer Key extends string, object, infer Contribution>,
-    ...infer Rest,
-  ]
-    ? Rest extends readonly AnyEntry[]
-      ? { [P in Key]: Contribution } & MiddlewareCtx<Rest>
-      : { [P in Key]: Contribution }
-    : object
+const composite = defineComposite({
+  build: (config: WithSupabaseConfig) =>
+    [
+      withSupabaseCors(config),
+      withConstructionBoundary(config),
+      withAuthGate(config),
+      withUserClaims(),
+      withJwtClaims(),
+      withAuthMode(),
+      withAuthKeyName(),
+      withSupabaseClient({
+        env: config.env,
+        supabaseOptions: config.supabaseOptions,
+      }),
+      withSupabaseAdminClient({
+        env: config.env,
+        supabaseOptions: config.supabaseOptions,
+      }),
+    ] as const,
+  internal: ['supabaseCors', 'supabaseBoundary', 'supabaseAuth'],
+})
+
+/**
+ * The config-only overload declares `Entry<SupabaseContext<Database>>`; this
+ * holds only while every public key the parts contribute is in
+ * `SupabaseContext` and no public key is listed under `internal`.
+ */
+type EntryIsSound =
+  ReturnType<typeof composite> extends Entry<SupabaseContext> ? true : false
+const entryIsSound: EntryIsSound = true
+void entryIsSound
+
+/** Whether every configured auth mode requires credentials, so an unauthenticated request never passes the gate. */
+function requiresCredentials(config: WithSupabaseConfig): boolean {
+  const modes = config.auth ?? config.allow ?? 'user'
+  const list = Array.isArray(modes) ? modes : [modes]
+  return !list.includes('none')
+}
+
+/**
+ * A pre-auth middleware behind a credentialed gate never sees the requests
+ * it exists to answer. Refusing the stack at composition time is the only
+ * place that failure is observable: at request time the gate has already
+ * answered.
+ */
+function rejectPreAuthBehindGate(
+  config: WithSupabaseConfig,
+  handler: unknown,
+): void {
+  const name = preAuthName(handler)
+  if (name === undefined || !requiresCredentials(config)) return
+  throw new Error(
+    `${name} is placed after withSupabase, whose auth gate answers unauthenticated requests before it runs, so OAuth discovery and preflight cannot be served. Place it first: pipeline([${name}(config), withSupabase(config)], handler) or ${name}(config, withSupabase(config, handler)).`,
+  )
+}
+
+/** `withSupabase` composes through `pipeline` or nesting; a `middleware` key on the config has no effect and is refused so it cannot be mistaken for one. */
+function rejectMiddlewareOption(config: WithSupabaseConfig): void {
+  if ('middleware' in config) {
+    throw new Error(
+      'withSupabase has no `middleware` option. Compose entries with pipeline([withSupabase(config), ...entries], handler) from @supabase/middleware, or nest them: withSupabase(config, entry(handler)).',
+    )
+  }
+}
 
 /**
  * Wraps a request handler with Supabase auth, client creation, and CORS handling.
@@ -50,7 +109,8 @@ type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
  * runtime supplies one, it is captured as the platform env behind
  * `@supabase/middleware`'s `getEnv` for any composed middleware. Nested under
  * another middleware, it is that middleware's accumulated context instead,
- * which is reused rather than reseeded.
+ * which is reused rather than reseeded. At the entry point the request body
+ * is buffered, so a nested middleware and the handler can both read it.
  *
  * **Type note.** `Base` carries an upstream middleware's contributions into the
  * handler's `ctx`: with `satisfies FetchHandler` on the outermost call,
@@ -70,7 +130,6 @@ type MiddlewareCtx<Entries extends readonly AnyEntry[]> =
  * ```ts
  * import { withSupabase } from '@supabase/server'
  *
- * // Without middleware — existing API, unchanged.
  * export default {
  *   fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
  *     const { data } = await ctx.supabase.rpc('get_my_profile')
@@ -83,13 +142,7 @@ export function withSupabase<
   Database = unknown,
   Base extends BaseContext = BaseContext,
 >(
-  config: WithSupabaseConfig & {
-    /**
-     * Absent in this overload. Supplying a `middleware` array selects the
-     * composable-middleware variant, which is alpha.
-     */
-    middleware?: never
-  },
+  config: WithSupabaseConfig,
   // `NoInfer<Base>` blocks inference from the handler argument, leaving the
   // contextual return type as the single source of `Base` — the same split the
   // engine's `Middleware` interface documents. Without it, an annotated handler
@@ -98,217 +151,54 @@ export function withSupabase<
     req: Request,
     ctx: NoInfer<Base> & SupabaseContext<Database>,
   ) => Promise<Response>,
-  // `ctx?: Base` mirrors the engine's `Produced` shape for an `In`-less
-  // middleware: at the top level `Base` is the empty upstream (any platform
-  // argument still typechecks), and nested it is what lets the upstream
-  // middleware's contribution flow inward.
 ): (req: Request, ctx?: Base) => Promise<Response>
 
 /**
- * **Alpha.** Variant that accepts a `middleware` array — each
- * `withFoo(config)` call returns an `Entry` from `@supabase/middleware`.
- * Middleware run **after** the Supabase context is established; they receive
- * `ctx.supabase`, `ctx.userClaims`, etc. already present and contribute their
- * own typed keys on top. (This is the server leg of a Plugin: the package's
- * middleware goes here; its client namespace goes in `createClient`'s
- * `plugins` array.)
+ * **Alpha.** Config-only call: returns an entry for a `pipeline` array, so
+ * `withSupabase` composes by position with any other middleware. Entries
+ * placed before it run ahead of the auth gate and may answer unauthenticated
+ * requests; entries placed after it receive the full {@link SupabaseContext}
+ * and may declare prerequisites on its keys.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- * The no-`middleware` overload above is stable.
+ * The composable surface tracks `@supabase/middleware` 0.x — entry shapes and
+ * context keys may change between 0.x releases. The handler-form overload is
+ * stable.
  *
- * @example
+ * @alpha
+ * @category Middleware
+ *
+ * @example OAuth discovery ahead of the gate, Postgres behind it
  * ```ts
- * import { withSupabase } from '@supabase/server'
- * import { withGuestbook } from '@supabase/plugin-guestbook/server'
- * import { withRateLimit } from '@supabase/plugin-rate-limit/server'
+ * import { pipeline } from '@supabase/middleware'
+ * import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
+ * import { withPostgresClient } from '@supabase/server/middleware/postgres'
  *
  * export default {
- *   fetch: withSupabase(
- *     { auth: 'user', middleware: [withRateLimit({ rpm: 100 }), withGuestbook()] },
- *     async (req, ctx) => {
- *       ctx.supabase      // from @supabase/server
- *       ctx.rateLimit     // from withRateLimit
- *       ctx.guestbook     // from withGuestbook
- *       return Response.json(await ctx.guestbook.list())
+ *   fetch: pipeline(
+ *     [withOAuthProtectedResource(), withSupabase({ auth: 'user' }), withPostgresClient()],
+ *     async (_req, ctx) => {
+ *       const rows = await ctx.postgres.query`select id, body from notes`
+ *       return Response.json(rows)
  *     },
  *   ),
  * }
  * ```
- *
- * **Type note.** `MiddlewareCtx<Entries>` accumulates the key contributions of
- * the middleware array onto the handler's `ctx`. `ValidateEntries` checks the
- * array against the same context the entries see at runtime: the upstream
- * `Base` plus {@link SupabaseContext}. An entry may declare `In` prerequisites
- * on Supabase-provided keys (`supabase`, `jwtClaims`, and the rest). An entry
- * whose key collides with a Supabase-provided key, or with an earlier sibling,
- * fails to compile. The failure sentinel occupies the handler parameter, never
- * `entries`, so `const Entries` tuple inference stays intact, as in the
- * engine's `pipeline`.
- *
- * @alpha
  */
-export function withSupabase<
-  Database = unknown,
-  const Entries extends readonly AnyEntry[] = readonly AnyEntry[],
-  Base extends BaseContext = BaseContext,
->(
-  config: WithSupabaseConfig & {
-    /**
-     * **Alpha.** Entries to run after the Supabase context is established.
-     * Each receives `ctx.supabase`, `ctx.jwtClaims`, and the rest already
-     * present, and contributes its own typed keys on top.
-     *
-     * The composable middleware surface tracks `@supabase/middleware` 0.x —
-     * entry shapes, context keys, and config options may change between 0.x
-     * releases.
-     *
-     * @alpha
-     */
-    middleware: Entries
-  },
-  // Validation sits on the handler parameter (never on `entries`) so it does
-  // not disrupt `const Entries` tuple inference; the seed is the context the
-  // entries actually see at runtime.
-  handler: [
-    ValidateEntries<Entries, Base & SupabaseContext<Database>>,
-  ] extends [true]
-    ? (
-        req: Request,
-        ctx: NoInfer<Base> & SupabaseContext<Database> & MiddlewareCtx<Entries>,
-      ) => Promise<Response>
-    : ValidateEntries<Entries, Base & SupabaseContext<Database>>,
-): (req: Request, ctx?: Base) => Promise<Response>
-
 export function withSupabase<Database = unknown>(
-  config: WithSupabaseConfig & { middleware?: readonly AnyEntry[] },
-  handler: AnyHandler,
-): (req: Request, platformArg?: unknown) => Promise<Response> {
-  // withSupabase runs on the engine: the context clients are the same public
-  // middleware anyone can compose (`./middleware/client`,
-  // `./middleware/admin-client`), folded around the user's middleware and
-  // handler — the same fold as pipeline's reduceRight, but without calling
-  // pipeline() so we supply the seeded ctx ourselves.
-  const clientEntries: readonly AnyEntry[] = [
-    withSupabaseClient<Database>({
-      env: config.env,
-      supabaseOptions: config.supabaseOptions,
-    }) as AnyEntry,
-    withSupabaseAdminClient<Database>({
-      env: config.env,
-      supabaseOptions: config.supabaseOptions,
-    }) as AnyEntry,
-  ]
-  // The user's middleware and handler fold once at wrap time.
-  const userComposed = (config.middleware ?? []).reduceRight<AnyHandler>(
-    (h, entry) => entry(h),
-    handler,
-  )
+  config: WithSupabaseConfig,
+): Entry<SupabaseContext<Database>>
 
-  return async (req: Request, platformArg?: unknown) => {
-    // Cross-origin browser code cannot read a non-safelisted response header
-    // unless it is named in Access-Control-Expose-Headers, so the error code
-    // header would be invisible in exactly the case it is most useful.
-    const errorHeaders = () => {
-      if (isCorsDisabled(config.cors)) return {}
-      const headers = buildCorsHeaders(config.cors)
-      const exposeKey =
-        Object.keys(headers).find(
-          (name) => name.toLowerCase() === 'access-control-expose-headers',
-        ) ?? 'Access-Control-Expose-Headers'
-      const exposed = headers[exposeKey]
-      return {
-        ...headers,
-        [exposeKey]: exposed
-          ? `${exposed}, ${ErrorCodeHeader}`
-          : ErrorCodeHeader,
-      }
+export function withSupabase(
+  config: WithSupabaseConfig,
+  handler?: AnyHandler,
+): unknown {
+  rejectMiddlewareOption(config)
+  if (handler === undefined) {
+    return (next: AnyHandler) => {
+      rejectPreAuthBehindGate(config, next)
+      return composite(config, next)
     }
-
-    if (!isCorsDisabled(config.cors) && req.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: buildCorsHeaders(config.cors),
-      })
-    }
-
-    const { data: auth, error } = await verifyAuth(req, {
-      auth: config.auth,
-      allow: config.allow,
-      env: config.env,
-    })
-    if (error) {
-      return errorResponse(error, {
-        headers: errorHeaders(),
-        errors: config.errors,
-      })
-    }
-
-    // Track whether the request has moved past the client entries: only
-    // client-phase construction failures (the `supabase` entry) map to JSON
-    // error responses. User middleware and handler throws propagate
-    // unchanged — including the EnvError a lazily constructed
-    // `supabaseAdmin` throws at its first property access.
-    let inClientPhase = true
-    const markUserPhase: AnyHandler = (r, ctx) => {
-      inClientPhase = false
-      return userComposed(r, ctx)
-    }
-    const composed = clientEntries.reduceRight<AnyHandler>(
-      (h, entry) => entry(h),
-      markUserPhase,
-    )
-
-    let response: Response
-    try {
-      // As the entry point, `platformArg` is the host env — seed a context from
-      // it (captured behind getEnv). Nested under another middleware, it's an
-      // already-seeded context: reuse it, or reseeding would clobber the platform
-      // env and drop upstream ctx keys.
-      const baseContext = isContext(platformArg)
-        ? platformArg
-        : seedContext(platformArg)
-      // The client entries read these two keys back off the context;
-      // `satisfies` holds the seed to that shape without widening it.
-      const upstreamAuth = {
-        authMode: auth.authMode,
-        authKeyName: auth.keyName ?? undefined,
-      } satisfies UpstreamAuth
-      response = await composed(req, {
-        ...baseContext,
-        userClaims: auth.userClaims,
-        jwtClaims: auth.jwtClaims,
-        ...upstreamAuth,
-      })
-    } catch (e) {
-      // Client-phase construction failures map to JSON error responses:
-      // EnvError (missing URL / keys) and the client middleware's
-      // CreateSupabaseClientError take the same shape as the JSON errors
-      // createSupabaseContext produces.
-      const mapped = !inClientPhase
-        ? null
-        : e instanceof EnvError
-          ? // Keep the EnvError's code, hint, and details — it already names
-            // the exact variable at fault.
-            new AuthError(e.message, e.code, 500, {
-              hint: e.hint,
-              details: e.details,
-              docs: e.docs,
-              cause: e,
-            })
-          : e instanceof AuthError && e.code === CreateSupabaseClientError
-            ? e
-            : null
-      if (!mapped) throw e
-      return errorResponse(mapped, {
-        headers: errorHeaders(),
-        errors: config.errors,
-      })
-    }
-
-    if (!isCorsDisabled(config.cors)) {
-      return addCorsHeaders(response, config.cors)
-    }
-    return response
   }
+  rejectPreAuthBehindGate(config, handler)
+  return composite(config, handler)
 }

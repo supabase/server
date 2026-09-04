@@ -43,25 +43,18 @@ export interface WithPostgresAdminClientConfig {
  * `auth: 'secret'` and `auth: 'none'`:
  *
  * ```ts
+ * import { pipeline } from '@supabase/middleware'
  * import { withSupabase } from '@supabase/server'
  * import { withPostgresAdminClient } from '@supabase/server/middleware/postgres-admin'
  *
- * export default {
- *   fetch: withSupabase(
- *     { auth: 'secret', middleware: [withPostgresAdminClient()] },
- *     async (_req, ctx) => {
- *       const rows = await ctx.postgresAdmin.query`select user_id, count(*) from notes group by user_id`
- *       return Response.json(rows)
- *     },
- *   ),
- * }
+ * pipeline([withSupabase({ auth: 'secret' }), withPostgresAdminClient()], handler)
  * ```
  *
  * Compose both halves when a handler needs each in turn — they share one pool,
  * and `ctx.postgres` stays RLS-scoped regardless:
  *
  * ```ts
- * middleware: [withPostgresClient(), withPostgresAdminClient()]
+ * pipeline([withSupabase({ auth: 'user' }), withPostgresClient(), withPostgresAdminClient()], handler)
  * ```
  *
  * > **Authorization is yours now.** RLS is not consulted, so any per-user

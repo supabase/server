@@ -21,27 +21,37 @@ Wraps a fetch handler with auth, CORS, and client creation. Returns a `(req: Req
 - Verifies credentials per `config.auth`
 - Returns JSON error response on auth failure
 - Adds CORS headers to all responses
-
-A `middleware` array selects a second overload, which accumulates each entry's
-contribution onto the handler's `ctx`:
+- Buffers the request body at the entry point, so composed middleware and the handler can each read it
+- Reading the raw `req.body` stream bypasses the buffer, so a handler that forwards the request with `fetch()` after another layer has read the body rebuilds it from `await req.arrayBuffer()`.
 
 ```ts
-function withSupabase<
-  Database = unknown,
-  const Entries extends readonly Entry[] = readonly Entry[],
->(
-  config: WithSupabaseConfig & { middleware: Entries },
-  handler: (
-    req: Request,
-    ctx: SupabaseContext<Database> & MiddlewareCtx<Entries>,
-  ) => Promise<Response>,
-): (req: Request) => Promise<Response>
+function withSupabase<Database = unknown>(
+  config: WithSupabaseConfig,
+): Entry<SupabaseContext<Database>>
 ```
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+Called with config only, `withSupabase` is an entry for `pipeline` from `@supabase/middleware`. Position decides what runs before and after the auth gate. A config carrying a `middleware` key is refused when the stack is built; entries compose through `pipeline` or nesting:
+
+```ts
+import { pipeline } from '@supabase/middleware'
+import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
+import { withPostgresClient } from '@supabase/server/middleware/postgres'
+
+pipeline(
+  [
+    withOAuthProtectedResource(),
+    withSupabase({ auth: 'user' }),
+    withPostgresClient(),
+  ],
+  handler,
+)
+```
+
+Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placing `withOAuthProtectedResource` directly after `withSupabase` with an auth mode that requires credentials is refused when the stack is built; a pre-auth middleware separated from `withSupabase` by another entry is not detected and must be ordered by hand.
+
+> **Alpha.** The entry form and the `@supabase/server/middleware/*` subpaths
+> track `@supabase/middleware` 0.x — entry shapes and context keys may change
+> between 0.x releases. Everything else in `@supabase/server` is stable.
 
 ### createSupabaseContext
 
@@ -189,10 +199,10 @@ Defaults to `auth: 'user'` when config is omitted.
 
 ## @supabase/server/middleware/claims
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 ### withClaims
 
@@ -232,10 +242,10 @@ Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint
 
 ## @supabase/server/middleware/required-claims
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 ### withRequiredClaims
 
@@ -273,7 +283,7 @@ pipeline([withRequiredClaims(), withPostgresClient()], async (req, ctx) => {
 
 The gate's 401 and 500 short-circuits carry no CORS headers, and a bare pipeline answers no `OPTIONS` preflight. For browser callers, compose `withCors` (`@supabase/middleware/cors`) ahead of the gate: it answers preflight before the gate runs and stamps `Access-Control-*` headers on the gate's short-circuit responses.
 
-Inside `withSupabase` the context already carries verified `jwtClaims`, so composing the gate through the `middleware` option is a compile-time conflict. Use `withSupabase({ auth: 'user' })` to gate that path.
+After `withSupabase` in a `pipeline` the context already carries verified `jwtClaims`, so placing the gate there is a compile-time conflict. Use `withSupabase({ auth: 'user' })` to gate that path.
 
 The gate contributes `jwtClaims` and nothing else. A handler that needs the full `SupabaseContext` behind an auth gate (for example `ctx.userClaims` or `ctx.authMode`, which no composable entry contributes) uses `withSupabase({ auth: 'user' })` directly. A host that takes an entries array can wrap it as the sole entry. `cors: 'disabled'` leaves CORS handling to the host:
 
@@ -296,10 +306,10 @@ Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint
 
 ## @supabase/server/middleware/postgres
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 ### withPostgresClient
 
@@ -397,10 +407,10 @@ The minimal claims shape `withPostgresClient` requires upstream at `ctx.jwtClaim
 
 ## @supabase/server/middleware/postgres-admin
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 ### withPostgresAdminClient
 

@@ -7,6 +7,7 @@
 // The core wrapper has no router, so routes are dispatched on pathname and
 // each auth mode gets its own wrapped handler.
 import { withSupabase } from '../../../dist/index.mjs'
+import { pipeline } from '@supabase/middleware'
 import { withPostgresClient } from '../../../dist/middleware/postgres/index.mjs'
 import { withPostgresAdminClient } from '../../../dist/middleware/postgres-admin/index.mjs'
 import type { NoteRow } from '../notes.ts'
@@ -53,11 +54,12 @@ const userHandler = withSupabase({ auth: 'user' }, async (req, ctx) => {
 // It carries no interpolation, so there is nothing to parameterize.
 const PG_QUERY = 'select id, user_id, body from notes order by created_at'
 
-const postgresHandler = withSupabase(
-  {
-    auth: 'user',
-    middleware: [withPostgresClient(), withPostgresAdminClient()],
-  },
+const postgresHandler = pipeline(
+  [
+    withSupabase({ auth: 'user' }),
+    withPostgresClient(),
+    withPostgresAdminClient(),
+  ],
   async (req, ctx) => {
     const { pathname } = new URL(req.url)
     if (pathname === '/all-notes-pg') {
