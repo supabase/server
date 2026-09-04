@@ -30,7 +30,7 @@ function withSupabase<Database = unknown>(
 ): Entry<SupabaseContext<Database>>
 ```
 
-Called with config only, `withSupabase` is an entry for `pipeline` from `@supabase/middleware`. Position decides what runs before and after the auth gate:
+Called with config only, `withSupabase` is an entry for `pipeline` from `@supabase/middleware`. Position decides what runs before and after the auth gate. A config carrying a `middleware` key is refused when the stack is built; entries compose through `pipeline` or nesting:
 
 ```ts
 import { pipeline } from '@supabase/middleware'
@@ -47,7 +47,7 @@ pipeline(
 )
 ```
 
-Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placed after `withSupabase` instead, `withOAuthProtectedResource` warns once per process, since the gate has already answered discovery and preflight by the time it would run.
+Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placing `withOAuthProtectedResource` directly after `withSupabase` with an auth mode that requires credentials is refused when the stack is built; a pre-auth middleware separated from `withSupabase` by another entry is not detected and must be ordered by hand.
 
 > **Alpha.** The entry form and the `@supabase/server/middleware/*` subpaths
 > track `@supabase/middleware` 0.x — entry shapes and context keys may change

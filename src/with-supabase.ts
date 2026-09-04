@@ -1,6 +1,7 @@
 import { defineComposite } from '@supabase/middleware'
 import type { BaseContext, Entry } from '@supabase/middleware'
 
+import { preAuthName } from './core/pre-auth.js'
 import { withConstructionBoundary } from './core/parts/boundary.js'
 import { withSupabaseCors } from './core/parts/cors.js'
 import { withAuthGate } from './core/parts/gate.js'
@@ -60,6 +61,39 @@ type EntryIsSound =
   ReturnType<typeof composite> extends Entry<SupabaseContext> ? true : false
 const entryIsSound: EntryIsSound = true
 void entryIsSound
+
+/** Whether every configured auth mode requires credentials, so an unauthenticated request never passes the gate. */
+function requiresCredentials(config: WithSupabaseConfig): boolean {
+  const modes = config.auth ?? config.allow ?? 'user'
+  const list = Array.isArray(modes) ? modes : [modes]
+  return !list.includes('none')
+}
+
+/**
+ * A pre-auth middleware behind a credentialed gate never sees the requests
+ * it exists to answer. Refusing the stack at composition time is the only
+ * place that failure is observable: at request time the gate has already
+ * answered.
+ */
+function rejectPreAuthBehindGate(
+  config: WithSupabaseConfig,
+  handler: unknown,
+): void {
+  const name = preAuthName(handler)
+  if (name === undefined || !requiresCredentials(config)) return
+  throw new Error(
+    `${name} is placed after withSupabase, whose auth gate answers unauthenticated requests before it runs, so OAuth discovery and preflight cannot be served. Place it first: pipeline([${name}(config), withSupabase(config)], handler) or ${name}(config, withSupabase(config, handler)).`,
+  )
+}
+
+/** `withSupabase` composes through `pipeline` or nesting; a `middleware` key on the config has no effect and is refused so it cannot be mistaken for one. */
+function rejectMiddlewareOption(config: WithSupabaseConfig): void {
+  if ('middleware' in config) {
+    throw new Error(
+      'withSupabase has no `middleware` option. Compose entries with pipeline([withSupabase(config), ...entries], handler) from @supabase/middleware, or nest them: withSupabase(config, entry(handler)).',
+    )
+  }
+}
 
 /**
  * Wraps a request handler with Supabase auth, client creation, and CORS handling.
@@ -158,6 +192,13 @@ export function withSupabase(
   config: WithSupabaseConfig,
   handler?: AnyHandler,
 ): unknown {
-  if (handler === undefined) return composite(config)
+  rejectMiddlewareOption(config)
+  if (handler === undefined) {
+    return (next: AnyHandler) => {
+      rejectPreAuthBehindGate(config, next)
+      return composite(config, next)
+    }
+  }
+  rejectPreAuthBehindGate(config, handler)
   return composite(config, handler)
 }

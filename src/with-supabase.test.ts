@@ -14,10 +14,7 @@ import {
 import type { JWTClaims, SupabaseContext, WithSupabaseConfig } from './types.js'
 import { withClaims } from './middleware/claims/index.js'
 import { withPostgresClient } from './middleware/postgres/index.js'
-import {
-  _resetOAuthPlacementWarned,
-  withOAuthProtectedResource,
-} from './oauth-protected-resource/with-oauth-protected-resource.js'
+import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
 import { withSupabase } from './with-supabase.js'
 
 const baseEnv = {
@@ -653,6 +650,22 @@ describe('withSupabase as a pipeline entry', () => {
     expect(res.status).toBe(204)
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
   })
+
+  it('stamps CORS headers on a success response when an entry follows it', async () => {
+    const withNoop = defineMiddleware<'noop', void, Record<never, never>, true>(
+      {
+        key: 'noop',
+        run: () => async () => ({ noop: true as const }),
+      },
+    )
+    const handler = pipeline(
+      [withSupabase({ auth: 'none', env: baseEnv }), withNoop()],
+      async () => Response.json({ ok: true }),
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
 })
 
 describe('withSupabase context shape', () => {
@@ -731,59 +744,88 @@ describe('withSupabase key mirroring', () => {
   })
 })
 
-describe('withOAuthProtectedResource placement warning', () => {
+describe('pre-auth middleware placement', () => {
   const oauthCfg = {
     resourceServer: 'http://localhost/functions/v1/mcp',
     authorizationServer: 'https://test.supabase.co/auth/v1',
   }
-  beforeEach(() => {
-    _resetOAuthPlacementWarned()
-  })
-  const placementWarnings = (warn: { mock: { calls: unknown[][] } }) =>
-    warn.mock.calls.filter(([msg]) =>
-      String(msg).includes('withOAuthProtectedResource'),
-    )
+  const ok = async () => new Response('ok')
 
-  it('warns once when placed after withSupabase in a pipeline', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const handler = pipeline(
-      [
-        withSupabase({ auth: 'none', env: baseEnv }),
-        withOAuthProtectedResource(oauthCfg),
-      ],
-      async () => new Response('ok'),
-    )
-    await handler(new Request('http://localhost/functions/v1/mcp'))
-    await handler(new Request('http://localhost/functions/v1/mcp'))
-    expect(placementWarnings(warn)).toHaveLength(1)
-    warn.mockRestore()
-  })
-
-  it('does not warn when placed before withSupabase', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const handler = pipeline(
-      [
-        withOAuthProtectedResource(oauthCfg),
-        withSupabase({ auth: 'none', env: baseEnv }),
-      ],
-      async () => new Response('ok'),
-    )
-    await handler(new Request('http://localhost/functions/v1/mcp'))
-    expect(placementWarnings(warn)).toHaveLength(0)
-    warn.mockRestore()
-  })
-
-  it('does not warn in the wrap form', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const handler = withOAuthProtectedResource(
-      oauthCfg,
-      withSupabase(
-        { auth: 'none', env: baseEnv },
-        async () => new Response('ok'),
+  it('refuses a pipeline that places withOAuthProtectedResource after a credentialed gate', () => {
+    expect(() =>
+      pipeline(
+        [
+          withSupabase({ auth: 'user', env: baseEnv }),
+          withOAuthProtectedResource(oauthCfg),
+        ],
+        ok,
       ),
+    ).toThrow(/withOAuthProtectedResource is placed after withSupabase/)
+  })
+
+  it('refuses the nested form as well', () => {
+    expect(() =>
+      withSupabase(
+        { auth: 'user', env: baseEnv },
+        withOAuthProtectedResource(oauthCfg, ok),
+      ),
+    ).toThrow(/placed after withSupabase/)
+  })
+
+  it("accepts the placement when the gate admits anonymous requests (auth: 'none')", async () => {
+    const handler = pipeline(
+      [
+        withSupabase({ auth: 'none', env: baseEnv }),
+        withOAuthProtectedResource(oauthCfg),
+      ],
+      ok,
     )
-    await handler(new Request('http://localhost/functions/v1/mcp'))
-    expect(placementWarnings(warn)).toHaveLength(0)
-    warn.mockRestore()
+    const res = await handler(
+      new Request('http://localhost/functions/v1/mcp/oauth-protected-resource'),
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it("accepts the placement when 'none' is one of several modes", () => {
+    expect(() =>
+      pipeline(
+        [
+          withSupabase({ auth: ['user', 'none'], env: baseEnv }),
+          withOAuthProtectedResource(oauthCfg),
+        ],
+        ok,
+      ),
+    ).not.toThrow()
+  })
+
+  it('accepts the correct order and the wrap form', () => {
+    expect(() =>
+      pipeline(
+        [
+          withOAuthProtectedResource(oauthCfg),
+          withSupabase({ auth: 'user', env: baseEnv }),
+        ],
+        ok,
+      ),
+    ).not.toThrow()
+    expect(() =>
+      withOAuthProtectedResource(
+        oauthCfg,
+        withSupabase({ auth: 'user', env: baseEnv }, ok),
+      ),
+    ).not.toThrow()
+  })
+})
+
+describe('withSupabase config without a middleware option', () => {
+  it('refuses a config carrying a middleware key, even when built outside the call', () => {
+    const config = {
+      auth: 'none',
+      env: baseEnv,
+      middleware: [],
+    } as unknown as WithSupabaseConfig
+    expect(() => withSupabase(config, async () => new Response('ok'))).toThrow(
+      /has no `middleware` option/,
+    )
   })
 })

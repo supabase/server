@@ -2,12 +2,7 @@ import { defineMiddleware } from '@supabase/middleware'
 import type { Middleware } from '@supabase/middleware'
 
 import { errorResponse } from '../../error-response.js'
-import type {
-  AuthMode,
-  JWTClaims,
-  UserClaims,
-  WithSupabaseConfig,
-} from '../../types.js'
+import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
 import { verifyAuth } from '../verify-auth.js'
 
 /**
@@ -15,12 +10,10 @@ import { verifyAuth } from '../verify-auth.js'
  * in `./projections.ts` republish each field as its own `ctx` key; this
  * bundle itself stays internal to the composite.
  */
-export interface AuthGateContribution {
-  userClaims: UserClaims | null
-  jwtClaims: JWTClaims | null
-  authMode: AuthMode
-  authKeyName: string | undefined
-}
+export type AuthGateContribution = Pick<
+  SupabaseContext,
+  'userClaims' | 'jwtClaims' | 'authMode'
+> & { authKeyName: string | undefined }
 
 /**
  * The auth gate. Verifies the request's credentials against `config.auth`
