@@ -15,22 +15,20 @@ import type { ErrorResponseConfig } from './types.js'
  * same body, same `x-supabase-server-error` header, same status.
  *
  * @param error - The error to render.
- * @param options - Extra headers (CORS, typically) and body verbosity.
+ * @param options - Body verbosity.
  *
  * @internal
  */
 export function errorResponse(
   error: SupabaseServerError,
   options?: {
-    /** Merged in ahead of the code header — CORS headers, typically. */
-    headers?: Record<string, string>
     /** Body verbosity. @see {@link ErrorResponseConfig} */
     errors?: ErrorResponseConfig
   },
 ): Response {
   return Response.json(buildErrorBody(error, options?.errors), {
     status: error.status,
-    headers: { ...options?.headers, [ErrorCodeHeader]: error.code },
+    headers: { [ErrorCodeHeader]: error.code },
   })
 }
 

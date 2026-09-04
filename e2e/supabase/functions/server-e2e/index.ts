@@ -7,6 +7,7 @@
 import { withSupabase } from '@supabase/server'
 import { withPostgresClient } from '@supabase/server/middleware/postgres'
 import { withPostgresAdminClient } from '@supabase/server/middleware/postgres-admin'
+import { pipeline } from '@supabase/middleware'
 
 const COLUMNS = 'id, user_id, body'
 
@@ -96,14 +97,12 @@ const PG_QUERY = `select ${COLUMNS} from notes order by created_at`
 // Both halves composed together, running the identical query: /my-notes-pg is
 // RLS-scoped, /all-notes-pg bypasses RLS. Same security boundary as the core
 // app, but on the real Deno runtime.
-const postgresHandler = withSupabase(
-  {
-    auth: 'user',
-    middleware: [
-      withPostgresClient(pgConfig),
-      withPostgresAdminClient(pgConfig),
-    ],
-  },
+const postgresHandler = pipeline(
+  [
+    withSupabase({ auth: 'user' }),
+    withPostgresClient(pgConfig),
+    withPostgresAdminClient(pgConfig),
+  ],
   async (req, ctx) => {
     if (route(req) === '/all-notes-pg') {
       return Response.json(await ctx.postgresAdmin.queryRaw(PG_QUERY))
