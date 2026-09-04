@@ -263,12 +263,12 @@ withSupabase(
 
 `env` overrides environment variable resolution. Defaults to reading `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`, and `SUPABASE_JWKS` from the runtime environment.
 
-`middleware` composes additional entries onto the context — they run after the Supabase context is established and contribute their own typed keys. The first-party entries live on the `@supabase/server/middleware/*` subpaths; see [Postgres](#postgres-rls-scoped-queries).
+Called with config only, `withSupabase(config)` returns an entry for `pipeline` from `@supabase/middleware`. Entries placed after it in the array receive the Supabase context and contribute their own typed keys; entries placed before it run ahead of the auth gate. The first-party entries live on the `@supabase/server/middleware/*` subpaths; see [Postgres](#postgres-rls-scoped-queries).
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 ## Framework Adapters
 
@@ -447,20 +447,21 @@ export default {
 
 ## Postgres (RLS-scoped queries)
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 When PostgREST isn't the right tool — joins, CTEs, window functions — `withPostgresClient` puts a direct Postgres connection on `ctx.postgres`, scoped to the caller by RLS:
 
 ```ts
+import { pipeline } from '@supabase/middleware'
 import { withSupabase } from '@supabase/server'
 import { withPostgresClient } from '@supabase/server/middleware/postgres'
 
 export default {
-  fetch: withSupabase(
-    { auth: 'user', middleware: [withPostgresClient()] },
+  fetch: pipeline(
+    [withSupabase({ auth: 'user' }), withPostgresClient()],
     async (_req, ctx) => {
       // No WHERE clause — RLS scopes the rows to the caller.
       const notes = await ctx.postgres.query`select id, body from notes`
@@ -477,10 +478,7 @@ When a handler legitimately needs to cross user boundaries, `withPostgresAdminCl
 ```ts
 import { withPostgresAdminClient } from '@supabase/server/middleware/postgres-admin'
 
-withSupabase(
-  { auth: 'secret', middleware: [withPostgresAdminClient()] },
-  handler,
-)
+pipeline([withSupabase({ auth: 'secret' }), withPostgresAdminClient()], handler)
 ```
 
 The pair mirrors `ctx.supabase` / `ctx.supabaseAdmin`, and they share one connection pool. Keeping them as two middleware is deliberate: bypassing RLS stays visible at the composition site, so you can grep for every handler that can do it.

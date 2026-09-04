@@ -1,9 +1,9 @@
 # Postgres (`ctx.postgres`)
 
-> **Alpha.** The `middleware` option and the `@supabase/server/middleware/*`
-> subpaths track `@supabase/middleware` 0.x — entry shapes, context keys, and
-> config options may change between 0.x releases. Everything else in
-> `@supabase/server` is stable.
+> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
+> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
+> entry shapes and context keys may change between 0.x releases. The
+> `withSupabase(config, handler)` form is stable.
 
 Two middleware give you a direct Postgres connection, mirroring the `ctx.supabase` / `ctx.supabaseAdmin` pair:
 
@@ -17,12 +17,13 @@ Reach for the scoped one by default. The admin one is a deliberate opt-out, cove
 `withPostgresClient` puts a direct Postgres connection on `ctx.postgres`, scoped to the calling user by RLS. It is the safe version of "authenticate, then query as the user": you write plain SQL, and Postgres — not your application code — decides which rows the caller may see.
 
 ```ts
+import { pipeline } from '@supabase/middleware'
 import { withSupabase } from '@supabase/server'
 import { withPostgresClient } from '@supabase/server/middleware/postgres'
 
 export default {
-  fetch: withSupabase(
-    { auth: 'user', middleware: [withPostgresClient()] },
+  fetch: pipeline(
+    [withSupabase({ auth: 'user' }), withPostgresClient()],
     async (_req, ctx) => {
       // No WHERE clause — RLS scopes the rows to the caller.
       const notes = await ctx.postgres.query`select id, body from notes`
@@ -136,10 +137,10 @@ Reach for those helpers rather than reading settings by hand. In particular, the
 
 `withPostgresClient` needs the caller's verified claims at `ctx.jwtClaims`. That prerequisite is enforced at compile time, so there are exactly two ways to satisfy it.
 
-**Inside `withSupabase`** — the context already carries `jwtClaims`, so compose it directly:
+**After `withSupabase`** — the context already carries `jwtClaims`, so place it next in the array:
 
 ```ts
-withSupabase({ auth: 'user', middleware: [withPostgresClient()] }, handler)
+pipeline([withSupabase({ auth: 'user' }), withPostgresClient()], handler)
 ```
 
 **Standalone** — in a Supabase-agnostic `pipeline`, pair it with [`withClaims`](../src/middleware/claims/index.ts), which verifies the Bearer token against the project JWKS:
@@ -180,12 +181,13 @@ Without the grant the query fails with `permission denied` (SQLSTATE `42501`) _b
 When a handler legitimately needs to cross user boundaries — an admin dashboard, a cron aggregate, a background job — compose `withPostgresAdminClient` instead. It contributes `ctx.postgresAdmin`, which runs queries as-is under the connection-string role: no claim injection, no role switch, no wrapping transaction.
 
 ```ts
+import { pipeline } from '@supabase/middleware'
 import { withSupabase } from '@supabase/server'
 import { withPostgresAdminClient } from '@supabase/server/middleware/postgres-admin'
 
 export default {
-  fetch: withSupabase(
-    { auth: 'secret', middleware: [withPostgresAdminClient()] },
+  fetch: pipeline(
+    [withSupabase({ auth: 'secret' }), withPostgresAdminClient()],
     async (_req, ctx) => {
       const rows = await ctx.postgresAdmin
         .query`select user_id, count(*) from notes group by user_id`
@@ -200,7 +202,14 @@ Unlike the scoped half it declares **no upstream prerequisite** — it never rea
 Compose both when a handler needs each in turn. They share one pool, and `ctx.postgres` stays RLS-scoped regardless:
 
 ```ts
-middleware: [withPostgresClient(), withPostgresAdminClient()]
+pipeline(
+  [
+    withSupabase({ auth: 'user' }),
+    withPostgresClient(),
+    withPostgresAdminClient(),
+  ],
+  handler,
+)
 ```
 
 Two things worth being deliberate about:

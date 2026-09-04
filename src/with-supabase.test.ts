@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { defineMiddleware, getEnv } from '@supabase/middleware'
-import type { Entry, FetchHandler } from '@supabase/middleware'
+import { defineMiddleware, getEnv, pipeline } from '@supabase/middleware'
+import type { FetchHandler } from '@supabase/middleware'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { createSupabaseContext } from './create-supabase-context.js'
@@ -11,7 +11,7 @@ import {
   MissingCredentialsError,
   MissingDefaultSecretKeyError,
 } from './errors.js'
-import type { WithSupabaseConfig } from './types.js'
+import type { JWTClaims, SupabaseContext, WithSupabaseConfig } from './types.js'
 import { withClaims } from './middleware/claims/index.js'
 import { withPostgresClient } from './middleware/postgres/index.js'
 import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
@@ -306,200 +306,31 @@ describe('withSupabase', () => {
     })
   })
 
-  describe('middleware', () => {
-    it('composes middleware after the Supabase context is established', async () => {
-      const withFlag = defineMiddleware<
-        'flag',
-        void,
-        Record<never, never>,
-        boolean
-      >({
-        key: 'flag',
-        run: () => async () => ({ flag: true }),
-      })
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withFlag()] },
-        async (_req, ctx) =>
-          Response.json({ authMode: ctx.authMode, flag: ctx.flag }),
-      )
-
-      const res = await handler(new Request('http://localhost'))
-      const body = await res.json()
-      expect(body.authMode).toBe('none')
-      expect(body.flag).toBe(true)
+  it("forwards the host's second fetch argument to getEnv as platform env", async () => {
+    const withReadEnv = defineMiddleware<
+      'bindingValue',
+      void,
+      Record<never, never>,
+      string | undefined
+    >({
+      key: 'bindingValue',
+      run: () => async () => ({
+        bindingValue: getEnv('WITH_SUPABASE_TEST_BINDING'),
+      }),
     })
 
-    it('middleware receives the Supabase context at runtime', async () => {
-      let capturedHasSupabase = false
+    const handler = withSupabase(
+      { auth: 'none', env: baseEnv },
+      withReadEnv(async (_req, ctx) =>
+        Response.json({ bindingValue: ctx.bindingValue }),
+      ),
+    )
 
-      const withCapture = defineMiddleware<
-        'captured',
-        void,
-        Record<never, never>,
-        boolean
-      >({
-        key: 'captured',
-        run: () => async (_req, ctx) => {
-          capturedHasSupabase = !!(ctx as { supabase?: unknown }).supabase
-          return { captured: capturedHasSupabase }
-        },
-      })
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withCapture()] },
-        async (_, ctx) => Response.json({ captured: ctx.captured }),
-      )
-
-      const res = await handler(new Request('http://localhost'))
-      const body = await res.json()
-      expect(body.captured).toBe(capturedHasSupabase)
-      expect(capturedHasSupabase).toBe(true)
+    // Workers-style invocation: fetch(request, env).
+    const res = await handler(new Request('http://localhost'), {
+      WITH_SUPABASE_TEST_BINDING: 'from-platform',
     })
-
-    it('middleware can short-circuit before the handler', async () => {
-      const withBlock = defineMiddleware<
-        'blocked',
-        void,
-        Record<never, never>,
-        true
-      >({
-        key: 'blocked',
-        run: () => async () => new Response('blocked', { status: 403 }),
-      })
-
-      const innerHandler = vi.fn(async () => Response.json({ ok: true }))
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withBlock()] },
-        innerHandler,
-      )
-
-      const res = await handler(new Request('http://localhost'))
-      expect(res.status).toBe(403)
-      expect(innerHandler).not.toHaveBeenCalled()
-    })
-
-    it('middleware run in array order (first = outermost, runs first on request)', async () => {
-      const order: string[] = []
-
-      const withA = defineMiddleware<'a', void, Record<never, never>, true>({
-        key: 'a',
-        run: () => async () => {
-          order.push('a')
-          return { a: true as const }
-        },
-      })
-      const withB = defineMiddleware<'b', void, Record<never, never>, true>({
-        key: 'b',
-        run: () => async () => {
-          order.push('b')
-          return { b: true as const }
-        },
-      })
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withA(), withB()] },
-        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
-      )
-
-      const res = await handler(new Request('http://localhost'))
-      const body = await res.json()
-      expect(order).toEqual(['a', 'b'])
-      expect(body).toEqual({ a: true, b: true })
-    })
-
-    it('middleware run in array order with shared ctx dependency', async () => {
-      const withFirst = defineMiddleware<
-        'a',
-        void,
-        Record<never, never>,
-        string
-      >({
-        key: 'a',
-        run: () => async () => ({ a: 'http://localhost' as const }),
-      })
-      const withSecond = defineMiddleware<'b', void, { a: string }, URL>({
-        key: 'b',
-        run: () => async (_req, ctx) => {
-          const url = URL.parse(ctx.a)
-          url!.pathname = '/supabase'
-
-          return { b: url! }
-        },
-      })
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withFirst(), withSecond()] },
-        async (_req, ctx) => Response.json({ a: ctx.a, b: ctx.b }),
-      )
-
-      const res = await handler(new Request('http://localhost'))
-      const body = await res.json()
-      expect(body).toEqual({
-        a: 'http://localhost',
-        b: 'http://localhost/supabase',
-      })
-
-      // Reverse order is a compile-time ordering error; at runtime the
-      // broken dependency chain throws all the same.
-      // @ts-expect-error — prereq 'a' is not yet on the context
-      const handlerReverse = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withSecond(), withFirst()] },
-        async (_req: Request, ctx: { a: string; b: URL }) =>
-          Response.json({ a: ctx.a, b: ctx.b }),
-      )
-
-      expect(handlerReverse(new Request('http://localhost'))).rejects.toThrow(
-        "Cannot set properties of null (setting 'pathname')",
-      )
-    })
-
-    it("forwards the host's second fetch argument to getEnv as platform env", async () => {
-      const withReadEnv = defineMiddleware<
-        'bindingValue',
-        void,
-        Record<never, never>,
-        string | undefined
-      >({
-        key: 'bindingValue',
-        run: () => async () => ({
-          bindingValue: getEnv('WITH_SUPABASE_TEST_BINDING'),
-        }),
-      })
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withReadEnv()] },
-        async (_req, ctx) => Response.json({ bindingValue: ctx.bindingValue }),
-      )
-
-      // Simulate a Workers-style invocation: fetch(request, env).
-      const res = await handler(new Request('http://localhost'), {
-        WITH_SUPABASE_TEST_BINDING: 'from-platform',
-      })
-      const body = await res.json()
-      expect(body).toEqual({ bindingValue: 'from-platform' })
-    })
-
-    it('CORS headers still apply when middleware are present', async () => {
-      const withNoop = defineMiddleware<
-        'noop',
-        void,
-        Record<never, never>,
-        true
-      >({
-        key: 'noop',
-        run: () => async () => ({ noop: true as const }),
-      })
-
-      const handler = withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withNoop()] },
-        async () => Response.json({ ok: true }),
-      )
-
-      const res = await handler(new Request('http://localhost'))
-      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
-    })
+    expect(await res.json()).toEqual({ bindingValue: 'from-platform' })
   })
 
   describe('nested under an upstream middleware', () => {
@@ -633,31 +464,12 @@ describe('withSupabase', () => {
 })
 
 describe('type guarantees (tsc-verified)', () => {
-  const withProvider = defineMiddleware<
-    'prov',
-    void,
-    Record<never, never>,
-    { v: number }
-  >({
-    key: 'prov',
-    run: () => async () => ({ prov: { v: 1 } }),
-  })
-
-  const withNeedsProv = defineMiddleware<
-    'dep',
-    void,
-    { prov: { v: number } },
-    { ok: true }
-  >({
-    key: 'dep',
-    run: () => async () => ({ dep: { ok: true as const } }),
-  })
-
-  it('an entry may declare a prerequisite on a Supabase-provided key', () => {
-    // withPostgresClient declares In: { jwtClaims }; the SupabaseContext
-    // seed satisfies it, so composing it here compiles.
-    const _handler = withSupabase(
-      { auth: 'none', env: baseEnv, middleware: [withPostgresClient()] },
+  it('as a pipeline entry, supplies jwtClaims to withPostgresClient', () => {
+    const _handler = pipeline(
+      [
+        withSupabase({ auth: 'user', env: baseEnv }),
+        withPostgresClient({ connectionString: 'postgres://x' }),
+      ],
       async (_req, ctx) => {
         expectTypeOf(ctx.postgres).not.toBeAny()
         expectTypeOf(ctx.supabase).not.toBeAny()
@@ -667,113 +479,226 @@ describe('type guarantees (tsc-verified)', () => {
     void _handler
   })
 
-  it('an entry keyed on a Supabase-provided key fails to compile', () => {
-    // withClaims contributes 'jwtClaims', which withSupabase already seeds.
-    // Gating inside the array is redundant; the collision is a type error.
-    // (Same property the SDK-1614 gate relies on.)
-    // @ts-expect-error — Conflict<'jwtClaims'>: key already on the context
-    const _bad = withSupabase(
-      { auth: 'none', env: baseEnv, middleware: [withClaims()] },
+  it('an entry keyed on a Supabase-provided key fails to compile after withSupabase', () => {
+    const _handler = pipeline(
+      [withSupabase({ auth: 'none', env: baseEnv }), withClaims()],
+      // @ts-expect-error — Conflict<'jwtClaims'>: withSupabase already contributes it
       async () => Response.json({ ok: true }),
     )
-    void _bad
+    void _handler
   })
 
-  it('sibling ordering: provider before dependent compiles', () => {
-    const _ok = withSupabase(
-      {
-        auth: 'none',
-        env: baseEnv,
-        middleware: [withProvider(), withNeedsProv()],
-      },
-      async (_req, ctx) => {
-        expectTypeOf(ctx.dep).toEqualTypeOf<{ ok: true }>()
-        expectTypeOf(ctx.prov).toEqualTypeOf<{ v: number }>()
-        return Response.json({ ok: true })
-      },
-    )
-    void _ok
-  })
-
-  it('sibling ordering: dependent before provider fails to compile', () => {
-    // @ts-expect-error — prereq 'prov' is not yet on the context
-    const _bad = withSupabase(
-      {
-        auth: 'none',
-        env: baseEnv,
-        middleware: [withNeedsProv(), withProvider()],
-      },
-      async () => Response.json({ ok: true }),
-    )
-    void _bad
-  })
-
-  it('a prerequisite nothing supplies fails to compile', () => {
-    // @ts-expect-error — prereq 'prov' is not on the context
-    const _bad = withSupabase(
-      { auth: 'none', env: baseEnv, middleware: [withNeedsProv()] },
-      async () => Response.json({ ok: true }),
-    )
-    void _bad
-  })
-
-  it('nested: Base flows in beside a middleware array', () => {
-    // The `satisfies FetchHandler` anchor is what pushes the upstream
-    // contribution into `Base`; the validation conditional on the handler
-    // parameter must not resolve the call before that happens.
+  it('nested: Base flows in from an outer middleware', () => {
     const _composed = withOAuthProtectedResource(
-      withSupabase(
-        { auth: 'none', env: baseEnv, middleware: [withProvider()] },
-        async (_req, ctx) => {
-          expectTypeOf(
-            ctx.oauthProtectedResource.resourceMetadataUrl,
-          ).toEqualTypeOf<string>()
-          expectTypeOf(ctx.prov).toEqualTypeOf<{ v: number }>()
-          expectTypeOf(ctx.supabase).not.toBeAny()
-          return Response.json({ ok: true })
-        },
-      ),
+      withSupabase({ auth: 'none', env: baseEnv }, async (_req, ctx) => {
+        expectTypeOf(
+          ctx.oauthProtectedResource.resourceMetadataUrl,
+        ).toEqualTypeOf<string>()
+        expectTypeOf(ctx.supabase).not.toBeAny()
+        return Response.json({ ok: true })
+      }),
     ) satisfies FetchHandler
     void _composed
   })
 
-  it('a widened entry poisons validation for later typed entries', () => {
-    // A hand-wrapped entry types as Entry<string, object, unknown>. Its
-    // string key folds an index signature into the accumulated context, so
-    // every later typed key reports a false conflict. Pinned here so the
-    // failure mode is documented rather than discovered in consumer code.
-    const widened = ((h) => h) as Entry<string, object, unknown>
-
-    // @ts-expect-error — false Conflict<'prov'> caused by the widened entry
-    const _bad = withSupabase(
-      { auth: 'none', env: baseEnv, middleware: [widened, withProvider()] },
-      async () => Response.json({ ok: true }),
+  it('accepts a pre-annotated handler, as the ui-library mcp-server block does', () => {
+    async function handleMcp(
+      _request: Request,
+      ctx: SupabaseContext,
+    ): Promise<Response> {
+      return Response.json({ id: ctx.userClaims?.id ?? null })
+    }
+    const _composed = withOAuthProtectedResource(
+      withSupabase(
+        {
+          auth: 'user',
+          env: baseEnv,
+          cors: { headers: { 'Access-Control-Allow-Origin': '*' } },
+        },
+        handleMcp,
+      ),
     )
-    void _bad
-
-    // Placed last, a widened entry has nothing after it to poison.
-    const _last = withSupabase(
-      { auth: 'none', env: baseEnv, middleware: [withProvider(), widened] },
-      async (_req, ctx) => {
-        expectTypeOf(ctx.prov).toEqualTypeOf<{ v: number }>()
-        return Response.json({ ok: true })
-      },
-    )
-    void _last
+    void _composed
   })
 
-  it('explicit Database defaults Entries; array accepted, unvalidated', () => {
+  it('explicit Database types the client', () => {
     const _handler = withSupabase<{ fixture: true }>(
-      { auth: 'none', env: baseEnv, middleware: [withProvider()] },
+      { auth: 'none', env: baseEnv },
       async (_req, ctx) => {
         expectTypeOf(ctx.supabase).not.toBeAny()
-        // Entries defaulted to readonly AnyEntry[]: no tuple inference, so
-        // contributions are not accumulated onto ctx.
-        // @ts-expect-error — 'prov' is not on ctx without tuple inference
-        void ctx.prov
         return Response.json({ ok: true })
       },
     )
     void _handler
+  })
+
+  it('nested: a middleware with a prerequisite composes as the handler', () => {
+    const _handler = withSupabase(
+      { auth: 'user', env: baseEnv },
+      withPostgresClient(
+        { connectionString: 'postgres://x' },
+        async (_req, ctx) => {
+          expectTypeOf(ctx.postgres).not.toBeAny()
+          expectTypeOf(ctx.supabase).not.toBeAny()
+          return Response.json({ ok: true })
+        },
+      ),
+    )
+    void _handler
+  })
+})
+
+describe('withSupabase as a pipeline entry', () => {
+  const oauthCfg = {
+    resourceServer: 'http://localhost/functions/v1/mcp',
+    authorizationServer: 'https://test.supabase.co/auth/v1',
+  }
+  const mcp = () =>
+    pipeline(
+      [
+        withOAuthProtectedResource(oauthCfg),
+        withSupabase({ auth: 'user', env: baseEnv }),
+      ],
+      async () => new Response('handler ran'),
+    )
+
+  it('returns an entry when called with config only', () => {
+    expect(typeof withSupabase({ auth: 'none', env: baseEnv })).toBe('function')
+  })
+
+  it('serves OAuth discovery ahead of the auth gate', async () => {
+    const res = await mcp()(
+      new Request('http://localhost/functions/v1/mcp/oauth-protected-resource'),
+    )
+    expect(res.status).toBe(200)
+    expect((await res.json()).authorization_servers).toEqual([
+      'https://test.supabase.co/auth/v1',
+    ])
+  })
+
+  it('enriches the gate 401 with WWW-Authenticate', async () => {
+    const res = await mcp()(
+      new Request('http://localhost/functions/v1/mcp', { method: 'POST' }),
+    )
+    expect(res.status).toBe(401)
+    expect(res.headers.get('WWW-Authenticate')).toBe(
+      'Bearer resource_metadata="http://localhost/functions/v1/mcp/oauth-protected-resource"',
+    )
+  })
+
+  it('lets the OAuth middleware answer the metadata preflight', async () => {
+    const res = await mcp()(
+      new Request(
+        'http://localhost/functions/v1/mcp/oauth-protected-resource',
+        {
+          method: 'OPTIONS',
+        },
+      ),
+    )
+    expect(res.status).toBe(204)
+    expect(res.headers.get('Access-Control-Allow-Headers')).toContain(
+      'mcp-protocol-version',
+    )
+  })
+
+  it('supplies jwtClaims to an entry placed after it', async () => {
+    const withCaller = defineMiddleware<
+      'caller',
+      void,
+      { jwtClaims: JWTClaims | null },
+      string
+    >({
+      key: 'caller',
+      run: () => async (_req, ctx) => ({
+        caller: ctx.jwtClaims?.sub ?? 'anon',
+      }),
+    })
+    const handler = pipeline(
+      [withSupabase({ auth: 'none', env: baseEnv }), withCaller()],
+      async (_req, ctx) =>
+        Response.json({ caller: ctx.caller, authMode: ctx.authMode }),
+    )
+    expect(
+      await (await handler(new Request('http://localhost'))).json(),
+    ).toEqual({
+      caller: 'anon',
+      authMode: 'none',
+    })
+  })
+})
+
+describe('withSupabase context shape', () => {
+  it('exposes exactly the documented keys and no internal plumbing', async () => {
+    const handler = withSupabase(
+      { auth: 'none', env: baseEnv },
+      async (_req, ctx) => {
+        // @ts-expect-error — internal to the composite
+        void ctx.supabaseAuth
+        // @ts-expect-error — internal to the composite
+        void ctx.supabaseCors
+        return Response.json({ keys: Object.keys(ctx).sort() })
+      },
+    )
+    const body = await (await handler(new Request('http://localhost'))).json()
+    expect(body.keys).toEqual([
+      'authKeyName',
+      'authMode',
+      'jwtClaims',
+      'supabase',
+      'supabaseAdmin',
+      'userClaims',
+    ])
+  })
+
+  it('buffers the request at the entry so a nested middleware and the handler can both read the body', async () => {
+    const withPeek = defineMiddleware<
+      'peek',
+      void,
+      Record<never, never>,
+      string
+    >({
+      key: 'peek',
+      run: () => async (req) => ({ peek: await req.text() }),
+    })
+    const handler = withSupabase(
+      { auth: 'none', env: baseEnv },
+      withPeek(async (req, ctx) =>
+        Response.json({ peek: ctx.peek, again: await req.text() }),
+      ),
+    )
+    const res = await handler(
+      new Request('http://localhost', { method: 'POST', body: 'hello' }),
+    )
+    expect(await res.json()).toEqual({ peek: 'hello', again: 'hello' })
+  })
+})
+
+describe('withSupabase key mirroring', () => {
+  it('the client is built with the named key the request matched', async () => {
+    const handler = withSupabase(
+      {
+        auth: 'publishable:web',
+        env: {
+          ...baseEnv,
+          publishableKeys: {
+            default: 'sb_publishable_xyz',
+            web: 'sb_publishable_web',
+          },
+        },
+      },
+      async (_req, ctx) => {
+        expect(ctx.authKeyName).toBe('web')
+        expect(
+          (ctx.supabase as unknown as { supabaseKey: string }).supabaseKey,
+        ).toBe('sb_publishable_web')
+        return Response.json({ ok: true })
+      },
+    )
+
+    const req = new Request('http://localhost', {
+      headers: { apikey: 'sb_publishable_web' },
+    })
+    const res = await handler(req)
+    expect(res.status).toBe(200)
   })
 })

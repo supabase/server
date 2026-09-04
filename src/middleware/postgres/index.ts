@@ -119,11 +119,12 @@ export interface WithPostgresClientConfig {
  * > claim, and RLS still applies to them. They are not supported here yet, so
  * > such a token is refused rather than downgraded.
  *
- * Reads the caller's claims from `ctx.jwtClaims`, which `withSupabase` already
- * populates (JWKS-verified) — so inside `withSupabase` you compose it directly:
+ * Reads the caller's claims from `ctx.jwtClaims`, which `withSupabase`
+ * populates (JWKS-verified) — so after `withSupabase` in a pipeline it composes
+ * directly:
  *
  * ```ts
- * withSupabase({ auth: 'user', middleware: [withPostgresClient()] }, handler)
+ * pipeline([withSupabase({ auth: 'user' }), withPostgresClient()], handler)
  * ```
  *
  * Standalone (no `withSupabase`), pair it with `withClaims` so `ctx.jwtClaims`
