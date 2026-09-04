@@ -489,6 +489,33 @@ Needs `pg` installed (optional peer dependency) and a raw TCP socket: Node, Deno
 
 See [`docs/postgres.md`](docs/postgres.md) for standalone composition with `withClaims`, the grants requirement, and current limits.
 
+## MCP tools from your schema
+
+> **Alpha.** `@supabase/server/mcp` tracks `@modelcontextprotocol/server` 2.x; generated tool names, schemas and annotations may change in a minor release.
+
+`generateTools` reads the OpenAPI description PostgREST publishes for the caller and builds one MCP tool per operation — `list_`, `get_`, `create_`, `update_`, `delete_` for every table and view, one tool per database function — with descriptions from `COMMENT ON`. `registerTools` hands them to the official MCP SDK. Tools run through `ctx.supabase`, so RLS applies.
+
+```ts
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
+import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
+import { generateTools, registerTools } from '@supabase/server/mcp'
+
+Deno.serve(
+  withOAuthProtectedResource(
+    withSupabase({ auth: 'user' }, async (req, { supabase }) => {
+      const handler = createMcpHandler(async () => {
+        const server = new McpServer({ name: 'notes-mcp', version: '0.1.0' })
+        registerTools(server, await generateTools(supabase))
+        return server
+      })
+      return handler.fetch(req)
+    }),
+  ),
+)
+```
+
+Requires `@modelcontextprotocol/server` (optional peer) and `@supabase/supabase-js` 2.115.0+. See [`docs/mcp.md`](docs/mcp.md) for what is generated, annotations, filtering, and limitations.
+
 ## Environment Variables
 
 Automatically available in Supabase Edge Functions:
@@ -548,6 +575,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | `@supabase/server/middleware/postgres`        | **Alpha.** `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                |
 | `@supabase/server/middleware/postgres-admin`  | **Alpha.** `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                          |
 | `@supabase/server/oauth-protected-resource`   | **Alpha.** `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`    |
+| `@supabase/server/mcp`                        | **Alpha.** `generateTools`, `registerTools` (MCP tools generated from the PostgREST schema)                       |
 | `@supabase/server/peer/supabase-js`           | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                           |
 
 ## Documentation
@@ -566,6 +594,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)               |
 | How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)     |
 | How do I run raw SQL scoped to the caller by RLS?                   | [`docs/postgres.md`](docs/postgres.md)                           |
+| How do I generate MCP tools from my schema?                         | [`docs/mcp.md`](docs/mcp.md)                                     |
 | How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)               |
 | What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                 |
 

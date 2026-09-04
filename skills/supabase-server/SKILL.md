@@ -34,11 +34,12 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 ## Entry points
 
-| Import                           | Deno / Edge Functions                | Provides                                                                                                          |
-| -------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
-| `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
-| `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
+| Import                           | Deno / Edge Functions                | Provides                                                                                                                                                     |
+| -------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                                                                       |
+| `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient`                                            |
+| `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                                                                     |
+| `@supabase/server/mcp`           | `npm:@supabase/server/mcp`           | **Alpha.** `generateTools`, `registerTools` — MCP tools generated from the PostgREST schema (needs `@modelcontextprotocol/server` 2.x, supabase-js 2.115.0+) |
 
 ## Quick starts
 
@@ -422,6 +423,7 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | How do environment variables work across runtimes?                  | `docs/environment-variables.md` |
 | How do I handle errors? What codes exist?                           | `docs/error-handling.md`        |
 | How do I get typed database queries?                                | `docs/typescript-generics.md`   |
+| How do I generate MCP tools from my schema?                         | `docs/mcp.md`                   |
 | How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | `docs/ssr-frameworks.md`        |
 | What's the complete API surface?                                    | `docs/api-reference.md`         |
 | What security decisions does this package make?                     | `docs/security.md`              |

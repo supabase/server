@@ -159,6 +159,16 @@
         "default": "./dist/oauth-protected-resource/index.cjs"
       }
     },
+    "./mcp": {
+      "import": {
+        "types": "./dist/mcp/index.d.mts",
+        "default": "./dist/mcp/index.mjs"
+      },
+      "require": {
+        "types": "./dist/mcp/index.d.cts",
+        "default": "./dist/mcp/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -198,6 +208,7 @@
     "commit-msg": "pnpm commitlint --edit \"$1\""
   },
   "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
     "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@supabase/supabase-js": "^2.0.0",
     "elysia": "^1.4.0",
@@ -220,18 +231,22 @@
     },
     "pg": {
       "optional": true
+    },
+    "@modelcontextprotocol/server": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.4",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/platform-fastify": "^11.1.19",
     "@nestjs/testing": "^11.1.19",
-    "@supabase/supabase-js": "^2.114.0",
+    "@supabase/supabase-js": "^2.115.0",
     "@swc/core": "^1.15.33",
     "@types/node": "^26.0.1",
     "@types/pg": "^8.11.0",

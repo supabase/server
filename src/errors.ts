@@ -978,6 +978,153 @@ const AuthErrorMap = {
 }
 
 /**
+ * Thrown when MCP tools cannot be generated from the PostgREST description.
+ *
+ * Always has `status: 500` — the description could not be read, or the schema
+ * itself produces two tools with the same name. Neither is the caller's fault.
+ *
+ * @example Catching a ToolGenerationError
+ * ```ts
+ * import { ToolGenerationError } from '@supabase/server'
+ * import { generateTools } from '@supabase/server/mcp'
+ *
+ * try {
+ *   const tools = await generateTools(supabase)
+ * } catch (e) {
+ *   if (e instanceof ToolGenerationError) {
+ *     console.error(`[${e.code}] ${e.message}\n${e.hint}`)
+ *   }
+ * }
+ * ```
+ *
+ * @category Errors
+ */
+export class ToolGenerationError extends SupabaseServerError {
+  /** Always `500` — tool generation fails server-side. */
+  readonly status = 500
+
+  /**
+   * @param message - Human-readable description. Prefixed with `[@supabase/server]`.
+   * @param code - Machine-readable code. @see {@link SpecFetchFailedError},
+   *   {@link ToolNameCollisionError}
+   * @param options - Optional `hint`, `details`, `docs`, and `cause`.
+   */
+  constructor(
+    message: string,
+    code = ToolGenerationGenericError,
+    options?: SupabaseServerErrorOptions,
+  ) {
+    super(message, code, options)
+    this.name = 'ToolGenerationError'
+  }
+}
+
+/**
+ * Generic tool generation error code.
+ * @category Errors
+ */
+export const ToolGenerationGenericError = 'TOOL_GENERATION_ERROR'
+
+/**
+ * The PostgREST OpenAPI description could not be fetched, or the response is
+ * not a Swagger 2.0 document.
+ * @category Errors
+ */
+export const SpecFetchFailedError = 'SPEC_FETCH_FAILED'
+
+/**
+ * Two generated operations produce the same tool name.
+ * @category Errors
+ */
+export const ToolNameCollisionError = 'TOOL_NAME_COLLISION'
+
+/**
+ * Why the PostgREST description could not be read. Passed to
+ * `Errors[SpecFetchFailedError]`.
+ *
+ * @category Errors
+ */
+export type SpecFetchFailure =
+  /** The supabase-js client predates `getOpenApiSpec()` (2.115.0). */
+  | { reason: 'unsupported-client' }
+  /** PostgREST answered with an error, or the request never arrived (`status: 0`). */
+  | { reason: 'request'; status: number; message: string; cause?: unknown }
+  /** The response is not a Swagger 2.0 document with `definitions`. */
+  | { reason: 'malformed'; status?: number }
+
+/** @internal */
+function specFetchHint(status: number): string {
+  if (status === 404 || status === 406) {
+    return (
+      `PostgREST returned ${status}, which usually means OpenAPI output is disabled on the project's Data API ` +
+      '(openapi-mode), or the client URL does not point at a PostgREST endpoint.'
+    )
+  }
+  if (status === 401 || status === 403) {
+    return (
+      'PostgREST rejected the credentials. The Supabase client must carry a valid API key and, ' +
+      "for caller-scoped generation, the caller's access token."
+    )
+  }
+  if (status === 0) {
+    return 'The request never reached PostgREST. Check the project URL and network connectivity.'
+  }
+  return 'Check that the project URL points at a healthy Data API.'
+}
+
+const ToolGenerationErrorMap = {
+  [SpecFetchFailedError]: (failure: SpecFetchFailure): ToolGenerationError => {
+    switch (failure.reason) {
+      case 'unsupported-client':
+        return new ToolGenerationError(
+          'Cannot fetch the PostgREST OpenAPI description: this @supabase/supabase-js client has no getOpenApiSpec().',
+          SpecFetchFailedError,
+          { hint: 'Upgrade @supabase/supabase-js to 2.115.0 or newer.' },
+        )
+      case 'request':
+        return new ToolGenerationError(
+          `Could not fetch the PostgREST OpenAPI description (HTTP ${failure.status}): ${failure.message}`,
+          SpecFetchFailedError,
+          {
+            hint: specFetchHint(failure.status),
+            details: { status: failure.status },
+            cause: failure.cause,
+          },
+        )
+      case 'malformed':
+        return new ToolGenerationError(
+          'The PostgREST OpenAPI description is not a Swagger 2.0 document with definitions.',
+          SpecFetchFailedError,
+          {
+            hint:
+              'PostgREST serves Swagger 2.0 at the REST root. A response without "swagger" and "definitions" ' +
+              'usually means OpenAPI output is disabled on the project, or another service answered.',
+            details:
+              failure.status === undefined
+                ? undefined
+                : { status: failure.status },
+          },
+        )
+    }
+  },
+
+  [ToolNameCollisionError]: (context: {
+    name: string
+    operations: readonly string[]
+  }): ToolGenerationError =>
+    new ToolGenerationError(
+      `Two operations produce the tool name "${context.name}": ${context.operations.join(' and ')}.`,
+      ToolNameCollisionError,
+      {
+        hint:
+          'Tool names are one namespace across tables, views and functions. Rename the database function, ' +
+          "or revoke the role's privilege on one of the two so it leaves the description.",
+        details: { name: context.name, operations: [...context.operations] },
+      },
+    ),
+}
+
+/**
  * Returns a copy of `error` carrying an extra leading hint sentence and merged
  * `details`. Lets an outer layer add diagnostics the inner layer could not see —
  * {@link core.verifyAuth} can inspect the raw `Authorization` header, while
@@ -1003,7 +1150,8 @@ export function withExtraDiagnostics(
 
 /**
  * Factory map for all error types. Keyed by error code constant, each entry
- * returns a pre-configured {@link EnvError} or {@link AuthError} complete with
+ * returns a pre-configured {@link EnvError}, {@link AuthError} or
+ * {@link ToolGenerationError} complete with
  * `hint`, `docs`, and `details`.
  *
  * @example Throwing typed errors
@@ -1017,4 +1165,5 @@ export function withExtraDiagnostics(
 export const Errors = {
   ...EnvErrorMap,
   ...AuthErrorMap,
+  ...ToolGenerationErrorMap,
 }
