@@ -55,6 +55,18 @@ export interface OAuthProtectedResourceConfig {
   authorizationServer?: UrlOption
 }
 
+let warnedPlacement = false
+
+/**
+ * Resets the once-per-process placement warning so each test observes it
+ * independently.
+ *
+ * @internal
+ */
+export function _resetOAuthPlacementWarned(): void {
+  warnedPlacement = false
+}
+
 /**
  * **Alpha.** Wraps a request handler with OAuth 2.1 Protected Resource
  * behavior (RFC 9728).
@@ -78,7 +90,9 @@ export interface OAuthProtectedResourceConfig {
  * Contributes `ctx.oauthProtectedResource` (the resolved metadata URL) to the
  * downstream context. Nested under `withSupabase`, the key is typed on the
  * handler's `ctx` when the outermost call is anchored with
- * `satisfies FetchHandler` — see `withSupabase`'s type note.
+ * `satisfies FetchHandler` — see `withSupabase`'s type note. Placed after
+ * `withSupabase`, the gate answers discovery and preflight before this
+ * middleware runs; that placement emits a warning once per process.
  *
  * The OAuth Protected Resource surface is alpha — the config shape, the
  * contributed context key, and the metadata route may change in a minor
@@ -141,7 +155,14 @@ export const withOAuthProtectedResource: Middleware<
 >({
   key: 'oauthProtectedResource',
   run: (config) =>
-    async function* (req) {
+    async function* (req, ctx) {
+      if (!warnedPlacement && 'authMode' in ctx && 'supabase' in ctx) {
+        warnedPlacement = true
+        console.warn(
+          'withOAuthProtectedResource runs after the withSupabase auth gate here, so OAuth discovery and its preflight never reach it. Place it before withSupabase: pipeline([withOAuthProtectedResource(config), withSupabase(config)], handler) or withOAuthProtectedResource(config, withSupabase(config, handler)).',
+        )
+      }
+
       const url = new URL(req.url)
       // The metadata document lives at `{resource}/oauth-protected-resource`.
       // Matching on the suffix keeps this working wherever the endpoint is

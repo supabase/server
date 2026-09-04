@@ -59,6 +59,24 @@ describe('withSupabaseCors', () => {
     )
   })
 
+  it('does not list the error-code header twice when the config already exposes it', async () => {
+    const res = await withSupabaseCors(
+      {
+        auth: 'none',
+        cors: {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Expose-Headers': `x-request-id, ${ErrorCodeHeader.toUpperCase()}`,
+          },
+        },
+      },
+      failing,
+    )(new Request('http://localhost'))
+    expect(res.headers.get('Access-Control-Expose-Headers')).toBe(
+      `x-request-id, ${ErrorCodeHeader.toUpperCase()}`,
+    )
+  })
+
   it("lets OPTIONS through and stamps nothing when cors is 'disabled'", async () => {
     const config = { auth: 'none', cors: 'disabled' } as const
     const preflight = await withSupabaseCors(

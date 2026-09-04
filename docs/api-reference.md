@@ -47,7 +47,7 @@ pipeline(
 )
 ```
 
-Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it.
+Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placed after `withSupabase` instead, `withOAuthProtectedResource` warns once per process, since the gate has already answered discovery and preflight by the time it would run.
 
 > **Alpha.** The entry form and the `@supabase/server/middleware/*` subpaths
 > track `@supabase/middleware` 0.x — entry shapes and context keys may change
