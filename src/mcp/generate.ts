@@ -56,15 +56,48 @@ type Client = SupabaseClient
 /** PostgREST marks primary-key columns with this literal in the description. */
 const PK_MARKER = '<pk/>'
 
-/** `list_` arguments that are not column filters. */
-const RESERVED = new Set(['order', 'limit', 'offset'])
+/** Column types an equality filter makes sense on. */
+const FILTERABLE_TYPES = new Set(['string', 'integer', 'number', 'boolean'])
 
-const READ_ONLY: ToolAnnotations = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-}
+/**
+ * One entry per operation, matching the annotation table in docs/mcp.md. They
+ * are advisory: they do not replace grants, Row Level Security, or
+ * application-level authorization.
+ */
+const ANNOTATIONS = {
+  read: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  create: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+  update: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+  delete: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  // A VOLATILE function may do anything, including reaching outside the
+  // project through an extension such as pg_net — hence openWorldHint.
+  call: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: true,
+  },
+} satisfies Record<string, ToolAnnotations>
 
 /**
  * Generates one MCP tool per operation PostgREST exposes to the client's role.
@@ -124,12 +157,13 @@ export async function fetchSpec<Database = unknown>(
 }
 
 function isSwaggerDocument(value: unknown): value is PostgrestOpenApiSpec {
+  const spec = value as PostgrestOpenApiSpec | null
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { swagger?: unknown }).swagger === 'string' &&
-    typeof (value as { paths?: unknown }).paths === 'object' &&
-    typeof (value as { definitions?: unknown }).definitions === 'object'
+    typeof spec === 'object' &&
+    spec !== null &&
+    typeof spec.swagger === 'string' &&
+    typeof spec.paths === 'object' &&
+    typeof spec.definitions === 'object'
   )
 }
 
@@ -146,12 +180,15 @@ export function generateToolDefinitions<Database = unknown>(
   const client = supabase as unknown as Client
   const tools: Record<string, GeneratedTool> = {}
 
+  const describe = ({ kind, name, method }: ToolMeta): string =>
+    `${kind} "${name}" (${method})`
+
   const add = (tool: GeneratedTool): void => {
     const existing = tools[tool.name]
     if (existing) {
       throw Errors[ToolNameCollisionError]({
         name: tool.name,
-        operations: [describeMeta(existing._meta), describeMeta(tool._meta)],
+        operations: [describe(existing._meta), describe(tool._meta)],
       })
     }
     tools[tool.name] = tool
@@ -163,10 +200,6 @@ export function generateToolDefinitions<Database = unknown>(
   for (const fn of databaseFunctions(spec)) add(functionTool(client, fn))
 
   return tools
-}
-
-function describeMeta(meta: ToolMeta): string {
-  return `${meta.kind} "${meta.name}" (${meta.method})`
 }
 
 // ---------------------------------------------------------------------------
@@ -207,14 +240,14 @@ function relationTools(
     Object.fromEntries(
       names.map((column) => [column, columnSchema(properties[column])]),
     )
-  const notFound = (key: Record<string, unknown>): Error =>
-    new Error(`No row of "${name}" matches ${JSON.stringify(key)}.`)
 
   const tools: GeneratedTool[] = []
 
   if (verbs.has('get')) {
-    const filterable = columns.filter(
-      (column) => isScalar(properties[column]) && !RESERVED.has(column),
+    // A column named order, limit or offset is shadowed by the pagination
+    // argument of the same name, so it cannot be filtered on.
+    const filterable = columns.filter((column) =>
+      FILTERABLE_TYPES.has(properties[column].type ?? ''),
     )
     tools.push({
       name: `list_${name}`,
@@ -239,7 +272,7 @@ function relationTools(
           description: 'Number of rows to skip. Default 0.',
         },
       }),
-      annotations: READ_ONLY,
+      annotations: ANNOTATIONS.read,
       _meta: { kind: 'relation', name, method: 'GET' },
       handler: async (args) => {
         const { order, limit, offset, ...filters } = args
@@ -249,8 +282,11 @@ function relationTools(
           query = query.eq(column, value)
         }
         if (typeof order === 'string' && order !== '') {
-          const sort = parseOrder(order, columns)
-          query = query.order(sort.column, { ascending: sort.ascending })
+          // "created_at.desc" carries the direction; a column that does not
+          // exist is PostgREST's 400 to report, not ours to pre-empt.
+          query = query.order(order.replace(/\.(asc|desc)$/, ''), {
+            ascending: !order.endsWith('.desc'),
+          })
         }
         const from = typeof offset === 'number' ? offset : 0
         const size = typeof limit === 'number' ? limit : 100
@@ -264,18 +300,15 @@ function relationTools(
       name: `get_${name}`,
       description: describe(`Fetches one row of "${name}" by primary key.`),
       inputSchema: objectSchema(columnSchemas(primaryKey), primaryKey),
-      annotations: READ_ONLY,
+      annotations: ANNOTATIONS.read,
       _meta: { kind: 'relation', name, method: 'GET' },
       handler: async (args) => {
         const key = pick(args, primaryKey)
-        const { data, error } = await client
-          .from(name)
-          .select('*')
-          .match(key)
-          .maybeSingle()
-        if (error) throw postgrestError(error)
-        if (data === null) throw notFound(key)
-        return textResult(data)
+        return toRowResult(
+          await client.from(name).select('*').match(key).maybeSingle(),
+          name,
+          key,
+        )
       },
     })
   }
@@ -286,20 +319,14 @@ function relationTools(
     // one at all — Postgres rejects it without OVERRIDING SYSTEM VALUE.
     const required = (definition.required ?? []).filter(
       (column) =>
-        column in properties &&
-        properties[column].default === undefined &&
+        properties[column]?.default === undefined &&
         !primaryKey.includes(column),
     )
     tools.push({
       name: `create_${name}`,
       description: describe(`Inserts one row into "${name}" and returns it.`),
       inputSchema: objectSchema(columnSchemas(columns), required),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
+      annotations: ANNOTATIONS.create,
       _meta: { kind: 'relation', name, method: 'POST' },
       handler: async (args) =>
         toResult(await client.from(name).insert(args).select('*').single()),
@@ -313,12 +340,7 @@ function relationTools(
         `Updates one row of "${name}" by primary key and returns it. Only the columns given change.`,
       ),
       inputSchema: objectSchema(columnSchemas(columns), primaryKey),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
+      annotations: ANNOTATIONS.update,
       _meta: { kind: 'relation', name, method: 'PATCH' },
       handler: async (args) => {
         const key = pick(args, primaryKey)
@@ -333,15 +355,16 @@ function relationTools(
             `Nothing to update in "${name}": pass at least one column besides the primary key.`,
           )
         }
-        const { data, error } = await client
-          .from(name)
-          .update(changes)
-          .match(key)
-          .select('*')
-          .maybeSingle()
-        if (error) throw postgrestError(error)
-        if (data === null) throw notFound(key)
-        return textResult(data)
+        return toRowResult(
+          await client
+            .from(name)
+            .update(changes)
+            .match(key)
+            .select('*')
+            .maybeSingle(),
+          name,
+          key,
+        )
       },
     })
   }
@@ -353,43 +376,20 @@ function relationTools(
         `Deletes one row of "${name}" by primary key and returns it.`,
       ),
       inputSchema: objectSchema(columnSchemas(primaryKey), primaryKey),
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      annotations: ANNOTATIONS.delete,
       _meta: { kind: 'relation', name, method: 'DELETE' },
       handler: async (args) => {
         const key = pick(args, primaryKey)
-        const { data, error } = await client
-          .from(name)
-          .delete()
-          .match(key)
-          .select('*')
-          .maybeSingle()
-        if (error) throw postgrestError(error)
-        if (data === null) throw notFound(key)
-        return textResult(data)
+        return toRowResult(
+          await client.from(name).delete().match(key).select('*').maybeSingle(),
+          name,
+          key,
+        )
       },
     })
   }
 
   return tools
-}
-
-function parseOrder(
-  order: string,
-  columns: string[],
-): { column: string; ascending: boolean } {
-  const match = /^(.+?)(?:\.(asc|desc))?$/.exec(order)
-  const column = match?.[1] ?? order
-  if (!columns.includes(column)) {
-    throw new Error(
-      `Cannot order by "${column}": not a column. Columns: ${columns.join(', ')}.`,
-    )
-  }
-  return { column, ascending: match?.[2] !== 'desc' }
 }
 
 // ---------------------------------------------------------------------------
@@ -410,9 +410,12 @@ function databaseFunctions(spec: PostgrestOpenApiSpec): DatabaseFunction[] {
     if (!path.startsWith('/rpc/')) continue
     const post = operations.post as SwaggerOperation | undefined
     if (!post) continue
-    const body = (post.parameters ?? [])
-      .map((parameter) => resolveParameter(spec, parameter))
-      .find((parameter) => parameter?.in === 'body')
+    // PostgREST inlines a function's arguments in the body parameter. The only
+    // `$ref` in an rpc operation points at a header (`preferParams`).
+    const body = (post.parameters ?? []).find(
+      (parameter): parameter is SwaggerParameter =>
+        !('$ref' in parameter) && parameter.in === 'body',
+    )
     found.push({
       name: path.slice('/rpc/'.length),
       hasGet: 'get' in operations,
@@ -421,18 +424,6 @@ function databaseFunctions(spec: PostgrestOpenApiSpec): DatabaseFunction[] {
     })
   }
   return found
-}
-
-/** Resolves a `#/parameters/<key>` reference one level; inline values pass through. */
-function resolveParameter(
-  spec: PostgrestOpenApiSpec,
-  parameter: SwaggerParameter | { $ref: string },
-): SwaggerParameter | undefined {
-  if (!('$ref' in parameter)) return parameter
-  const match = /^#\/parameters\/(.+)$/.exec(parameter.$ref)
-  if (!match) return undefined
-  const key = match[1].replace(/~1/g, '/').replace(/~0/g, '~')
-  return spec.parameters?.[key] as SwaggerParameter | undefined
 }
 
 function functionTool(client: Client, fn: DatabaseFunction): GeneratedTool {
@@ -451,16 +442,7 @@ function functionTool(client: Client, fn: DatabaseFunction): GeneratedTool {
       ),
       fn.args.required,
     ),
-    // A VOLATILE function may do anything, including reaching outside the
-    // project through an extension such as pg_net — hence openWorldHint.
-    annotations: fn.hasGet
-      ? READ_ONLY
-      : {
-          readOnlyHint: false,
-          destructiveHint: true,
-          idempotentHint: false,
-          openWorldHint: true,
-        },
+    annotations: fn.hasGet ? ANNOTATIONS.read : ANNOTATIONS.call,
     _meta: {
       kind: 'function',
       name: fn.name,
@@ -475,39 +457,17 @@ function functionTool(client: Client, fn: DatabaseFunction): GeneratedTool {
 // Swagger → JSON Schema
 // ---------------------------------------------------------------------------
 
-const JSON_SCHEMA_TYPES = new Set([
-  'string',
-  'integer',
-  'number',
-  'boolean',
-  'array',
-  'object',
-])
-
-function isScalar(property: SwaggerProperty): boolean {
-  return (
-    property.type === 'string' ||
-    property.type === 'integer' ||
-    property.type === 'number' ||
-    property.type === 'boolean'
-  )
-}
-
 /**
- * The Swagger property as JSON Schema. `type` and `enum` carry over; `format`
- * (which varies by PostgREST version) and the SQL `default` go into the
- * description for the model's benefit, never as validation keywords.
+ * The Swagger property as JSON Schema. PostgREST reports `type` from a closed
+ * mapping of Postgres types, and every value in it is already a JSON Schema
+ * type, so `type` and `enum` carry over as they are. `format` (which varies by
+ * PostgREST version) and the SQL `default` go into the description for the
+ * model's benefit, never as validation keywords.
  */
 function columnSchema(property: SwaggerProperty): JsonSchema {
   const schema: JsonSchema = {}
-  if (property.type && JSON_SCHEMA_TYPES.has(property.type)) {
-    schema.type = property.type
-  }
-  if (
-    property.type === 'array' &&
-    property.items?.type &&
-    JSON_SCHEMA_TYPES.has(property.items.type)
-  ) {
+  if (property.type) schema.type = property.type
+  if (property.type === 'array' && property.items?.type) {
     schema.items = { type: property.items.type }
   }
   if (property.enum) schema.enum = property.enum
@@ -544,8 +504,7 @@ function objectSchema(
 function cleanDescription(text: string | undefined): string | undefined {
   if (!text) return undefined
   const cleaned = text
-    .replace(/<pk\/>/g, '')
-    .replace(/<fk [^>]*\/>/g, '')
+    .replace(/<pk\/>|<fk [^>]*\/>/g, '')
     .split('\n')
     .map((line) => line.trim())
     .filter(
@@ -579,6 +538,23 @@ function toResult(response: {
   error: PostgrestError | null
 }): CallToolResult {
   if (response.error) throw postgrestError(response.error)
+  return textResult(response.data)
+}
+
+/**
+ * The same, for the operations that address one row by primary key.
+ * `maybeSingle()` reports a missing row as `data: null`, which for a key lookup
+ * is a tool error rather than an empty result.
+ */
+function toRowResult(
+  response: { data: unknown; error: PostgrestError | null },
+  relation: string,
+  key: Record<string, unknown>,
+): CallToolResult {
+  if (response.error) throw postgrestError(response.error)
+  if (response.data === null) {
+    throw new Error(`No row of "${relation}" matches ${JSON.stringify(key)}.`)
+  }
   return textResult(response.data)
 }
 
