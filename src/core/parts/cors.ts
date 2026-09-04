@@ -31,9 +31,11 @@ export const withSupabaseCors: Middleware<
   Record<string, string> | null
 >({
   key: 'supabaseCors',
-  run: (config) =>
-    async function* (req) {
-      if (isCorsDisabled(config.cors)) {
+  run: (config) => {
+    const disabled = isCorsDisabled(config.cors)
+    const headers = disabled ? null : buildCorsHeaders(config.cors)
+    return async function* (req) {
+      if (disabled) {
         const passthrough: Response = yield { supabaseCors: null }
         return passthrough
       }
@@ -41,12 +43,12 @@ export const withSupabaseCors: Middleware<
       if (req.method === 'OPTIONS') {
         return new Response(null, {
           status: 204,
-          headers: buildCorsHeaders(config.cors),
+          headers: headers ?? undefined,
         })
       }
 
       const response: Response = yield {
-        supabaseCors: buildCorsHeaders(config.cors),
+        supabaseCors: headers,
       }
       const stamped = addCorsHeaders(response, config.cors)
       if (stamped.headers.has(ErrorCodeHeader)) {
@@ -62,5 +64,6 @@ export const withSupabaseCors: Middleware<
         }
       }
       return stamped
-    },
+    }
+  },
 })
