@@ -203,6 +203,28 @@ describe('generateToolDefinitions - which tools exist', () => {
     expect(tools.list_tasks.inputSchema.required).toBeUndefined()
     expect(tools.list_tasks.inputSchema.additionalProperties).toBe(false)
   })
+
+  it('shadows a column named like a pagination argument', () => {
+    const spec = {
+      ...probeSpec,
+      paths: { '/reports': { get: {} } },
+      definitions: {
+        reports: {
+          properties: {
+            limit: { type: 'integer', format: 'int64' },
+            title: { type: 'string', format: 'text' },
+          },
+        },
+      },
+    }
+    const { list_reports } = generateToolDefinitions(untouched(), spec)
+
+    // The pagination argument wins, so the column cannot be filtered on.
+    expect(properties(list_reports).limit).toMatchObject({
+      description: 'Maximum number of rows to return. Default 100.',
+      maximum: 1000,
+    })
+  })
 })
 
 describe('generateToolDefinitions - descriptions and schemas', () => {
@@ -455,17 +477,17 @@ describe('generateToolDefinitions - execution through the caller-scoped client',
     })
   })
 
-  it('list_ orders ascending by default and rejects unknown columns before any request', async () => {
+  it('list_ orders ascending by default and leaves the column to PostgREST', async () => {
     const { client, calls } = recordingClient()
     const tools = generateToolDefinitions(client, probeSpec)
 
     await tools.list_tasks.handler({ order: 'title' })
     expect(calls[0].url.searchParams.get('order')).toBe('title.asc')
 
-    await expect(
-      tools.list_tasks.handler({ order: 'nope.desc' }),
-    ).rejects.toThrow(/Cannot order by "nope"/)
-    expect(calls).toHaveLength(1)
+    // No local column list to keep in step: PostgREST answers a column it
+    // cannot find with a 400, which the handler reports as a tool error.
+    await tools.list_tasks.handler({ order: 'nope' })
+    expect(calls[1].url.searchParams.get('order')).toBe('nope.asc')
   })
 
   it('get_ matches on the primary key and reports a missing row', async () => {
