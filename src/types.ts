@@ -93,6 +93,10 @@ export type CredentialedAuthMode = Exclude<AuthModeWithKey, 'none'>
  * type accepts `"none"` alone or in final position behind at least one
  * credentialed mode, and nowhere else.
  *
+ * A single mode needs no wrapping array — `"user"` and `["user"]` are the
+ * same configuration, and the unwrapped form is the one the union names
+ * first, so it is what shows up in editor completions.
+ *
  * @example Every accepted form
  * ```ts
  * withSupabase({ auth: 'user' }, handler)              // one mode
@@ -104,7 +108,8 @@ export type CredentialedAuthMode = Exclude<AuthModeWithKey, 'none'>
  * @category Types
  */
 export type AuthConfig =
-  | AuthModeWithKey
+  | 'none'
+  | CredentialedAuthMode
   | [CredentialedAuthMode, ...CredentialedAuthMode[]]
   | [CredentialedAuthMode, ...CredentialedAuthMode[], 'none']
 

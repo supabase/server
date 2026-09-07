@@ -9,6 +9,20 @@ import type { AuthConfig, WithSupabaseConfig } from './types.js'
  * one it should accept (an unused `@ts-expect-error` is itself an error).
  */
 describe('AuthConfig', () => {
+  it('accepts a single mode unwrapped, keyed or not', () => {
+    expectTypeOf<'user'>().toExtend<AuthConfig>()
+    expectTypeOf<'secret'>().toExtend<AuthConfig>()
+    expectTypeOf<'publishable:mobile'>().toExtend<AuthConfig>()
+    expectTypeOf<'secret:*'>().toExtend<AuthConfig>()
+  })
+
+  it('accepts the wrapped form of a single mode too', () => {
+    const bare: AuthConfig = 'user'
+    const wrapped: AuthConfig = ['user']
+    void bare
+    void wrapped
+  })
+
   it('accepts an ordered list of credentialed modes', () => {
     const ordered: AuthConfig = ['secret', 'user']
     const keyed: AuthConfig = ['user', 'publishable:web_app', 'secret:*']

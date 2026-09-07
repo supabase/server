@@ -471,12 +471,13 @@ Every `AuthModeWithKey` except `'none'`, keyed forms included.
 
 ```ts
 type AuthConfig =
-  | AuthModeWithKey
+  | 'none'
+  | CredentialedAuthMode
   | [CredentialedAuthMode, ...CredentialedAuthMode[]]
   | [CredentialedAuthMode, ...CredentialedAuthMode[], 'none']
 ```
 
-The accepted shape of the `auth` option. `'none'` matches every request, so the type allows it on its own or as the last entry of a list, and nowhere else — `['none']` says nothing that a bare `'none'` doesn't, and a mode placed after `'none'` can never be reached.
+The accepted shape of the `auth` option. `'none'` matches every request, so the type allows it on its own or as the last entry of a list, and nowhere else — `['none']` says nothing that a bare `'none'` doesn't, and a mode placed after `'none'` can never be reached. A single mode needs no wrapping array: `'user'` and `['user']` are the same configuration.
 
 ```ts
 withSupabase({ auth: 'user' }, handler) // one mode

@@ -128,7 +128,7 @@ Use `none` for health checks, public APIs, or when you handle auth yourself insi
 
 ## Array syntax (multiple modes)
 
-Accept multiple auth methods. Modes are tried in order — the first match wins.
+Accept multiple auth methods. Modes are tried in order — the first match wins. The array is for lists only: a single mode is written unwrapped (`auth: 'user'`), though `auth: ['user']` means the same thing.
 
 ```ts
 import { withSupabase } from '@supabase/server'
