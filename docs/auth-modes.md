@@ -155,6 +155,15 @@ export default {
 
 A request with a valid JWT matches `'user'`. A request with a valid secret key matches `'secret'`. A request with neither is rejected.
 
+**Where `'none'` can go.** `'none'` matches every request, so it only earns its place as the **last** entry of a list — `auth: ['user', 'none']` is "a user if one is signed in, anonymous otherwise." Anything after it is unreachable, and a list of just `['none']` says nothing that a bare `auth: 'none'` doesn't. Both are type errors:
+
+```ts
+withSupabase({ auth: ['user', 'none'] }, handler) // ✅ optional user
+withSupabase({ auth: 'none' }, handler) // ✅ open endpoint
+withSupabase({ auth: ['none'] }, handler) // ❌ use the bare 'none'
+withSupabase({ auth: ['none', 'user'] }, handler) // ❌ 'user' is unreachable
+```
+
 **Fallthrough vs rejection.** A mode is only "tried" when its credential is actually present. A request with no `Authorization` header moves on to the next mode. But if a JWT _is_ present and fails verification (malformed, expired, wrong signature, or missing a `sub` claim), the request is rejected immediately with `InvalidCredentialsError` — it will not silently fall through to `'publishable'`, `'secret'`, or `'none'`. The same rule applies on the API-key side: `'publishable'` and `'secret'` fall through only when no `apikey` header is sent. This prevents a bad credential from being downgraded to a less-privileged auth mode.
 
 ## Named key syntax

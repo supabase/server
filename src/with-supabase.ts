@@ -13,7 +13,11 @@ import {
 } from './core/parts/projections.js'
 import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
-import type { SupabaseContext, WithSupabaseConfig } from './types.js'
+import type {
+  AuthModeWithKey,
+  SupabaseContext,
+  WithSupabaseConfig,
+} from './types.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyHandler = (req: Request, ctx: any) => Promise<Response>
@@ -65,7 +69,12 @@ void entryIsSound
 /** Whether every configured auth mode requires credentials, so an unauthenticated request never passes the gate. */
 function requiresCredentials(config: WithSupabaseConfig): boolean {
   const modes = config.auth ?? config.allow ?? 'user'
-  const list = Array.isArray(modes) ? modes : [modes]
+  // `auth` keeps `'none'` out of every position but the last; the deprecated
+  // `allow` still admits it anywhere, so this reads the widened element type
+  // and scans the whole list.
+  const list: readonly AuthModeWithKey[] = Array.isArray(modes)
+    ? modes
+    : [modes]
   return !list.includes('none')
 }
 
