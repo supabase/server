@@ -245,7 +245,7 @@ Set `SUPABASE_SECRET_KEY`, or add a `"default"` entry to `SUPABASE_SECRET_KEYS`,
 
 ### `MISSING_RESOURCE_SERVER`
 
-`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request. Pass `resourceServer` — `hint` shows the shape.
+`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request. Pass `resourceServer` — `hint` shows the shape. `withOAuthProtectedResource` treats the environment as Edge Functions when `SUPABASE_FUNCTION_SLUG` or `SB_EXECUTION_ID` is set, or when the host runtime is Deno.
 
 ### `MISSING_AUTHORIZATION_SERVER`
 
