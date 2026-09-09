@@ -363,7 +363,7 @@ const EnvErrorMap = {
       },
     ),
 
-  [MissingResourceServerError]: (): EnvError =>
+  [MissingResourceServerError]: (runtime: string): EnvError =>
     new EnvError(
       'resourceServer is required outside Supabase Edge Functions and could not be derived.',
       MissingResourceServerError,
@@ -371,7 +371,9 @@ const EnvErrorMap = {
         hint:
           'Pass it to withOAuthProtectedResource(), e.g. ' +
           "{ resourceServer: (req) => new URL(req.url).origin + '/api/mcp' }. On Edge Functions it " +
-          'is derived from the request instead.',
+          'is derived from the request instead; that environment is recognized by ' +
+          'SUPABASE_FUNCTION_SLUG or SB_EXECUTION_ID being set, or by a Deno host runtime.',
+        details: { runtime },
       },
     ),
 

@@ -1,4 +1,4 @@
-import { getEnv } from '@supabase/middleware'
+import { getEnv, runtimeName } from '@supabase/middleware'
 
 import {
   Errors,
@@ -108,7 +108,7 @@ function edgeResourcePath(req: Request): string {
     '',
   )
   if (received === '' || received === '/') {
-    throw Errors[MissingResourceServerError]()
+    throw Errors[MissingResourceServerError](runtimeName)
   }
   return `${EDGE_FUNCTIONS_PATH_PREFIX}${received}`
 }
@@ -126,7 +126,7 @@ function edgeResourcePath(req: Request): string {
  * @internal
  */
 export function defaultResourceServer(req: Request): string {
-  if (!isEdgeFunctions()) throw Errors[MissingResourceServerError]()
+  if (!isEdgeFunctions()) throw Errors[MissingResourceServerError](runtimeName)
   return `${edgeOrigin(req)}${edgeResourcePath(req)}`
 }
 

@@ -745,6 +745,20 @@ describe('withOAuthProtectedResource - off-platform defaults fail loudly', () =>
     })
   })
 
+  it('the error reports the detected runtime and the Edge Functions markers', async () => {
+    offEdgeFunctions()
+    clearEnv()
+    const call = withOAuthProtectedResource(passthrough)(
+      req('GET', '/api/mcp/oauth-protected-resource'),
+    )
+    // `runtimeName` is std-env's `runtime`, which is `node` under vitest.
+    await expect(call).rejects.toMatchObject({
+      code: MissingResourceServerError,
+      details: { runtime: 'node' },
+      hint: expect.stringMatching(/SUPABASE_FUNCTION_SLUG.*SB_EXECUTION_ID/),
+    })
+  })
+
   it('a fully configured stack never reaches the env at all', async () => {
     offEdgeFunctions()
     clearEnv()
