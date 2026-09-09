@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/supabase/server/compare/server-v1.5.3...server-v1.6.0) (2026-09-09)
+
+
+### Features
+
+* compose withSupabase as a pipeline entry ([#145](https://github.com/supabase/server/issues/145)) ([65f8705](https://github.com/supabase/server/commit/65f870565a8270cc610cb7f62758bd026e54f8c7))
+
+
+### Bug Fixes
+
+* recognize Supabase edge runtime via SB_EXECUTION_ID ([#153](https://github.com/supabase/server/issues/153)) ([11b02f3](https://github.com/supabase/server/commit/11b02f37ab691f74d964af89345048bd578879ec))
+* **types:** only accept 'none' as the last entry of AuthConfig ([#148](https://github.com/supabase/server/issues/148)) ([edfb411](https://github.com/supabase/server/commit/edfb411dd732ead3dfd99247e79cc620f3608edf))
+
 ## [1.5.3](https://github.com/supabase/server/compare/server-v1.5.2...server-v1.5.3) (2026-09-03)
 
 
