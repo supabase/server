@@ -36,6 +36,7 @@ const ALLOWED_OPTIONAL_PEERS = {
   './adapters/nestjs': ['@nestjs/common'],
   './middleware/postgres': ['pg'],
   './middleware/postgres-admin': ['pg'],
+  './mcp': ['@modelcontextprotocol/server'],
 }
 
 // A missing subpath export reports as `hono/factory`; the allowance is `hono`.

@@ -32,10 +32,13 @@ const walk = (dir) =>
     return statSync(path).isDirectory() ? walk(path) : [path]
   })
 
-// Mirrors the `exclude` list in jsr.json: tests are not part of the payload, so
-// they cannot break the graph.
+// Mirrors the `exclude` list in jsr.json: tests and fixtures are not part of the
+// payload, so they cannot break the graph.
 const published = walk(join(root, 'src')).filter(
-  (file) => file.endsWith('.ts') && !/\.(test|spec)\.ts$/.test(file),
+  (file) =>
+    file.endsWith('.ts') &&
+    !/\.(test|spec)\.ts$/.test(file) &&
+    !file.includes('/__fixtures__/'),
 )
 
 function specifiers(file) {

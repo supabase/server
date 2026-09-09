@@ -147,7 +147,11 @@ export {
   MissingSecretKeyError,
   MissingSupabaseURLError,
   NoKeysConfiguredError,
+  SpecFetchFailedError,
   SupabaseServerError,
+  ToolGenerationError,
+  ToolGenerationGenericError,
+  ToolNameCollisionError,
   UnsupportedRoleError,
   UnusableCredentialError,
 } from './errors.js'
@@ -158,5 +162,6 @@ export type {
   ErrorPayload,
   MinimalErrorPayload,
   ReceivedCredentials,
+  SpecFetchFailure,
   SupabaseServerErrorOptions,
 } from './errors.js'
