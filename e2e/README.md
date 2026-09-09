@@ -41,7 +41,7 @@ Run a single adapter with `pnpm test:e2e h3`.
   client is not scoped to the caller)
 - `apps/core/app.ts` — same surface on the core `withSupabase(config, handler)`
   fetch wrapper (no adapter) — what an Edge Function deploys, running on Node.
-  Plus `GET /my-notes-pg` (user, `middleware: [withPostgresClient()]` — a real `pg`
+  Plus `GET /my-notes-pg` (user, `pipeline([withSupabase({ auth: 'user' }), withPostgresClient()], …)` — a real `pg`
   connection, same unfiltered query, rows scoped by RLS alone). Only the core
   and edge apps carry this route: `pg` needs raw TCP, which is precisely the
   runtime claim under test.

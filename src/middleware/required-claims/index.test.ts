@@ -317,12 +317,12 @@ describe('withRequiredClaims composition (type-level)', () => {
     void _bad
   })
 
-  it('gating inside withSupabase is a compile-time conflict', () => {
-    // withSupabase already verifies credentials and seeds jwtClaims before
-    // the middleware array runs, so the gate is redundant there.
-    // @ts-expect-error — Conflict<'jwtClaims'>: key already on the context
-    const _bad = withSupabase(
-      { auth: 'none', env: baseEnv, middleware: [withRequiredClaims()] },
+  it('gating after withSupabase in a pipeline is a compile-time conflict', () => {
+    // withSupabase verifies credentials and contributes jwtClaims itself, so a
+    // gate placed after it collides on the key.
+    const _bad = pipeline(
+      [withSupabase({ auth: 'none', env: baseEnv }), withRequiredClaims()],
+      // @ts-expect-error — Conflict<'jwtClaims'>: key already on the context
       async () => Response.json({ ok: true }),
     )
     void _bad

@@ -92,10 +92,8 @@ const base = defineMiddleware<
  */
 export function withSupabaseAdminClient<Database = unknown>(
   config?: WithSupabaseAdminClientConfig,
-): Entry<'supabaseAdmin', Record<never, never>, SupabaseClient<Database>> {
-  return base(config) as unknown as Entry<
-    'supabaseAdmin',
-    Record<never, never>,
-    SupabaseClient<Database>
-  >
+): Entry<{ supabaseAdmin: SupabaseClient<Database> }> {
+  return base(config) as unknown as Entry<{
+    supabaseAdmin: SupabaseClient<Database>
+  }>
 }

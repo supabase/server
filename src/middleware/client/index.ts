@@ -6,6 +6,7 @@ import { createContextClient } from '../../core/create-context-client.js'
 import { extractCredentials } from '../../core/extract-credentials.js'
 import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
 import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
+import { markConstructionFailure } from '../../core/parts/construction-failure.js'
 import type { CreateContextClientOptions } from '../../types.js'
 
 /**
@@ -54,9 +55,11 @@ const base = defineMiddleware<
         supabaseOptions: config?.supabaseOptions,
       })
     } catch (e) {
-      throw e instanceof EnvError
-        ? e
-        : Errors[CreateSupabaseClientError]({ cause: e })
+      throw markConstructionFailure(
+        e instanceof EnvError
+          ? e
+          : Errors[CreateSupabaseClientError]({ cause: e }),
+      )
     }
     return { supabase }
   },
@@ -96,10 +99,8 @@ const base = defineMiddleware<
  */
 export function withSupabaseClient<Database = unknown>(
   config?: WithSupabaseClientConfig,
-): Entry<'supabase', Record<never, never>, SupabaseClient<Database>> {
-  return base(config) as unknown as Entry<
-    'supabase',
-    Record<never, never>,
-    SupabaseClient<Database>
-  >
+): Entry<{ supabase: SupabaseClient<Database> }> {
+  return base(config) as unknown as Entry<{
+    supabase: SupabaseClient<Database>
+  }>
 }
