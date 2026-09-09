@@ -106,10 +106,12 @@ export type {
 export type {
   Allow,
   AllowWithKey,
+  AuthConfig,
   AuthMode,
   AuthModeWithKey,
   AuthResult,
   ClientAuth,
+  CredentialedAuthMode,
   CreateAdminClientOptions,
   CreateContextClientOptions,
   Credentials,

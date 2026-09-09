@@ -201,7 +201,7 @@ await fetch(refreshEndpoint, {
 | `"secret"`         | Valid `default` secret key      | Server-to-server, internal calls                    |
 | `"none"`           | None                            | Open endpoints, wrappers that handle their own auth |
 
-Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade).
+Array syntax (`auth: ["user", "secret"]`) accepts multiple auth methods — first match wins. An absent credential falls through to the next mode; a present-but-invalid JWT rejects the request (no silent downgrade). Because `"none"` matches every request, it is only accepted on its own or as the last entry of a list (`auth: ["user", "none"]` — optional user).
 
 Named key validation: `auth: "publishable:web_app"` or `auth: "secret:automations"` validates against a specific named key in `SUPABASE_PUBLISHABLE_KEYS` or `SUPABASE_SECRET_KEYS`. Bare `auth: "secret"` (or `"publishable"`) matches only the `default` key; use the wildcard `auth: "secret:*"` to accept any key in the set. See [`docs/auth-modes.md`](docs/auth-modes.md).
 

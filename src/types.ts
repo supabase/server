@@ -75,6 +75,45 @@ export type AuthModeWithKey =
 export type AllowWithKey = AuthModeWithKey
 
 /**
+ * An auth mode that requires a credential — every {@link AuthModeWithKey}
+ * except `"none"`, keyed forms included.
+ *
+ * @category Types
+ */
+export type CredentialedAuthMode = Exclude<AuthModeWithKey, 'none'>
+
+/**
+ * Accepted shape of the `auth` option: one mode, or an ordered list of modes
+ * tried left to right.
+ *
+ * `"none"` accepts every request, so it only carries meaning as the last
+ * entry of a list — the modes before it are the ones that can produce an
+ * identity, and anything after it is unreachable. On its own in a list
+ * (`["none"]`) it says nothing that a bare `auth: 'none'` doesn't. So the
+ * type accepts `"none"` alone or in final position behind at least one
+ * credentialed mode, and nowhere else.
+ *
+ * A single mode needs no wrapping array — `"user"` and `["user"]` are the
+ * same configuration, and the unwrapped form is the one the union names
+ * first, so it is what shows up in editor completions.
+ *
+ * @example Every accepted form
+ * ```ts
+ * withSupabase({ auth: 'user' }, handler)              // one mode
+ * withSupabase({ auth: ['secret', 'user'] }, handler)  // first match wins
+ * withSupabase({ auth: ['user', 'none'] }, handler)    // optional user
+ * withSupabase({ auth: 'none' }, handler)              // no credentials required
+ * ```
+ *
+ * @category Types
+ */
+export type AuthConfig =
+  | 'none'
+  | CredentialedAuthMode
+  | [CredentialedAuthMode, ...CredentialedAuthMode[]]
+  | [CredentialedAuthMode, ...CredentialedAuthMode[], 'none']
+
+/**
  * Resolved Supabase environment configuration.
  *
  * Holds the project URL, API keys, and JWKS needed by every other primitive.
@@ -255,14 +294,19 @@ export interface WithSupabaseConfig {
    * A mode falls through only when its credential is absent; a present-but-invalid
    * JWT short-circuits the chain with `InvalidCredentialsError`.
    *
+   * `"none"` matches unconditionally, so it belongs last in a list or on its
+   * own — see {@link AuthConfig}.
+   *
    * @defaultValue `"user"`
    */
-  auth?: AuthModeWithKey | AuthModeWithKey[]
+  auth?: AuthConfig
 
   /**
    * @deprecated Use {@link WithSupabaseConfig.auth} instead. The `allow` option
    * is kept for backward compatibility and will be removed in a future major release.
-   * When both `auth` and `allow` are provided, `auth` takes precedence.
+   * When both `auth` and `allow` are provided, `auth` takes precedence. It keeps
+   * the older, looser element type so code mid-migration still compiles; `auth`
+   * is where the {@link AuthConfig} ordering rule is enforced.
    */
   allow?: AuthModeWithKey | AuthModeWithKey[]
 

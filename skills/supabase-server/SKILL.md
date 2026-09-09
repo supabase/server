@@ -207,6 +207,8 @@ Bare `auth: 'secret'` matches only the `default` key. Use `auth: 'secret:name'` 
 
 **On `auth: ['user', 'none']`.** A stale or malformed JWT on such an endpoint is rejected with `InvalidCredentialsError` — it is not silently downgraded to anonymous. Callers that might hold a cached/expired token should either omit the `Authorization` header entirely or refresh before calling. If the goal is "anonymous unless a valid user is signed in," this is the correct behavior; if the goal is truly "accept anything," use `auth: 'none'` on its own.
 
+**`'none'` goes last, or alone.** It matches every request, so the type accepts it only as the final entry of a list (`['user', 'none']`) or on its own (`'none'`). `['none']` and `['none', 'user']` are type errors — write the bare `'none'` for the first, and put `'none'` last for the second.
+
 ## Edge Function recipes
 
 ### Function-to-function calls

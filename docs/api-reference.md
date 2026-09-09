@@ -459,6 +459,33 @@ type AuthModeWithKey = AuthMode | `publishable:${string}` | `secret:${string}`
 
 Extended auth mode with named key support. Examples: `'publishable:web'`, `'secret:*'`, `'secret:internal'`. The bare form (`'publishable'` / `'secret'`) matches only the `default` key; `:*` accepts any key in the set.
 
+### CredentialedAuthMode
+
+```ts
+type CredentialedAuthMode = Exclude<AuthModeWithKey, 'none'>
+```
+
+Every `AuthModeWithKey` except `'none'`, keyed forms included.
+
+### AuthConfig
+
+```ts
+type AuthConfig =
+  | 'none'
+  | CredentialedAuthMode
+  | [CredentialedAuthMode, ...CredentialedAuthMode[]]
+  | [CredentialedAuthMode, ...CredentialedAuthMode[], 'none']
+```
+
+The accepted shape of the `auth` option. `'none'` matches every request, so the type allows it on its own or as the last entry of a list, and nowhere else — `['none']` says nothing that a bare `'none'` doesn't, and a mode placed after `'none'` can never be reached. A single mode needs no wrapping array: `'user'` and `['user']` are the same configuration.
+
+```ts
+withSupabase({ auth: 'user' }, handler) // one mode
+withSupabase({ auth: ['secret', 'user'] }, handler) // first match wins
+withSupabase({ auth: ['user', 'none'] }, handler) // optional user
+withSupabase({ auth: 'none' }, handler) // no credentials required
+```
+
 ### Allow / AllowWithKey (deprecated aliases)
 
 `Allow` and `AllowWithKey` are kept as deprecated aliases for `AuthMode` and `AuthModeWithKey`. Prefer the `Auth*` names — the legacy ones will be removed in a future major release.
@@ -480,7 +507,7 @@ interface SupabaseContext<Database = unknown> {
 
 ```ts
 interface WithSupabaseConfig {
-  auth?: AuthModeWithKey | AuthModeWithKey[] // default: 'user'
+  auth?: AuthConfig // default: 'user'
   /** @deprecated use `auth` instead — will be removed in a future major release */
   allow?: AuthModeWithKey | AuthModeWithKey[]
   env?: Partial<SupabaseEnv>
