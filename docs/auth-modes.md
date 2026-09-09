@@ -213,6 +213,15 @@ withSupabase({ auth: ['user', 'publishable:web'] }, async (_req, ctx) => {
 })
 ```
 
+## Legacy keys and JWTs are not supported
+
+This library only understands the new-format API keys (`sb_publishable_*` / `sb_secret_*`) and JWT signing keys (JWKS-based verification). Old-format `anon` / `service_role` JWT-style API keys and legacy HS256-signed user JWTs are rejected, not silently downgraded.
+
+- On the API-key side, `classifyApiKey` recognizes old-format keys (`eyJ...`) only to produce a clearer `INVALID_API_KEY` error — it never accepts them.
+- On the JWT side, `'user'` mode requires a `kid` in the token header; a legacy HS256 token signed with the project's shared JWT secret has no `kid` and is rejected before any JWKS lookup.
+
+To use this library, migrate your project to the new API key format and to JWT signing keys — see the [API Keys](https://supabase.com/docs/guides/api/api-keys) and [JWT Signing Keys](https://supabase.com/docs/guides/auth/signing-keys) guides.
+
 ## How auth flows through the system
 
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
