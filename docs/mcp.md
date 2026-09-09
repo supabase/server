@@ -26,6 +26,31 @@ Deno.serve(
 )
 ```
 
+The same server as `pipeline` entries:
+
+```ts
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
+import { pipeline } from '@supabase/middleware'
+import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
+import { generateTools, registerTools } from '@supabase/server/mcp'
+
+Deno.serve(
+  pipeline(
+    [withOAuthProtectedResource(), withSupabase({ auth: 'user' })],
+    async (req, { supabase }) => {
+      const handler = createMcpHandler(async () => {
+        const server = new McpServer({ name: 'notes-mcp', version: '0.1.0' })
+        registerTools(server, await generateTools(supabase))
+        return server
+      })
+      return handler.fetch(req)
+    },
+  ),
+)
+```
+
+Order matters in both forms. The OAuth discovery request carries no token, so `withOAuthProtectedResource` must run before `withSupabase` checks for one: it wraps `withSupabase` in the first form and comes first in the array in the second. The reverse order is refused when the stack is built.
+
 ## Requirements
 
 | Dependency                     | Version    | Why                                                                                          |
