@@ -246,6 +246,7 @@
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/platform-fastify": "^11.1.19",
     "@nestjs/testing": "^11.1.19",
+    "@supabase/middleware": "^0.5.0",
     "@supabase/supabase-js": "^2.115.0",
     "@swc/core": "^1.15.33",
     "@types/node": "^26.0.1",
@@ -271,7 +272,6 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
-    "@supabase/middleware": "^0.5.0",
     "jose": "^6.2.0"
   }
 }
