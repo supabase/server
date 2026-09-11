@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/supabase/server/compare/server-v1.6.0...server-v1.6.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* name the key a bare secret/publishable mode rejected ([#155](https://github.com/supabase/server/issues/155)) ([bf1ca09](https://github.com/supabase/server/commit/bf1ca09b59cc36921f8207c6b6eb7deee9b56938))
+
 ## [1.6.0](https://github.com/supabase/server/compare/server-v1.5.3...server-v1.6.0) (2026-09-09)
 
 
