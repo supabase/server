@@ -5,9 +5,11 @@ import type { ErrorResponseConfig } from '../../types.js'
 const constructionFailure = Symbol.for('@supabase/server:constructionFailure')
 
 /**
- * Marks an error thrown while a Supabase client is constructed for the
- * request. `withSupabase`'s boundary maps only marked errors to a JSON
- * response; any other throw escaping a part or the handler propagates.
+ * Marks an error the library raises while building what a middleware
+ * contributes to the request: the Supabase clients under `withSupabase`, the
+ * URLs `withOAuthProtectedResource` advertises. Each boundary maps only marked
+ * errors to a JSON response; any other throw escaping a part, a configured
+ * callback or the handler propagates.
  *
  * The mark is a non-enumerable symbol property, so the error's class, own
  * properties and `toJSON` payload are unchanged.

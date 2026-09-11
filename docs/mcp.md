@@ -72,7 +72,7 @@ The handler is passed inline. Passing a separately declared function typed `(req
 
 ## URLs
 
-On Supabase Edge Functions the metadata is derived with no configuration: the public origin from the gateway's `X-Forwarded-*` headers (`SUPABASE_PUBLIC_URL` wins when set, but the CLI does not set it), the path as `/functions/v1/{SUPABASE_FUNCTION_SLUG}`, and the issuer as `{origin}/auth/v1`. Supabase CLI 2.117.0 or later injects the slug locally. Without a slug the path is reconstructed from the request, which works for a function served at `/functions/v1/{name}`; a function served at the root path `/` with no slug throws `MISSING_RESOURCE_SERVER`, because there is no function segment to restore.
+On Supabase Edge Functions the metadata is derived with no configuration: the public origin from the gateway's `X-Forwarded-*` headers (`SUPABASE_PUBLIC_URL` wins when set, but the CLI does not set it), the path as `/functions/v1/{SUPABASE_FUNCTION_SLUG}`, and the issuer as `{origin}/auth/v1`. Supabase CLI 2.117.0 or later injects the slug locally. Without a slug the path is reconstructed from the request, which works for a function served at `/functions/v1/{name}`; a function served at the root path `/` with no slug answers with a 500 and code `MISSING_RESOURCE_SERVER`, because there is no function segment to restore.
 
 Anywhere else, a Next.js route handler, a Worker, a plain server, the app's origin is unrelated to the project's, so pass both URLs:
 
@@ -85,15 +85,17 @@ withOAuthProtectedResource({
 })
 ```
 
-- `resourceServer`: the public URL of this endpoint. Required off Edge Functions; `MissingResourceServerError` (`MISSING_RESOURCE_SERVER`) otherwise.
-- `authorizationServer`: the OAuth issuer. Falls back to `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each with `/auth/v1`; `MissingAuthorizationServerError` (`MISSING_AUTHORIZATION_SERVER`) if neither is set. `fromSupabaseUrl(projectUrl)` builds it from a project URL. A non-Supabase OAuth 2.1 server (Clerk, WorkOS, Auth0) works too.
+- `resourceServer`: the public URL of this endpoint. Required off Edge Functions; every request is answered with a 500 and code `MISSING_RESOURCE_SERVER` otherwise.
+- `authorizationServer`: the OAuth issuer. Falls back to `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each with `/auth/v1`; the metadata route answers with a 500 and code `MISSING_AUTHORIZATION_SERVER` if neither is set. `fromSupabaseUrl(projectUrl)` builds it from a project URL. A non-Supabase OAuth 2.1 server (Clerk, WorkOS, Auth0) works too.
 
 Both accept a string or `(req: Request) => string` (`UrlOption`). The full config:
 
-| Option                | Type        | Default on Edge Functions             | Default elsewhere                                                                                            |
-| --------------------- | ----------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `resourceServer`      | `UrlOption` | `{public origin}/functions/v1/{slug}` | none; throws `MissingResourceServerError`                                                                    |
-| `authorizationServer` | `UrlOption` | `{public origin}/auth/v1`             | `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each `+ /auth/v1`; else throws `MissingAuthorizationServerError` |
+| Option                | Type        | Default on Edge Functions             | Default elsewhere                                                                                                  |
+| --------------------- | ----------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `resourceServer`      | `UrlOption` | `{public origin}/functions/v1/{slug}` | none; `500` with code `MISSING_RESOURCE_SERVER`                                                                    |
+| `authorizationServer` | `UrlOption` | `{public origin}/auth/v1`             | `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each `+ /auth/v1`; else `500` with code `MISSING_AUTHORIZATION_SERVER` |
+
+Either 500 is the library's JSON error response, with the code in the `x-supabase-server-error` header and a `hint` naming the option to set; see [`docs/error-handling.md`](error-handling.md#enverror-codes). A throw from a `resourceServer` or `authorizationServer` function you supplied is yours and propagates. `errors: { detailed: false }` trims either body to `code` and `message`.
 
 The middleware contributes `ctx.oauthProtectedResource.resourceMetadataUrl`, the resolved metadata URL, to the downstream context.
 

@@ -1,5 +1,6 @@
 import { getEnv, runtimeName } from '@supabase/middleware'
 
+import { markConstructionFailure } from '../core/parts/construction-failure.js'
 import {
   Errors,
   MissingAuthorizationServerError,
@@ -108,7 +109,9 @@ function edgeResourcePath(req: Request): string {
     '',
   )
   if (received === '' || received === '/') {
-    throw Errors[MissingResourceServerError](runtimeName)
+    throw markConstructionFailure(
+      Errors[MissingResourceServerError](runtimeName),
+    )
   }
   return `${EDGE_FUNCTIONS_PATH_PREFIX}${received}`
 }
@@ -122,11 +125,18 @@ function edgeResourcePath(req: Request): string {
  *
  * @throws {EnvError} `MISSING_RESOURCE_SERVER` off Edge Functions, or on a
  * root path with no `SUPABASE_FUNCTION_SLUG` — see {@link edgeResourcePath}.
+ * The error carries the construction mark: `withOAuthProtectedResource`
+ * answers it as the JSON error response, while `resourceMetadataResponse` and
+ * `unauthorizedResponse` let it propagate.
  *
  * @internal
  */
 export function defaultResourceServer(req: Request): string {
-  if (!isEdgeFunctions()) throw Errors[MissingResourceServerError](runtimeName)
+  if (!isEdgeFunctions()) {
+    throw markConstructionFailure(
+      Errors[MissingResourceServerError](runtimeName),
+    )
+  }
   return `${edgeOrigin(req)}${edgeResourcePath(req)}`
 }
 
@@ -142,7 +152,8 @@ export function defaultResourceServer(req: Request): string {
  * neither can displace the origin the client used.
  *
  * @throws {EnvError} `MISSING_AUTHORIZATION_SERVER` off Edge Functions with
- * neither variable set.
+ * neither variable set. The error carries the construction mark, as
+ * {@link defaultResourceServer}'s does.
  *
  * @internal
  */
@@ -155,7 +166,7 @@ export function defaultAuthorizationServer(req: Request): string {
   const supabaseUrl = getEnv('SUPABASE_URL')
   if (supabaseUrl) return fromSupabaseUrl(supabaseUrl)
 
-  throw Errors[MissingAuthorizationServerError]()
+  throw markConstructionFailure(Errors[MissingAuthorizationServerError]())
 }
 
 /**

@@ -370,7 +370,10 @@ export interface WithSupabaseConfig {
 }
 
 /**
- * Controls how much of an error {@link withSupabase} puts in the response body.
+ * Controls how much of an error goes in the response body. Accepted as
+ * `errors` by {@link withSupabase} and by every middleware that answers a
+ * request directly: `withClaims`, `withRequiredClaims`, `withPostgresClient`,
+ * `withPostgresAdminClient` and `withOAuthProtectedResource`.
  *
  * @example Trimming the response
  * ```ts

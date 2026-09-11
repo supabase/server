@@ -62,6 +62,22 @@ describe('withPostgresAdminClient', () => {
     })
   })
 
+  it('honors errors: { detailed: false } on its short-circuit', async () => {
+    vi.stubEnv('SUPABASE_DB_URL', undefined)
+    const handler = withPostgresAdminClient(
+      { errors: { detailed: false } },
+      async () => Response.json({ ok: true }),
+    )
+
+    const res = await handler(new Request('http://localhost'), seedContext())
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({
+      code: 'MISSING_CONNECTION_STRING',
+      message: expect.stringMatching(/^\[@supabase\/server\]/),
+    })
+  })
+
   it('runs the query as-is — no transaction, no claims, no role switch', async () => {
     const handler = withPostgresAdminClient(async (_req, ctx) => {
       await ctx.postgresAdmin.query`select * from notes`

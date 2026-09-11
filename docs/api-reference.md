@@ -233,10 +233,11 @@ Responses use the standard [error payload](error-handling.md#what-a-failure-look
 ```ts
 interface WithClaimsConfig {
   jwks?: JSONWebKeySet | URL
+  errors?: ErrorResponseConfig
 }
 ```
 
-Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment.
+`jwks` defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ---
 
@@ -297,10 +298,11 @@ const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
 ```ts
 interface WithRequiredClaimsConfig {
   jwks?: JSONWebKeySet | URL
+  errors?: ErrorResponseConfig
 }
 ```
 
-Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment.
+`jwks` defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ---
 
@@ -387,10 +389,11 @@ const rows = await ctx.postgres.queryRaw(
 ```ts
 interface WithPostgresClientConfig {
   connectionString?: string
+  errors?: ErrorResponseConfig
 }
 ```
 
-Defaults to the `SUPABASE_DB_URL` environment variable. Pools are created lazily, one per connection string per process.
+`connectionString` defaults to the `SUPABASE_DB_URL` environment variable. Pools are created lazily, one per connection string per process. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ### RequestClaims
 
@@ -436,10 +439,11 @@ Authorization is the caller's responsibility: RLS is not consulted, so per-user 
 ```ts
 interface WithPostgresAdminClientConfig {
   connectionString?: string
+  errors?: ErrorResponseConfig
 }
 ```
 
-Defaults to the `SUPABASE_DB_URL` environment variable.
+`connectionString` defaults to the `SUPABASE_DB_URL` environment variable. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ---
 
@@ -463,18 +467,19 @@ function withOAuthProtectedResource(
 ): FetchHandler
 ```
 
-OAuth 2.1 Protected Resource behavior (RFC 9728) for the wrapped handler. Answers `GET` and `OPTIONS` on any path ending in `/oauth-protected-resource` with the metadata document and a permissive CORS preflight; adds `WWW-Authenticate: Bearer resource_metadata="…"` to a `401` from below unless the handler already set that header; passes everything else through. Runs before the `withSupabase` gate; placing it directly after `withSupabase` with a credentialed auth mode is refused when the stack is built.
+OAuth 2.1 Protected Resource behavior (RFC 9728) for the wrapped handler. Answers `GET` and `OPTIONS` on any path ending in `/oauth-protected-resource` with the metadata document and a permissive CORS preflight; adds `WWW-Authenticate: Bearer resource_metadata="…"` to a `401` from below unless the handler already set that header; passes everything else through. Runs before the `withSupabase` gate; placing it directly after `withSupabase` with a credentialed auth mode is refused when the stack is built. A default URL it cannot derive is answered with the library's JSON error response (500 and `x-supabase-server-error`, see [Error handling](error-handling.md#enverror-codes)); a throw from a configured `resourceServer` or `authorizationServer` function propagates.
 
 Contributes `ctx.oauthProtectedResource.resourceMetadataUrl`, the resolved absolute URL of the metadata document.
 
 ### OAuthProtectedResourceConfig
 
-| Option                | Type        | Default on Supabase Edge Functions                                                                       | Default elsewhere                                                                                                                                           |
-| --------------------- | ----------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resourceServer`      | `UrlOption` | Public origin from `X-Forwarded-*` (or `SUPABASE_PUBLIC_URL`) + `/functions/v1/{SUPABASE_FUNCTION_SLUG}` | None. Throws `MissingResourceServerError` (`MISSING_RESOURCE_SERVER`).                                                                                      |
-| `authorizationServer` | `UrlOption` | Public origin + `/auth/v1`                                                                               | `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each + `/auth/v1`. Throws `MissingAuthorizationServerError` (`MISSING_AUTHORIZATION_SERVER`) if neither is set. |
+| Option                | Type                  | Default on Supabase Edge Functions                                                                       | Default elsewhere                                                                                                                                                                       |
+| --------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resourceServer`      | `UrlOption`           | Public origin from `X-Forwarded-*` (or `SUPABASE_PUBLIC_URL`) + `/functions/v1/{SUPABASE_FUNCTION_SLUG}` | None. Short-circuits with a 500 and code `MISSING_RESOURCE_SERVER` (`MissingResourceServerError`).                                                                                      |
+| `authorizationServer` | `UrlOption`           | Public origin + `/auth/v1`                                                                               | `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each + `/auth/v1`. Short-circuits with a 500 and code `MISSING_AUTHORIZATION_SERVER` (`MissingAuthorizationServerError`) if neither is set. |
+| `errors`              | `ErrorResponseConfig` | `{ detailed: true }`                                                                                     | `{ detailed: true }`                                                                                                                                                                    |
 
-`UrlOption` is `string | ((req: Request) => string)`. Without `SUPABASE_FUNCTION_SLUG` the resource path is reconstructed from the request path with `/functions/v1` restored; a request at the root path with no slug throws `MissingResourceServerError`.
+`UrlOption` is `string | ((req: Request) => string)`. Without `SUPABASE_FUNCTION_SLUG` the resource path is reconstructed from the request path with `/functions/v1` restored; a request at the root path with no slug short-circuits with a 500 and code `MISSING_RESOURCE_SERVER`. `errors` (an [`ErrorResponseConfig`](#errorresponseconfig)) trims the body of those 500s.
 
 ### fromSupabaseUrl
 
@@ -581,7 +586,7 @@ interface ErrorResponseConfig {
 }
 ```
 
-`detailed: false` reduces the error response body to `code` and `message` alone, dropping `source`, `hint`, `docs`, and `details`. The status and `x-supabase-server-error` header are unaffected, and the error object itself keeps everything. See [`error-handling.md`](error-handling.md#trimming-the-response-body).
+`detailed: false` reduces the error response body to `code` and `message` alone, dropping `source`, `hint`, `docs`, and `details`. The status and `x-supabase-server-error` header are unaffected, and the error object itself keeps everything. Accepted as `errors` by `withSupabase` and by every middleware that answers directly: `withClaims`, `withRequiredClaims`, `withPostgresClient`, `withPostgresAdminClient`, `withOAuthProtectedResource`. See [`error-handling.md`](error-handling.md#trimming-the-response-body).
 
 ### SupabaseEnv
 

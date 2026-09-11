@@ -11,7 +11,8 @@ import type { ErrorResponseConfig } from './types.js'
  * of the library returns.
  *
  * One place so `withSupabase` and the middleware that answer directly
- * (`withClaims`, `withRequiredClaims`, `withPostgresClient`) stay consistent:
+ * (`withClaims`, `withRequiredClaims`, `withPostgresClient`,
+ * `withOAuthProtectedResource`) stay consistent:
  * same body, same `x-supabase-server-error` header, same status.
  *
  * @param error - The error to render.

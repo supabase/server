@@ -3,6 +3,7 @@ import pg from 'pg'
 
 import { errorResponse } from '../error-response.js'
 import { Errors, MissingConnectionStringError } from '../errors.js'
+import type { ErrorResponseConfig } from '../types.js'
 
 const { Pool } = pg
 
@@ -128,6 +129,9 @@ export function resolveConnectionString(
  */
 export function missingConnectionStringResponse(
   middlewareName: string,
+  errors?: ErrorResponseConfig,
 ): Response {
-  return errorResponse(Errors[MissingConnectionStringError](middlewareName))
+  return errorResponse(Errors[MissingConnectionStringError](middlewareName), {
+    errors,
+  })
 }

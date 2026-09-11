@@ -12,7 +12,7 @@ import {
   JwksFetchFailedError,
   JwksNotConfiguredError,
 } from '../../errors.js'
-import type { JWTClaims } from '../../types.js'
+import type { ErrorResponseConfig, JWTClaims } from '../../types.js'
 
 /**
  * **Alpha.** Configuration for {@link withClaims}.
@@ -30,6 +30,13 @@ export interface WithClaimsConfig {
    * (https endpoint) from the environment.
    */
   jwks?: JSONWebKeySet | URL
+
+  /**
+   * How much of an error to include in a short-circuit response body.
+   *
+   * @see {@link ErrorResponseConfig}
+   */
+  errors?: ErrorResponseConfig
 }
 
 /**
@@ -104,6 +111,7 @@ export const withClaims: Middleware<
     if (!jwks) {
       return errorResponse(
         Errors[JwksNotConfiguredError]({ middleware: 'withClaims' }),
+        { errors: config?.errors },
       )
     }
 
@@ -122,6 +130,7 @@ export const withClaims: Middleware<
               jwt: failure.jwt,
               cause: failure.cause,
             }),
+        { errors: config?.errors },
       )
     }
 

@@ -98,6 +98,43 @@ describe('withPostgresClient', () => {
     })
   })
 
+  it('honors errors: { detailed: false } on the missing-connection-string 500', async () => {
+    vi.stubEnv('SUPABASE_DB_URL', undefined)
+    const handler = withPostgresClient(
+      { errors: { detailed: false } },
+      async () => Response.json({ ok: true }),
+    )
+
+    const res = await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: null,
+    })
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({
+      code: 'MISSING_CONNECTION_STRING',
+      message: expect.stringMatching(/^\[@supabase\/server\]/),
+    })
+  })
+
+  it('honors errors: { detailed: false } on the unsupported-role 500', async () => {
+    const handler = withPostgresClient(
+      { errors: { detailed: false } },
+      async () => Response.json({ ok: true }),
+    )
+
+    const res = await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { sub: 'attacker', role: 'service_role' },
+    })
+
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({
+      code: 'UNSUPPORTED_ROLE',
+      message: expect.stringMatching(/^\[@supabase\/server\]/),
+    })
+  })
+
   it('prefers config.connectionString over SUPABASE_DB_URL', async () => {
     const handler = withPostgresClient(
       { connectionString: 'postgres://localhost/from-config' },

@@ -10,6 +10,7 @@ import type { PostgresApi } from '../../core/postgres-pool.js'
 import { compileTemplate, ident } from '../../core/sql.js'
 import { errorResponse } from '../../error-response.js'
 import { Errors, UnsupportedRoleError } from '../../errors.js'
+import type { ErrorResponseConfig } from '../../types.js'
 
 export type { PostgresApi }
 // `ident` is exported here rather than only from core: it is the companion
@@ -34,7 +35,10 @@ const SUPPORTED_ROLES = new Set(['authenticated', 'anon'])
  * will not. Never silently downgrades a role the caller explicitly asked for:
  * that returns zero rows and leaves nothing to debug.
  */
-function resolveRole(claims: RequestClaims | null): string | Response {
+function resolveRole(
+  claims: RequestClaims | null,
+  errors?: ErrorResponseConfig,
+): string | Response {
   // `role` is typed as a string, but claims come from a token — a
   // misconfigured custom-claims hook can put anything here.
   const requested = claims?.role as unknown
@@ -52,6 +56,7 @@ function resolveRole(claims: RequestClaims | null): string | Response {
       requestedRole: requested,
       supportedRoles: [...SUPPORTED_ROLES],
     }),
+    { errors },
   )
 }
 
@@ -86,6 +91,13 @@ export interface RequestClaims {
 export interface WithPostgresClientConfig {
   /** Defaults to `getEnv('SUPABASE_DB_URL')` (from `@supabase/middleware`). */
   connectionString?: string
+
+  /**
+   * How much of an error to include in a short-circuit response body.
+   *
+   * @see {@link ErrorResponseConfig}
+   */
+  errors?: ErrorResponseConfig
 }
 
 /**
@@ -159,11 +171,14 @@ export const withPostgresClient: Middleware<
   run: (config) => async (_req, ctx) => {
     const connectionString = resolveConnectionString(config?.connectionString)
     if (!connectionString) {
-      return missingConnectionStringResponse('withPostgresClient')
+      return missingConnectionStringResponse(
+        'withPostgresClient',
+        config?.errors,
+      )
     }
 
     const claims = ctx.jwtClaims
-    const role = resolveRole(claims)
+    const role = resolveRole(claims, config?.errors)
     // Refused before the handler runs and before a connection is checked out.
     if (role instanceof Response) return role
 

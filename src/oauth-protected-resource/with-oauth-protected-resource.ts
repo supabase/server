@@ -1,7 +1,10 @@
 import { defineMiddleware } from '@supabase/middleware'
 import type { Middleware } from '@supabase/middleware'
 
+import { isConstructionFailure } from '../core/parts/construction-failure.js'
 import { tagPreAuth } from '../core/pre-auth.js'
+import { errorResponse } from '../error-response.js'
+import type { ErrorResponseConfig } from '../types.js'
 import { resourceMetadataResponse } from './responses.js'
 import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
 import type { UrlOption } from './url.js'
@@ -40,8 +43,9 @@ export interface OAuthProtectedResourceConfig {
    * URL, which RFC 9728 §3.3 requires to equal the URL the client called.
    *
    * Defaults to the Edge Functions derivation. Required on any other backend,
-   * usually from the request — `(req) => new URL(req.url).origin + '/api/mcp'`
-   * — and throws `EnvError` (`MISSING_RESOURCE_SERVER`) if unset there.
+   * usually from the request — `(req) => new URL(req.url).origin + '/api/mcp'`.
+   * Unset there, every request is answered with a `500` and code
+   * `MISSING_RESOURCE_SERVER`.
    */
   resourceServer?: UrlOption
   /**
@@ -49,11 +53,19 @@ export interface OAuthProtectedResourceConfig {
    *
    * Defaults to the project's Supabase Auth on Edge Functions. Elsewhere it
    * falls back to `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each with
-   * `/auth/v1` appended, and throws `EnvError` (`MISSING_AUTHORIZATION_SERVER`)
-   * if neither is set. Pass {@link fromSupabaseUrl} for a specific project, or
-   * any other issuer directly.
+   * `/auth/v1` appended; with neither set, the metadata route is answered with
+   * a `500` and code `MISSING_AUTHORIZATION_SERVER`. Pass
+   * {@link fromSupabaseUrl} for a specific project, or any other issuer
+   * directly.
    */
   authorizationServer?: UrlOption
+
+  /**
+   * How much of an error to include in a short-circuit response body.
+   *
+   * @see {@link ErrorResponseConfig}
+   */
+  errors?: ErrorResponseConfig
 }
 
 /**
@@ -66,6 +78,10 @@ export interface OAuthProtectedResourceConfig {
  *   unless the handler already set a `WWW-Authenticate` header (its value wins)
  * - Passes any other path through to the inner handler unchanged (composition,
  *   not routing, decides what happens to it)
+ * - Answers a default URL it cannot derive with the JSON error response
+ *   `withSupabase` returns for its own configuration failures (`500`,
+ *   `x-supabase-server-error`); a throw from a configured `resourceServer` or
+ *   `authorizationServer` function is the caller's and propagates
  *
  * The metadata route is matched on the path *suffix*, so **any** `GET` or
  * `OPTIONS` ending in `/oauth-protected-resource` is answered here and never
@@ -74,7 +90,8 @@ export interface OAuthProtectedResourceConfig {
  * Zero-config on Supabase Edge Functions. Elsewhere
  * {@link OAuthProtectedResourceConfig.resourceServer} is required and
  * {@link OAuthProtectedResourceConfig.authorizationServer} falls back to
- * `SUPABASE_URL`; each throws an `EnvError` when it cannot be resolved.
+ * `SUPABASE_URL`; one that cannot be resolved is reported as
+ * `MISSING_RESOURCE_SERVER` / `MISSING_AUTHORIZATION_SERVER`.
  *
  * Contributes `ctx.oauthProtectedResource` (the resolved metadata URL) to the
  * downstream context. Nested under `withSupabase`, the key is typed on the
@@ -155,16 +172,6 @@ export const withOAuthProtectedResource: Middleware<
           '/oauth-protected-resource',
         )
 
-        // RFC 9728 — OAuth Protected Resource Metadata
-        if (isMetadataRoute && req.method === 'GET') {
-          return resourceMetadataResponse(req, {
-            resource: getResourceUrl(req, config?.resourceServer),
-            authorizationServers: [
-              getAuthUrl(req, config?.authorizationServer),
-            ],
-          })
-        }
-
         // CORS preflight for the metadata route — browser-based clients fetch the
         // discovery document cross-origin.
         if (isMetadataRoute && req.method === 'OPTIONS') {
@@ -179,10 +186,34 @@ export const withOAuthProtectedResource: Middleware<
           })
         }
 
-        const resourceMetadataUrl = getResourceMetadataUrl(
-          req,
-          config?.resourceServer,
-        )
+        // Every advertised URL is resolved here, ahead of the yield. A default
+        // the library cannot derive is a deployment misconfiguration and is
+        // answered as the JSON error response, the same mapping `withSupabase`'s
+        // construction boundary applies. A throw from a configured
+        // `resourceServer` / `authorizationServer` function carries no
+        // construction mark and propagates as the caller's own.
+        let resourceMetadataUrl: string
+        try {
+          // RFC 9728 — OAuth Protected Resource Metadata
+          if (isMetadataRoute && req.method === 'GET') {
+            return resourceMetadataResponse(req, {
+              resource: getResourceUrl(req, config?.resourceServer),
+              authorizationServers: [
+                getAuthUrl(req, config?.authorizationServer),
+              ],
+            })
+          }
+          resourceMetadataUrl = getResourceMetadataUrl(
+            req,
+            config?.resourceServer,
+          )
+        } catch (error) {
+          if (isConstructionFailure(error)) {
+            return errorResponse(error, { errors: config?.errors })
+          }
+          throw error
+        }
+
         const response = yield {
           oauthProtectedResource: { resourceMetadataUrl },
         }
