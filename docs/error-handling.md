@@ -38,7 +38,7 @@ Access-Control-Expose-Headers: x-supabase-server-error
 
 The code is repeated in the `x-supabase-server-error` response header, and added to `Access-Control-Expose-Headers` so cross-origin browser code can actually read it.
 
-Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`). The `@supabase/server/middleware/*` subpaths and `@supabase/server/oauth-protected-resource` are alpha; the error payload documented here is stable either way.
+Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`, `withOAuthProtectedResource`). The `@supabase/server/middleware/*` subpaths and `@supabase/server/oauth-protected-resource` are alpha; the error payload documented here is stable either way.
 
 ## Trimming the response body
 
@@ -47,6 +47,8 @@ Every layer that answers a request directly uses this shape: `withSupabase`, and
 ```ts
 withSupabase({ auth: 'user', errors: { detailed: false } }, handler)
 ```
+
+Every middleware that answers directly accepts the same option and trims its own short-circuit responses: `withClaims`, `withRequiredClaims`, `withPostgresClient`, `withPostgresAdminClient`, `withOAuthProtectedResource`. The option is per entry; a pipeline passes it to each one.
 
 ```
 HTTP/1.1 401 Unauthorized
@@ -245,11 +247,13 @@ Set `SUPABASE_SECRET_KEY`, or add a `"default"` entry to `SUPABASE_SECRET_KEYS`,
 
 ### `MISSING_RESOURCE_SERVER`
 
-`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request. Pass `resourceServer` — `hint` shows the shape. `withOAuthProtectedResource` treats the environment as Edge Functions when `SUPABASE_FUNCTION_SLUG` or `SB_EXECUTION_ID` is set, or when the host runtime is Deno. `details.runtime` carries the runtime name the SDK detected.
+`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request, so it short-circuits with a 500 on every request: the resource URL backs the metadata document, the `WWW-Authenticate` challenge and `ctx.oauthProtectedResource` alike. Pass `resourceServer` — `hint` shows the shape. `withOAuthProtectedResource` treats the environment as Edge Functions when `SUPABASE_FUNCTION_SLUG` or `SB_EXECUTION_ID` is set, or when the host runtime is Deno. `details.runtime` carries the runtime name the SDK detected.
+
+The escape hatches `resourceMetadataResponse` and `unauthorizedResponse` throw this error rather than returning it.
 
 ### `MISSING_AUTHORIZATION_SERVER`
 
-As above for the authorization server. Pass `authorizationServer`, use `fromSupabaseUrl(...)` for Supabase Auth, or set `SUPABASE_PUBLIC_URL` / `SUPABASE_URL`.
+As above for the authorization server. Only the metadata document needs it, so the 500 is confined to `GET …/oauth-protected-resource`. Pass `authorizationServer`, use `fromSupabaseUrl(...)` for Supabase Auth, or set `SUPABASE_PUBLIC_URL` / `SUPABASE_URL`.
 
 ### `MISSING_CONNECTION_STRING`
 
@@ -263,20 +267,20 @@ Generic environment error. The default code when constructing an `EnvError` your
 
 ## How errors surface in each layer
 
-| Function                       | Pattern       | What happens on error                                                   |
-| ------------------------------ | ------------- | ----------------------------------------------------------------------- |
-| `withSupabase()`               | Auto-response | Returns the JSON payload above, with CORS and `x-supabase-server-error` |
-| `withClaims()`                 | Auto-response | Same payload, short-circuiting the pipeline                             |
-| `withRequiredClaims()`         | Auto-response | Same payload, short-circuiting the pipeline                             |
-| `withPostgresClient()`         | Auto-response | Same payload, on an unsupported `role` claim                            |
-| `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                              |
-| `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                              |
-| `verifyCredentials()`          | Result tuple  | Returns `{ data: null, error: AuthError }`                              |
-| `resolveEnv()`                 | Result tuple  | Returns `{ data: null, error: EnvError }`                               |
-| `createContextClient()`        | **Throws**    | Throws `EnvError`                                                       |
-| `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                       |
-| `withOAuthProtectedResource()` | **Throws**    | Throws `EnvError` when required off Edge Functions and unconfigured     |
-| Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                          |
+| Function                       | Pattern       | What happens on error                                                                             |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------- |
+| `withSupabase()`               | Auto-response | Returns the JSON payload above, with CORS and `x-supabase-server-error`                           |
+| `withClaims()`                 | Auto-response | Same payload, short-circuiting the pipeline                                                       |
+| `withRequiredClaims()`         | Auto-response | Same payload, short-circuiting the pipeline                                                       |
+| `withPostgresClient()`         | Auto-response | Same payload, on an unsupported `role` claim                                                      |
+| `withOAuthProtectedResource()` | Auto-response | Same payload, when a default URL cannot be derived (a configured URL function's throw propagates) |
+| `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
+| `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
+| `verifyCredentials()`          | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
+| `resolveEnv()`                 | Result tuple  | Returns `{ data: null, error: EnvError }`                                                         |
+| `createContextClient()`        | **Throws**    | Throws `EnvError`                                                                                 |
+| `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                                                 |
+| Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                                                    |
 
 `verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
 

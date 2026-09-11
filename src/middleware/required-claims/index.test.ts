@@ -13,6 +13,7 @@ import {
 import type { JSONWebKeySet } from 'jose'
 
 import {
+  ErrorCodeHeader,
   InvalidJwtError,
   JwksNotConfiguredError,
   MissingCredentialsError,
@@ -102,6 +103,21 @@ describe('withRequiredClaims', () => {
     const body = await res.json()
     expect(body.code).toBe(MissingCredentialsError)
     expect(ran).toBe(false)
+  })
+
+  it('honors errors: { detailed: false } on its short-circuits', async () => {
+    const handler = withRequiredClaims(
+      { jwks, errors: { detailed: false } },
+      async () => Response.json({ ok: true }),
+    )
+
+    const res = await handler(requestWithToken())
+    expect(res.status).toBe(401)
+    expect(res.headers.get(ErrorCodeHeader)).toBe(MissingCredentialsError)
+    expect(await res.json()).toEqual({
+      code: MissingCredentialsError,
+      message: expect.stringMatching(/^\[@supabase\/server\]/),
+    })
   })
 
   it('short-circuits 401 UNUSABLE_CREDENTIAL for an sb_* apikey in the Authorization header', async () => {
