@@ -550,24 +550,25 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Documentation
 
-| Question                                                                              | Doc file                                                                          |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| How do I create a basic endpoint?                                                     | [`docs/getting-started.md`](docs/getting-started.md)                              |
-| What auth modes are available? Array syntax? Named keys?                              | [`docs/auth-modes.md`](docs/auth-modes.md)                                        |
-| Which framework adapters exist? How do I contribute one?                              | [`src/adapters/README.md`](src/adapters/README.md)                                |
-| How do I use this with Hono?                                                          | [`docs/adapters/hono.md`](docs/adapters/hono.md)                                  |
-| How do I use this with H3 / Nuxt?                                                     | [`docs/adapters/h3.md`](docs/adapters/h3.md)                                      |
-| How do I use this with Elysia?                                                        | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)                              |
-| How do I use this with NestJS?                                                        | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)                              |
-| How do I use low-level primitives for custom flows?                                   | [`docs/core-primitives.md`](docs/core-primitives.md)                              |
-| How do environment variables work across runtimes?                                    | [`docs/environment-variables.md`](docs/environment-variables.md)                  |
-| How do I handle errors? What codes exist?                                             | [`docs/error-handling.md`](docs/error-handling.md)                                |
-| How do I get typed database queries?                                                  | [`docs/typescript-generics.md`](docs/typescript-generics.md)                      |
-| How do I run raw SQL scoped to the caller by RLS?                                     | [`docs/postgres.md`](docs/postgres.md)                                            |
-| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)?                   | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                                |
-| How do I build an MCP server my users connect to (OAuth discovery, RLS-scoped tools)? | [`docs/mcp.md`](docs/mcp.md)                                                      |
-| What's the complete API surface?                                                      | [`docs/api-reference.md`](docs/api-reference.md)                                  |
-| Does this library support legacy API keys or HS256 JWTs?                              | [`docs/auth-modes.md`](docs/auth-modes.md#legacy-keys-and-jwts-are-not-supported) |
+| Question                                                                                   | Doc file                                                                          |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| How do I create a basic endpoint?                                                          | [`docs/getting-started.md`](docs/getting-started.md)                              |
+| What auth modes are available? Array syntax? Named keys?                                   | [`docs/auth-modes.md`](docs/auth-modes.md)                                        |
+| Which framework adapters exist? How do I contribute one?                                   | [`src/adapters/README.md`](src/adapters/README.md)                                |
+| How do I use this with Hono?                                                               | [`docs/adapters/hono.md`](docs/adapters/hono.md)                                  |
+| How do I use this with H3 / Nuxt?                                                          | [`docs/adapters/h3.md`](docs/adapters/h3.md)                                      |
+| How do I use this with Elysia?                                                             | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)                              |
+| How do I use this with NestJS?                                                             | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)                              |
+| How do I use low-level primitives for custom flows?                                        | [`docs/core-primitives.md`](docs/core-primitives.md)                              |
+| How do environment variables work across runtimes?                                         | [`docs/environment-variables.md`](docs/environment-variables.md)                  |
+| How do I handle errors? What codes exist?                                                  | [`docs/error-handling.md`](docs/error-handling.md)                                |
+| How do I get typed database queries?                                                       | [`docs/typescript-generics.md`](docs/typescript-generics.md)                      |
+| How do I run raw SQL scoped to the caller by RLS?                                          | [`docs/postgres.md`](docs/postgres.md)                                            |
+| Why does a Postgres query hang, return zero rows, or get my project blocked at the pooler? | [`docs/postgres.md#troubleshooting`](docs/postgres.md#troubleshooting)            |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)?                        | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                                |
+| How do I build an MCP server my users connect to (OAuth discovery, RLS-scoped tools)?      | [`docs/mcp.md`](docs/mcp.md)                                                      |
+| What's the complete API surface?                                                           | [`docs/api-reference.md`](docs/api-reference.md)                                  |
+| Does this library support legacy API keys or HS256 JWTs?                                   | [`docs/auth-modes.md`](docs/auth-modes.md#legacy-keys-and-jwts-are-not-supported) |
 
 ## Development
 
