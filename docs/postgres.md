@@ -228,9 +228,23 @@ withPostgresAdminClient({ connectionString: 'postgresql://...' })
 
 `connectionString` defaults to the `SUPABASE_DB_URL` environment variable, which Supabase Edge Functions provide automatically. If neither is set the middleware short-circuits with a 500 and code `MISSING_CONNECTION_STRING`, whose `hint` names the option to pass.
 
-Connections are pooled per process, lazily, one pool per connection string (max 4 connections). The pool outlives individual requests — that is what makes this viable on a per-request runtime.
+### Connection pooling
 
-Both middleware share that cache, so composing the pair opens one pool, not two. Sharing is safe because everything the scoped half sets is transaction-local: a connection always returns to the pool clean, and an admin query can never inherit a previous caller's claims or role.
+Connections are pooled per process, lazily, one pool per connection string. The pool outlives individual requests, which is what makes this viable on a per-request runtime. Three facts about the pool decide how a deployment behaves under load:
+
+- Each process opens at most 4 connections. A stack on 10 isolates holds up to 40 database connections.
+- A request that finds all 4 connections busy waits for one with no time limit. Under saturation, latency rises and nothing errors.
+- A scoped query holds its connection for five round trips: `begin`, `set_config`, `set local role`, the query, and `commit`. An admin query holds it for one.
+
+Both middleware share the pool for the same connection string, so composing the pair opens one pool, not two. Sharing is safe because everything the scoped half sets is transaction-local: a connection always returns to the pool clean, and an admin query can never inherit a previous caller's claims or role.
+
+### Which connection string to use
+
+`SUPABASE_DB_URL` on Edge Functions is the direct connection, `db.<ref>.supabase.co:5432`. Every pooled connection counts against the database's `max_connections`, which depends on compute size, so a deployment with many isolates can exhaust it.
+
+For those deployments, use the shared pooler in transaction mode instead. Copy the transaction-mode string from Project Settings, Database, Connection string (port `6543`), store it in a secret of your own, and pass it as `connectionString`. Secret names starting with `SUPABASE_` are reserved on Edge Functions, so the default variable cannot be overridden there.
+
+Transaction mode fits this middleware: nothing it sets outlives the transaction, and it sends no named prepared statements, so no driver setting is needed.
 
 ## Runtime support
 
@@ -242,11 +256,75 @@ Both middleware share that cache, so composing the pair opens one pool, not two.
 npm install pg
 ```
 
+On Deno, including Edge Functions, an optional peer resolves only when your own code imports it. Pin the version in `deno.json` and add the import once, at the top of your entry module:
+
+```ts
+import 'pg'
+import { withPostgresClient } from '@supabase/server/middleware/postgres'
+```
+
+Without it, `deno check` passes and the function fails at startup with `Could not find package 'pg'`. `deno info` lists `npm:/pg@...` once the import is in place.
+
+## Troubleshooting
+
+| Symptom                                                                              | Cause                                                                  | Fix                                                               |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 500 with code `MISSING_CONNECTION_STRING`                                            | No `SUPABASE_DB_URL` and no `connectionString`                         | [Configuration](#configuration)                                   |
+| 500 with code `UNSUPPORTED_ROLE`                                                     | The token's `role` claim is `service_role` or a custom role            | [Which roles are assumed](#which-roles-are-assumed)               |
+| `permission denied for table` (SQLSTATE `42501`)                                     | The role has no grant on the table                                     | [Table grants](#table-grants)                                     |
+| The query succeeds and returns zero rows                                             | The query ran as `anon`, or a policy reads a setting that is never set | [Zero rows](#zero-rows)                                           |
+| Latency rises under load and nothing errors                                          | All 4 connections are busy and requests are queuing                    | [Slow under load](#slow-under-load)                               |
+| `Max client connections reached` or `remaining connection slots are reserved`        | Total connections exceed the pooler or database cap                    | [Which connection string to use](#which-connection-string-to-use) |
+| Every client of the project gets `ECIRCUITBREAKER: too many authentication failures` | A deployment with a wrong password is retrying without pause           | [Wrong password](#wrong-password)                                 |
+| Occasional 500 with `terminating connection due to administrator command`            | A pooled connection was closed by the pooler or the database           | [Dropped connections](#dropped-connections)                       |
+| Pooler logs show `postgres`, never `authenticated`                                   | Expected. The role is set inside the transaction                       | [Roles in pooler logs](#roles-in-pooler-logs)                     |
+| `Could not find package 'pg'` on Deno                                                | The optional peer is not in the module graph                           | [Runtime support](#runtime-support)                               |
+
+### Zero rows
+
+The query ran as the wrong identity. `withSupabase` in `publishable`, `secret`, or `none` mode contributes `jwtClaims: null`, and `withClaims` contributes `null` when no token arrives. Both make `withPostgresClient` run as `anon`. Place `withSupabase({ auth: 'user' })` or `withRequiredClaims()` ahead of it.
+
+If the identity is right, check the policy. Only `request.jwt.claims` is set, and the `auth.*` helpers read it. A policy that reads `current_setting('request.jwt.claim.sub')` sees `NULL` and matches nothing. See [Write policies with the `auth.*` helpers](#write-policies-with-the-auth-helpers).
+
+This query returns the identity the database saw:
+
+```ts
+const [who] = await ctx.postgres
+  .query`select current_setting('request.jwt.claims', true) as claims, current_user as role`
+```
+
+### Slow under load
+
+The throughput ceiling is 4 concurrent queries per process. Above it, requests wait for a connection with no timeout, so a saturated pool shows up as rising latency rather than errors. Three levers:
+
+- Fewer queries per request. Put multi-statement logic in a database function and call it once.
+- Route heavy reads through `ctx.supabase`, which talks HTTP to PostgREST and does not use the pool.
+- More processes or isolates. Each adds 4 connections on the database side, so check the connection cap first.
+
+### Wrong password
+
+`pg` retries a failed connection with no pause, so a single process attempts dozens of connections per second. Within seconds the pooler's authentication circuit breaker trips and rejects new connections for the whole project, including ones with the correct password:
+
+```
+ECIRCUITBREAKER: too many authentication failures, new connections are temporarily blocked
+```
+
+The block lifts about a minute after the bad traffic stops, and trips again while it continues. Fix the credential or stop the deployment, then wait a minute. Usual triggers: a database password reset, a restored or resumed project, or a connection string copied from another project.
+
+### Dropped connections
+
+A pooled connection can be closed underneath the middleware by a pooler restart, a failover, or an idle reap. The query in flight fails, the pool discards the dead connection, and the next request gets a fresh one. Host logs show `[@supabase/server] postgres pool: connection lost: <reason>`. Claims never leak across the event: a connection whose transaction cannot be rolled back is discarded rather than returned to the pool.
+
+### Roles in pooler logs
+
+The pooler records the role a client connects with, which is `postgres` for `SUPABASE_DB_URL`. `set local role` runs inside the transaction and is invisible to it, so pooler logs, metrics, and `pg_stat_activity` show `postgres` for every query, scoped or admin. To confirm the identity a query ran under, use the query in [Zero rows](#zero-rows).
+
 ## Limits in this version
 
 - **One transaction per `query()` call.** There is no multi-statement transaction API, so you cannot yet span several `query()` calls in one atomic unit. Put multi-statement logic in a database function and call it in a single query.
 - **No read-replica routing** and **no trace propagation** — both are tracked separately.
 - **No composing wrapper.** There is no `withPostgres()` that gives you both clients at once; list the two entries you want. The name is reserved in case that changes.
+- **No pool tuning.** The pool size is fixed at 4 per process, a waiting request has no checkout timeout, and connections carry no `application_name`.
 
 ## See also
 
