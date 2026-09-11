@@ -108,8 +108,26 @@ type ModeSkip =
       mode: string
       keyKind: 'publishable' | 'secret'
     }
-  /** A key was present and the mode had keys, but none matched. */
-  | { reason: 'apikey-mismatch' }
+  /**
+   * A key was present and the mode had keys, but none matched. When the key
+   * is a configured key of the same kind under another name, `matchedKeyName`
+   * carries that name so the error can point at the mode that would accept it.
+   */
+  | {
+      reason: 'apikey-mismatch'
+      mode: string
+      keyKind: 'publishable' | 'secret'
+      matchedKeyName: string | null
+    }
+
+/**
+ * An `apikey-mismatch` skip whose key is a configured key under another name.
+ *
+ * @internal
+ */
+type MisnamedKeySkip = Extract<ModeSkip, { reason: 'apikey-mismatch' }> & {
+  matchedKeyName: string
+}
 
 /**
  * Result of attempting a single auth mode.
@@ -128,11 +146,6 @@ type ModeOutcome =
 
 const NoToken: ModeOutcome = { kind: 'skip', skip: { reason: 'no-token' } }
 const NoApiKey: ModeOutcome = { kind: 'skip', skip: { reason: 'no-apikey' } }
-const ApiKeyMismatch: ModeOutcome = {
-  kind: 'skip',
-  skip: { reason: 'apikey-mismatch' },
-}
-
 /**
  * Matches an `apikey` against a mode's key set, honouring the `:*` wildcard and
  * named-key syntax. Returns the matched key name, or `null` when nothing matched.
@@ -207,7 +220,25 @@ async function tryMode(
       }
 
       const matched = await matchApiKey(credentials.apikey, keys, keyName)
-      if (matched === null) return ApiKeyMismatch
+      if (matched === null) {
+        // A wildcard has already compared against every key, so nothing else
+        // can match. Any other mode may have rejected a valid key of this kind
+        // held under a name it does not accept. That name is safe to report:
+        // the caller already holds the key.
+        const matchedKeyName =
+          keyName === '*'
+            ? null
+            : await matchApiKey(credentials.apikey, keys, '*')
+        return {
+          kind: 'skip',
+          skip: {
+            reason: 'apikey-mismatch',
+            mode,
+            keyKind: base,
+            matchedKeyName,
+          },
+        }
+      }
 
       return {
         kind: 'match',
@@ -389,7 +420,22 @@ function explainFallthrough(
     })
   }
   if (apikey !== 'absent') {
-    return Errors[InvalidApiKeyError](context)
+    const misnamed = skips.find(
+      (skip): skip is MisnamedKeySkip =>
+        skip.reason === 'apikey-mismatch' && skip.matchedKeyName !== null,
+    )
+    return Errors[InvalidApiKeyError](
+      misnamed
+        ? {
+            ...context,
+            matchedKey: {
+              kind: misnamed.keyKind,
+              name: misnamed.matchedKeyName,
+              mode: misnamed.mode,
+            },
+          }
+        : context,
+    )
   }
   return Errors[InvalidCredentialsError](context)
 }

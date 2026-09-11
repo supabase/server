@@ -200,6 +200,19 @@ withSupabase({ auth: 'publishable:*' }, handler)
 withSupabase({ auth: 'secret:*' }, handler)
 ```
 
+### Callers on Vercel
+
+The Supabase Vercel integration sets `SUPABASE_SECRET_KEY` in Vercel to the most recently created secret key of the project. That value changes whenever a secret key is added or rotated, so it does not stay under any one name. Bare `secret` rejects it as soon as a key newer than `default` exists. For a function called from Vercel-hosted code, either accept any secret key or give Vercel a key of its own:
+
+```ts
+// Accept whichever secret key the integration synced
+withSupabase({ auth: 'secret:*' }, handler)
+
+// Or create a secret key named "vercel", set it in Vercel yourself as a
+// variable the integration does not manage, and accept only that key
+withSupabase({ auth: 'secret:vercel' }, handler)
+```
+
 ### Which key matched?
 
 When using named keys, `ctx.authMode` tells you the mode and `keyName` on the `AuthResult` (from core primitives) tells you which key matched. In the high-level `withSupabase` wrapper, the matched key is used internally for client creation.

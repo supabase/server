@@ -135,6 +135,8 @@ The `hint` prioritises format mismatches, since sending the wrong _kind_ of key 
 - a legacy JWT-style `anon` / `service_role` key, where an `sb_publishable_…` / `sb_secret_…` key is expected
 - a value that isn't a Supabase API key at all
 
+When the key is a configured key of the same kind, held under a name the attempted mode does not accept, the `hint` names that key and the modes that would accept it: `secret:<name>` for that key alone, or `secret:*` for any key in the set. `details.matchedKeyName` carries the name. Bare `secret` and `publishable` accept only the key named `default`, so a named key sent to a bare mode lands here.
+
 Otherwise the key was well-formed but simply unknown — usually a different Supabase project. `details.configuredKeyNames` lists the names configured for the attempted modes, and `details.received.apikey` gives the format of what you sent.
 
 ### `INVALID_JWT`
