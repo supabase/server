@@ -58,13 +58,13 @@ Order matters.
 
 `withOAuthProtectedResource()` runs **before** the auth gate, so it sees unauthenticated requests. It does two things:
 
-| Request                                       | Response                                                                                        |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `GET {resource}/oauth-protected-resource`     | RFC 9728 Protected Resource Metadata (`resource`, `authorization_servers`)                      |
-| `OPTIONS {resource}/oauth-protected-resource` | `204` with permissive CORS headers, so browser-based clients can read the document cross-origin |
-| Any response from below with status `401`     | Adds `WWW-Authenticate: Bearer resource_metadata="…"` unless the handler already set one        |
+| Request                                       | Response                                                                                               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET {resource}/oauth-protected-resource`     | RFC 9728 Protected Resource Metadata (`resource`, `authorization_servers`, `bearer_methods_supported`) |
+| `OPTIONS {resource}/oauth-protected-resource` | `204` with permissive CORS headers, so browser-based clients can read the document cross-origin        |
+| Any response from below with status `401`     | Adds `WWW-Authenticate: Bearer resource_metadata="…"` unless the handler already set one               |
 
-That header is how a client that hit a `401` finds the metadata, and through it the authorization server, without guessing URLs. It is generic OAuth middleware; nothing in it is MCP-specific.
+That header is how a client that hit a `401` finds the metadata, and through it the authorization server, without guessing URLs. It is generic OAuth middleware; the only MCP-specific detail is that the preflight allows the `mcp-protocol-version` request header.
 
 `withSupabase({ auth: 'user' })` is the gate. Requests without a valid user JWT get a `401` (which the entry above enriches); requests with one reach the handler with `ctx.supabase` scoped to that user, so RLS applies to everything the tools do.
 
