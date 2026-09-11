@@ -16,6 +16,7 @@ import { withSupabaseClient } from './middleware/client/index.js'
 import type {
   AuthModeWithKey,
   SupabaseContext,
+  UntypedDatabase,
   WithSupabaseConfig,
 } from './types.js'
 
@@ -148,7 +149,7 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
  * ```
  */
 export function withSupabase<
-  Database = unknown,
+  Database = UntypedDatabase,
   Base extends BaseContext = BaseContext,
 >(
   config: WithSupabaseConfig,
@@ -193,7 +194,7 @@ export function withSupabase<
  * }
  * ```
  */
-export function withSupabase<Database = unknown>(
+export function withSupabase<Database = UntypedDatabase>(
   config: WithSupabaseConfig,
 ): Entry<SupabaseContext<Database>>
 

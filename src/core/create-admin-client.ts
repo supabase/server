@@ -5,7 +5,7 @@ import {
   MissingDefaultSecretKeyError,
   MissingSecretKeyError,
 } from '../errors.js'
-import type { CreateAdminClientOptions } from '../types.js'
+import type { CreateAdminClientOptions, UntypedDatabase } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
 
 /**
@@ -39,7 +39,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @category Primitives
  */
-export function createAdminClient<Database = unknown>(
+export function createAdminClient<Database = UntypedDatabase>(
   options?: CreateAdminClientOptions,
 ): SupabaseClient<Database> {
   const { data: resolved, error } = resolveEnv(options?.env)

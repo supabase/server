@@ -7,7 +7,10 @@ import { extractCredentials } from '../../core/extract-credentials.js'
 import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
 import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
 import { markConstructionFailure } from '../../core/parts/construction-failure.js'
-import type { CreateContextClientOptions } from '../../types.js'
+import type {
+  CreateContextClientOptions,
+  UntypedDatabase,
+} from '../../types.js'
 
 /**
  * **Alpha.** Configuration for {@link withSupabaseClient} — the same
@@ -97,7 +100,7 @@ const base = defineMiddleware<
  * @alpha
  * @category Middleware
  */
-export function withSupabaseClient<Database = unknown>(
+export function withSupabaseClient<Database = UntypedDatabase>(
   config?: WithSupabaseClientConfig,
 ): Entry<{ supabase: SupabaseClient<Database> }> {
   return base(config) as unknown as Entry<{

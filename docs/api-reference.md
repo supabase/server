@@ -9,7 +9,7 @@ Complete reference for every export, organized by entry point.
 ### withSupabase
 
 ```ts
-function withSupabase<Database = unknown>(
+function withSupabase<Database = UntypedDatabase>(
   config: WithSupabaseConfig,
   handler: (req: Request, ctx: SupabaseContext<Database>) => Promise<Response>,
 ): (req: Request) => Promise<Response>
@@ -25,7 +25,7 @@ Wraps a fetch handler with auth, CORS, and client creation. Returns a `(req: Req
 - Reading the raw `req.body` stream bypasses the buffer, so a handler that forwards the request with `fetch()` after another layer has read the body rebuilds it from `await req.arrayBuffer()`.
 
 ```ts
-function withSupabase<Database = unknown>(
+function withSupabase<Database = UntypedDatabase>(
   config: WithSupabaseConfig,
 ): Entry<SupabaseContext<Database>>
 ```
@@ -56,7 +56,7 @@ Entries before `withSupabase` see every request, including unauthenticated ones,
 ### createSupabaseContext
 
 ```ts
-function createSupabaseContext<Database = unknown>(
+function createSupabaseContext<Database = UntypedDatabase>(
   request: Request,
   options?: WithSupabaseConfig,
 ): Promise<
@@ -122,7 +122,7 @@ Resolves Supabase environment configuration from runtime variables. `SUPABASE_UR
 ### createContextClient
 
 ```ts
-function createContextClient<Database = unknown>(
+function createContextClient<Database = UntypedDatabase>(
   options?: CreateContextClientOptions,
 ): SupabaseClient<Database>
 ```
@@ -138,7 +138,7 @@ Configured with:
 ### createAdminClient
 
 ```ts
-function createAdminClient<Database = unknown>(
+function createAdminClient<Database = UntypedDatabase>(
   options?: CreateAdminClientOptions,
 ): SupabaseClient<Database>
 ```
@@ -549,7 +549,7 @@ withSupabase({ auth: 'none' }, handler) // no credentials required
 ### SupabaseContext\<Database\>
 
 ```ts
-interface SupabaseContext<Database = unknown> {
+interface SupabaseContext<Database = UntypedDatabase> {
   supabase: SupabaseClient<Database>
   supabaseAdmin: SupabaseClient<Database>
   userClaims: UserClaims | null

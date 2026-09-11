@@ -5,7 +5,7 @@ import {
   MissingDefaultPublishableKeyError,
   MissingPublishableKeyError,
 } from '../errors.js'
-import type { CreateContextClientOptions } from '../types.js'
+import type { CreateContextClientOptions, UntypedDatabase } from '../types.js'
 import { resolveEnv } from './resolve-env.js'
 
 /**
@@ -37,7 +37,7 @@ import { resolveEnv } from './resolve-env.js'
  *
  * @category Primitives
  */
-export function createContextClient<Database = unknown>(
+export function createContextClient<Database = UntypedDatabase>(
   options?: CreateContextClientOptions,
 ): SupabaseClient<Database> {
   const { data: resolved, error } = resolveEnv(options?.env)
