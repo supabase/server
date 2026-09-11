@@ -443,6 +443,62 @@ Defaults to the `SUPABASE_DB_URL` environment variable.
 
 ---
 
+## @supabase/server/oauth-protected-resource
+
+> **Alpha.** The config shape, the contributed context key, and the metadata
+> route may change in a minor release.
+
+Also re-exported from `@supabase/server`. See [`docs/mcp.md`](mcp.md) for the MCP server walkthrough.
+
+### withOAuthProtectedResource
+
+```ts
+function withOAuthProtectedResource(
+  config?: OAuthProtectedResourceConfig,
+): Entry<{ oauthProtectedResource: OAuthProtectedResourceContribution }>
+function withOAuthProtectedResource(handler: FetchHandler): FetchHandler
+function withOAuthProtectedResource(
+  config: OAuthProtectedResourceConfig,
+  handler: FetchHandler,
+): FetchHandler
+```
+
+OAuth 2.1 Protected Resource behavior (RFC 9728) for the wrapped handler. Answers `GET` and `OPTIONS` on any path ending in `/oauth-protected-resource` with the metadata document and a permissive CORS preflight; adds `WWW-Authenticate: Bearer resource_metadata="…"` to a `401` from below unless the handler already set that header; passes everything else through. Runs before the `withSupabase` gate; placing it directly after `withSupabase` with a credentialed auth mode is refused when the stack is built.
+
+Contributes `ctx.oauthProtectedResource.resourceMetadataUrl`, the resolved absolute URL of the metadata document.
+
+### OAuthProtectedResourceConfig
+
+| Option                | Type        | Default on Supabase Edge Functions                                                                       | Default elsewhere                                                                                                                                           |
+| --------------------- | ----------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resourceServer`      | `UrlOption` | Public origin from `X-Forwarded-*` (or `SUPABASE_PUBLIC_URL`) + `/functions/v1/{SUPABASE_FUNCTION_SLUG}` | None. Throws `MissingResourceServerError` (`MISSING_RESOURCE_SERVER`).                                                                                      |
+| `authorizationServer` | `UrlOption` | Public origin + `/auth/v1`                                                                               | `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each + `/auth/v1`. Throws `MissingAuthorizationServerError` (`MISSING_AUTHORIZATION_SERVER`) if neither is set. |
+
+`UrlOption` is `string | ((req: Request) => string)`. Without `SUPABASE_FUNCTION_SLUG` the resource path is reconstructed from the request path with `/functions/v1` restored; a request at the root path with no slug throws `MissingResourceServerError`.
+
+### fromSupabaseUrl
+
+```ts
+function fromSupabaseUrl(supabaseUrl: string): string
+```
+
+Turns a project URL (`https://<ref>.supabase.co`) into its Auth issuer (`…/auth/v1`) for `authorizationServer`. Tolerates a value that already carries the `/auth/v1` path.
+
+### resourceMetadataResponse / unauthorizedResponse
+
+```ts
+function resourceMetadataResponse(
+  req: Request,
+  options?: { resource?: string; authorizationServers?: string[] },
+): Response
+function unauthorizedResponse(
+  req: Request,
+  options?: { resourceMetadataUrl?: string },
+): Response
+```
+
+The building blocks behind the middleware, for custom routing. Defaults derive from the request as above.
+
 ## Types
 
 ### AuthMode

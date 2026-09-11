@@ -34,11 +34,12 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 ## Entry points
 
-| Import                           | Deno / Edge Functions                | Provides                                                                                                          |
-| -------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`               | `npm:@supabase/server`               | `withSupabase`, `createSupabaseContext`, types, errors                                                            |
-| `@supabase/server/core`          | `npm:@supabase/server/core`          | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient` |
-| `@supabase/server/adapters/hono` | `npm:@supabase/server/adapters/hono` | `withSupabase` (Hono middleware variant)                                                                          |
+| Import                                      | Deno / Edge Functions                           | Provides                                                                                                                                                                |
+| ------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                          | `npm:@supabase/server`                          | `withSupabase`, `createSupabaseContext`, types, errors                                                                                                                  |
+| `@supabase/server/core`                     | `npm:@supabase/server/core`                     | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient`                                                       |
+| `@supabase/server/adapters/hono`            | `npm:@supabase/server/adapters/hono`            | `withSupabase` (Hono middleware variant)                                                                                                                                |
+| `@supabase/server/oauth-protected-resource` | `npm:@supabase/server/oauth-protected-resource` | **Alpha.** `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse` — OAuth 2.1 discovery for MCP servers; see `docs/mcp.md` |
 
 ## Quick starts
 
@@ -413,17 +414,18 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 - **If working inside the SDK repo:** `docs/` is at the project root.
 - **If the package is installed as a dependency:** look in `node_modules/@supabase/server/docs/`.
 
-| Question                                                            | Doc file                        |
-| ------------------------------------------------------------------- | ------------------------------- |
-| How do I create a basic endpoint?                                   | `docs/getting-started.md`       |
-| What auth modes are available? Array syntax? Named keys?            | `docs/auth-modes.md`            |
-| Which framework adapters exist? How do I contribute one?            | `src/adapters/README.md`        |
-| How do I use this with Hono?                                        | `docs/adapters/hono.md`         |
-| How do I use this with H3 / Nuxt?                                   | `docs/adapters/h3.md`           |
-| How do I use low-level primitives for custom flows?                 | `docs/core-primitives.md`       |
-| How do environment variables work across runtimes?                  | `docs/environment-variables.md` |
-| How do I handle errors? What codes exist?                           | `docs/error-handling.md`        |
-| How do I get typed database queries?                                | `docs/typescript-generics.md`   |
-| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | `docs/ssr-frameworks.md`        |
-| What's the complete API surface?                                    | `docs/api-reference.md`         |
-| What security decisions does this package make?                     | `docs/security.md`              |
+| Question                                                                              | Doc file                        |
+| ------------------------------------------------------------------------------------- | ------------------------------- |
+| How do I create a basic endpoint?                                                     | `docs/getting-started.md`       |
+| What auth modes are available? Array syntax? Named keys?                              | `docs/auth-modes.md`            |
+| Which framework adapters exist? How do I contribute one?                              | `src/adapters/README.md`        |
+| How do I use this with Hono?                                                          | `docs/adapters/hono.md`         |
+| How do I use this with H3 / Nuxt?                                                     | `docs/adapters/h3.md`           |
+| How do I use low-level primitives for custom flows?                                   | `docs/core-primitives.md`       |
+| How do environment variables work across runtimes?                                    | `docs/environment-variables.md` |
+| How do I handle errors? What codes exist?                                             | `docs/error-handling.md`        |
+| How do I get typed database queries?                                                  | `docs/typescript-generics.md`   |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)?                   | `docs/ssr-frameworks.md`        |
+| How do I build an MCP server my users connect to (OAuth discovery, RLS-scoped tools)? | `docs/mcp.md`                   |
+| What's the complete API surface?                                                      | `docs/api-reference.md`         |
+| What security decisions does this package make?                                       | `docs/security.md`              |

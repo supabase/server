@@ -531,42 +531,43 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                                        | What's in it                                                                                                      |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                           |
-| `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv` |
-| `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                  |
-| `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                             |
-| `@supabase/server/adapters/elysia`            | `withSupabase` (Elysia plugin)                                                                                    |
-| `@supabase/server/adapters/nestjs`            | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                    |
-| `@supabase/server/middleware/client`          | **Alpha.** `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                |
-| `@supabase/server/middleware/admin-client`    | **Alpha.** `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                          |
-| `@supabase/server/middleware/claims`          | **Alpha.** `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                           |
-| `@supabase/server/middleware/required-claims` | **Alpha.** `withRequiredClaims` (user-mode auth gate, non-null `ctx.jwtClaims`)                                   |
-| `@supabase/server/middleware/postgres`        | **Alpha.** `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                |
-| `@supabase/server/middleware/postgres-admin`  | **Alpha.** `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                          |
-| `@supabase/server/oauth-protected-resource`   | **Alpha.** `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`    |
-| `@supabase/server/peer/supabase-js`           | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                           |
+| Export                                        | What's in it                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                                                          |
+| `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv`                                |
+| `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                                                 |
+| `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                                                            |
+| `@supabase/server/adapters/elysia`            | `withSupabase` (Elysia plugin)                                                                                                                   |
+| `@supabase/server/adapters/nestjs`            | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                                                   |
+| `@supabase/server/middleware/client`          | **Alpha.** `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                                               |
+| `@supabase/server/middleware/admin-client`    | **Alpha.** `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                                                         |
+| `@supabase/server/middleware/claims`          | **Alpha.** `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                                          |
+| `@supabase/server/middleware/required-claims` | **Alpha.** `withRequiredClaims` (user-mode auth gate, non-null `ctx.jwtClaims`)                                                                  |
+| `@supabase/server/middleware/postgres`        | **Alpha.** `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                                               |
+| `@supabase/server/middleware/postgres-admin`  | **Alpha.** `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                                         |
+| `@supabase/server/oauth-protected-resource`   | **Alpha.** `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`; see [`docs/mcp.md`](docs/mcp.md) |
+| `@supabase/server/peer/supabase-js`           | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                                                          |
 
 ## Documentation
 
-| Question                                                            | Doc file                                                                          |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| How do I create a basic endpoint?                                   | [`docs/getting-started.md`](docs/getting-started.md)                              |
-| What auth modes are available? Array syntax? Named keys?            | [`docs/auth-modes.md`](docs/auth-modes.md)                                        |
-| Which framework adapters exist? How do I contribute one?            | [`src/adapters/README.md`](src/adapters/README.md)                                |
-| How do I use this with Hono?                                        | [`docs/adapters/hono.md`](docs/adapters/hono.md)                                  |
-| How do I use this with H3 / Nuxt?                                   | [`docs/adapters/h3.md`](docs/adapters/h3.md)                                      |
-| How do I use this with Elysia?                                      | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)                              |
-| How do I use this with NestJS?                                      | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)                              |
-| How do I use low-level primitives for custom flows?                 | [`docs/core-primitives.md`](docs/core-primitives.md)                              |
-| How do environment variables work across runtimes?                  | [`docs/environment-variables.md`](docs/environment-variables.md)                  |
-| How do I handle errors? What codes exist?                           | [`docs/error-handling.md`](docs/error-handling.md)                                |
-| How do I get typed database queries?                                | [`docs/typescript-generics.md`](docs/typescript-generics.md)                      |
-| How do I run raw SQL scoped to the caller by RLS?                   | [`docs/postgres.md`](docs/postgres.md)                                            |
-| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)? | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                                |
-| What's the complete API surface?                                    | [`docs/api-reference.md`](docs/api-reference.md)                                  |
-| Does this library support legacy API keys or HS256 JWTs?            | [`docs/auth-modes.md`](docs/auth-modes.md#legacy-keys-and-jwts-are-not-supported) |
+| Question                                                                              | Doc file                                                                          |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| How do I create a basic endpoint?                                                     | [`docs/getting-started.md`](docs/getting-started.md)                              |
+| What auth modes are available? Array syntax? Named keys?                              | [`docs/auth-modes.md`](docs/auth-modes.md)                                        |
+| Which framework adapters exist? How do I contribute one?                              | [`src/adapters/README.md`](src/adapters/README.md)                                |
+| How do I use this with Hono?                                                          | [`docs/adapters/hono.md`](docs/adapters/hono.md)                                  |
+| How do I use this with H3 / Nuxt?                                                     | [`docs/adapters/h3.md`](docs/adapters/h3.md)                                      |
+| How do I use this with Elysia?                                                        | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)                              |
+| How do I use this with NestJS?                                                        | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)                              |
+| How do I use low-level primitives for custom flows?                                   | [`docs/core-primitives.md`](docs/core-primitives.md)                              |
+| How do environment variables work across runtimes?                                    | [`docs/environment-variables.md`](docs/environment-variables.md)                  |
+| How do I handle errors? What codes exist?                                             | [`docs/error-handling.md`](docs/error-handling.md)                                |
+| How do I get typed database queries?                                                  | [`docs/typescript-generics.md`](docs/typescript-generics.md)                      |
+| How do I run raw SQL scoped to the caller by RLS?                                     | [`docs/postgres.md`](docs/postgres.md)                                            |
+| How do I use this with `@supabase/ssr` (Next.js, SvelteKit, Remix)?                   | [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md)                                |
+| How do I build an MCP server my users connect to (OAuth discovery, RLS-scoped tools)? | [`docs/mcp.md`](docs/mcp.md)                                                      |
+| What's the complete API surface?                                                      | [`docs/api-reference.md`](docs/api-reference.md)                                  |
+| Does this library support legacy API keys or HS256 JWTs?                              | [`docs/auth-modes.md`](docs/auth-modes.md#legacy-keys-and-jwts-are-not-supported) |
 
 ## Development
 
