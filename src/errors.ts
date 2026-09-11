@@ -611,6 +611,13 @@ export interface AuthFailureContext {
    * Omitted for modes that don't use API keys.
    */
   configuredKeyNames?: Record<string, readonly string[]>
+
+  /**
+   * Set when the rejected `apikey` is a configured key of `kind` held under
+   * `name`, and `mode` is the attempted mode that accepts a different name.
+   * Carries the name only, never the value.
+   */
+  matchedKey?: { kind: 'publishable' | 'secret'; name: string; mode: string }
 }
 
 /**
@@ -664,6 +671,16 @@ const ApiKeyFormatLabel: Record<ApiKeyFormat, string> = {
  */
 function apiKeyHint(context: AuthFailureContext): string {
   const { authModes, received } = context
+
+  if (context.matchedKey) {
+    const { kind, name, mode } = context.matchedKey
+    const colonIndex = mode.indexOf(':')
+    const accepted = colonIndex === -1 ? 'default' : mode.slice(colonIndex + 1)
+    return (
+      `The key is the ${kind} key named "${name}", but auth: '${mode}' accepts only the key named "${accepted}". ` +
+      `Use auth: '${kind}:${name}' to accept that key, or auth: '${kind}:*' to accept any ${kind} key.`
+    )
+  }
   const keyModes = authModes.filter((mode) =>
     credentialForMode(mode)?.startsWith('apikey'),
   )
@@ -780,6 +797,9 @@ const AuthErrorMap = {
           received: context.received,
           ...(context.configuredKeyNames
             ? { configuredKeyNames: context.configuredKeyNames }
+            : {}),
+          ...(context.matchedKey
+            ? { matchedKeyName: context.matchedKey.name }
             : {}),
         },
       },

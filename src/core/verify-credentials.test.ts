@@ -1113,6 +1113,122 @@ describe('verifyCredentials', () => {
       expect(result.data!.authMode).toBe('secret')
     })
 
+    describe('key matched under another name', () => {
+      it('names the key bare secret rejected and the modes that would accept it', async () => {
+        const error = await failWith(
+          { token: null, apikey: 'sb_secret_vercel' },
+          {
+            auth: 'secret',
+            env: makeEnv({
+              secretKeys: {
+                default: 'sb_secret_default',
+                vercel: 'sb_secret_vercel',
+              },
+            }),
+          },
+        )
+        expect(error.code).toBe(InvalidApiKeyError)
+        expect(error.status).toBe(401)
+        expect(error.hint).toContain('secret key named "vercel"')
+        expect(error.hint).toContain('accepts only the key named "default"')
+        expect(error.hint).toContain("'secret:vercel'")
+        expect(error.hint).toContain("'secret:*'")
+        expect(error.details).toMatchObject({ matchedKeyName: 'vercel' })
+      })
+
+      it('names the key a named secret mode rejected', async () => {
+        const error = await failWith(
+          { token: null, apikey: 'sb_secret_mobile' },
+          {
+            auth: 'secret:web',
+            env: makeEnv({
+              secretKeys: { web: 'sb_secret_web', mobile: 'sb_secret_mobile' },
+            }),
+          },
+        )
+        expect(error.code).toBe(InvalidApiKeyError)
+        expect(error.hint).toContain('secret key named "mobile"')
+        expect(error.hint).toContain('accepts only the key named "web"')
+        expect(error.hint).toContain("'secret:mobile'")
+        expect(error.details).toMatchObject({ matchedKeyName: 'mobile' })
+      })
+
+      it('names the key bare publishable rejected', async () => {
+        const error = await failWith(
+          { token: null, apikey: 'sb_publishable_web' },
+          {
+            auth: 'publishable',
+            env: makeEnv({
+              publishableKeys: {
+                default: 'sb_publishable_default',
+                web: 'sb_publishable_web',
+              },
+            }),
+          },
+        )
+        expect(error.code).toBe(InvalidApiKeyError)
+        expect(error.hint).toContain('publishable key named "web"')
+        expect(error.hint).toContain("'publishable:web'")
+        expect(error.hint).toContain("'publishable:*'")
+        expect(error.details).toMatchObject({ matchedKeyName: 'web' })
+      })
+
+      it('still names the key when the key mode sits inside a chain', async () => {
+        const error = await failWith(
+          { token: null, apikey: 'sb_secret_vercel' },
+          {
+            auth: ['user', 'secret'],
+            env: makeEnv({
+              secretKeys: {
+                default: 'sb_secret_default',
+                vercel: 'sb_secret_vercel',
+              },
+            }),
+          },
+        )
+        expect(error.code).toBe(InvalidApiKeyError)
+        expect(error.hint).toContain('secret key named "vercel"')
+        expect(error.details).toMatchObject({ matchedKeyName: 'vercel' })
+      })
+
+      it('never puts key values in the hint or details', async () => {
+        const error = await failWith(
+          { token: null, apikey: 'sb_secret_vercel' },
+          {
+            auth: 'secret',
+            env: makeEnv({
+              secretKeys: {
+                default: 'sb_secret_default',
+                vercel: 'sb_secret_vercel',
+              },
+            }),
+          },
+        )
+        const serialized = JSON.stringify(error.toJSON())
+        expect(serialized).toContain('vercel')
+        expect(serialized).not.toContain('sb_secret_vercel')
+        expect(serialized).not.toContain('sb_secret_default')
+      })
+
+      it('keeps the generic hint when the key matches nothing', async () => {
+        const error = await failWith(
+          { token: null, apikey: 'sb_secret_nope' },
+          {
+            auth: 'secret',
+            env: makeEnv({
+              secretKeys: {
+                default: 'sb_secret_default',
+                vercel: 'sb_secret_vercel',
+              },
+            }),
+          },
+        )
+        expect(error.code).toBe(InvalidApiKeyError)
+        expect(error.hint).toContain('matched no configured key')
+        expect(error.details).not.toHaveProperty('matchedKeyName')
+      })
+    })
+
     it('stamps provenance on every error', async () => {
       const error = await failWith(
         { token: null, apikey: null },

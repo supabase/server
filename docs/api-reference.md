@@ -854,5 +854,6 @@ interface AuthFailureContext {
     apikey: 'absent' | 'publishable' | 'secret' | 'legacy-jwt' | 'unrecognized'
   }
   configuredKeyNames?: Record<string, readonly string[]>
+  matchedKey?: { kind: 'publishable' | 'secret'; name: string; mode: string }
 }
 ```
