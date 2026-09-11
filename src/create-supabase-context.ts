@@ -7,7 +7,11 @@ import {
   EnvError,
   Errors,
 } from './errors.js'
-import type { SupabaseContext, WithSupabaseConfig } from './types.js'
+import type {
+  SupabaseContext,
+  UntypedDatabase,
+  WithSupabaseConfig,
+} from './types.js'
 
 /**
  * Creates a {@link SupabaseContext} directly from a request.
@@ -32,7 +36,7 @@ import type { SupabaseContext, WithSupabaseConfig } from './types.js'
  * const { data } = await ctx.supabase.rpc('get_my_items')
  * ```
  */
-export async function createSupabaseContext<Database = unknown>(
+export async function createSupabaseContext<Database = UntypedDatabase>(
   request: Request,
   options?: WithSupabaseConfig,
 ): Promise<

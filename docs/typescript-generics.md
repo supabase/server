@@ -4,6 +4,8 @@
 
 All client-creating functions accept a `Database` generic parameter. When you pass your generated database types, every `.from('table').select()` call is fully typed — column names, return types, insert shapes, and RPC signatures.
 
+Without one, `Database` defaults to `any` — the same default `createClient()` uses in `@supabase/supabase-js` — so `.from()`, `.select()`, `.insert()`, and `.update()` all type-check without a generated schema.
+
 ## Generating types
 
 Use the Supabase CLI to generate TypeScript types from your database schema:

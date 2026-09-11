@@ -2,7 +2,11 @@ import { Elysia, type ExtractErrorFromHandle } from 'elysia'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
 import type { AuthError } from '../../errors.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
+import type {
+  SupabaseContext,
+  UntypedDatabase,
+  WithSupabaseConfig,
+} from '../../types.js'
 
 /**
  * Wraps an {@link AuthError} as an Elysia-compatible error.
@@ -70,7 +74,7 @@ export class SupabaseError extends Error {
 // `{}` literals — switching to `object` or `Record<string, never>` would not satisfy
 // the corresponding generic constraints.
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-export function withSupabase<Database = unknown>(
+export function withSupabase<Database = UntypedDatabase>(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): Elysia<
   '',

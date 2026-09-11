@@ -453,13 +453,23 @@ export interface CreateAdminClientOptions {
 }
 
 /**
+ * Default for the `Database` generic on every client-creating function and on
+ * {@link SupabaseContext} itself — mirrors `createClient()` from
+ * `@supabase/supabase-js`, so an untyped `withSupabase(...)` call type-checks
+ * the same way an untyped `createClient()` does.
+ * @category Types
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type UntypedDatabase = any
+
+/**
  * The Supabase context created for each authenticated request.
  *
  * Contains pre-configured Supabase clients and the caller's identity.
  * Identical regardless of which layer or adapter produced it.
  * @category Types
  */
-export interface SupabaseContext<Database = unknown> {
+export interface SupabaseContext<Database = UntypedDatabase> {
   /** Supabase client scoped to the caller's identity. RLS policies apply. */
   supabase: SupabaseClient<Database>
 

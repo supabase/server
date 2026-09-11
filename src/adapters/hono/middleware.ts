@@ -3,7 +3,11 @@ import { createMiddleware } from 'hono/factory'
 import { HTTPException } from 'hono/http-exception'
 
 import { createSupabaseContext } from '../../create-supabase-context.js'
-import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
+import type {
+  SupabaseContext,
+  UntypedDatabase,
+  WithSupabaseConfig,
+} from '../../types.js'
 
 /**
  * Hono middleware that creates a {@link SupabaseContext} and stores it in `c.var.supabaseContext`.
@@ -40,7 +44,7 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  *
  * @category Adapters
  */
-export function withSupabase<Database = unknown>(
+export function withSupabase<Database = UntypedDatabase>(
   config?: Omit<WithSupabaseConfig, 'cors'>,
 ): MiddlewareHandler<{
   Variables: { supabaseContext: SupabaseContext<Database> }

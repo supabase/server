@@ -6,7 +6,7 @@ import { createAdminClient } from '../../core/create-admin-client.js'
 import { lazyClient } from '../../core/lazy-client.js'
 import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
 import { CreateSupabaseClientError, EnvError, Errors } from '../../errors.js'
-import type { CreateAdminClientOptions } from '../../types.js'
+import type { CreateAdminClientOptions, UntypedDatabase } from '../../types.js'
 
 /**
  * **Alpha.** Configuration for {@link withSupabaseAdminClient} — the same
@@ -90,7 +90,7 @@ const base = defineMiddleware<
  * @alpha
  * @category Middleware
  */
-export function withSupabaseAdminClient<Database = unknown>(
+export function withSupabaseAdminClient<Database = UntypedDatabase>(
   config?: WithSupabaseAdminClientConfig,
 ): Entry<{ supabaseAdmin: SupabaseClient<Database> }> {
   return base(config) as unknown as Entry<{

@@ -40,7 +40,7 @@ export class GamesController {
 
 ### Typing your database
 
-The guard does not thread a `Database` generic, so `@SupabaseCtx()` resolves to `SupabaseContext<unknown>` by default. To get typed table access, annotate the parameter at the handler:
+The guard does not thread a `Database` generic, so `@SupabaseCtx()` resolves to `SupabaseContext<any>` by default. To get typed table access, annotate the parameter at the handler:
 
 ```ts
 import type { SupabaseContext } from '@supabase/server'
