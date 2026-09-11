@@ -3,7 +3,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { JSONWebKeySet } from 'jose'
 
-import { InvalidJwtError } from '../../errors.js'
+import {
+  ErrorCodeHeader,
+  InvalidJwtError,
+  JwksNotConfiguredError,
+} from '../../errors.js'
 import { withClaims } from './index.js'
 
 describe('withClaims', () => {
@@ -136,5 +140,21 @@ describe('withClaims', () => {
     expect(res.status).toBe(500)
     const body = await res.json()
     expect(body.message).toContain('JWKS')
+  })
+
+  it('honors errors: { detailed: false } on its short-circuits', async () => {
+    vi.stubEnv('SUPABASE_JWKS', '')
+    vi.stubEnv('SUPABASE_JWKS_URL', '')
+    const handler = withClaims({ errors: { detailed: false } }, async () =>
+      Response.json({ ok: true }),
+    )
+
+    const res = await handler(requestWithToken(rsToken))
+    expect(res.status).toBe(500)
+    expect(res.headers.get(ErrorCodeHeader)).toBe(JwksNotConfiguredError)
+    expect(await res.json()).toEqual({
+      code: JwksNotConfiguredError,
+      message: expect.stringMatching(/^\[@supabase\/server\]/),
+    })
   })
 })

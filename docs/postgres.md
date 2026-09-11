@@ -228,6 +228,8 @@ withPostgresAdminClient({ connectionString: 'postgresql://...' })
 
 `connectionString` defaults to the `SUPABASE_DB_URL` environment variable, which Supabase Edge Functions provide automatically. If neither is set the middleware short-circuits with a 500 and code `MISSING_CONNECTION_STRING`, whose `hint` names the option to pass.
 
+`errors: { detailed: false }` trims that response, and `withPostgresClient`'s `UNSUPPORTED_ROLE` refusal, to `code` and `message`; see [`docs/error-handling.md`](error-handling.md#trimming-the-response-body).
+
 Connections are pooled per process, lazily, one pool per connection string (max 4 connections). The pool outlives individual requests — that is what makes this viable on a per-request runtime.
 
 Both middleware share that cache, so composing the pair opens one pool, not two. Sharing is safe because everything the scoped half sets is transaction-local: a connection always returns to the pool clean, and an admin query can never inherit a previous caller's claims or role.

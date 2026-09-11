@@ -19,7 +19,7 @@ import {
   MissingCredentialsError,
   UnusableCredentialError,
 } from '../../errors.js'
-import type { JWTClaims } from '../../types.js'
+import type { ErrorResponseConfig, JWTClaims } from '../../types.js'
 
 /**
  * **Alpha.** Configuration for {@link withRequiredClaims}.
@@ -37,6 +37,13 @@ export interface WithRequiredClaimsConfig {
    * (https endpoint) from the environment.
    */
   jwks?: JSONWebKeySet | URL
+
+  /**
+   * How much of an error to include in a short-circuit response body.
+   *
+   * @see {@link ErrorResponseConfig}
+   */
+  errors?: ErrorResponseConfig
 }
 
 /**
@@ -143,6 +150,7 @@ export const withRequiredClaims: Middleware<
                     inApiKeyHeader: apikey !== null,
                   })),
             }),
+        { errors: config?.errors },
       )
     }
 
@@ -150,6 +158,7 @@ export const withRequiredClaims: Middleware<
     if (!jwks) {
       return errorResponse(
         Errors[JwksNotConfiguredError]({ middleware: 'withRequiredClaims' }),
+        { errors: config?.errors },
       )
     }
 
@@ -168,6 +177,7 @@ export const withRequiredClaims: Middleware<
               jwt: failure.jwt,
               cause: failure.cause,
             }),
+        { errors: config?.errors },
       )
     }
 
