@@ -265,7 +265,10 @@ async function tryMode(
         return { kind: 'skip', skip: { reason: 'jwks-not-configured' } }
       }
 
-      const verified = await verifyUserJwt(credentials.token, env.jwks)
+      const verified = await verifyUserJwt(credentials.token, env.jwks, {
+        audience: env.audience,
+        issuer: env.issuer,
+      })
       if (!verified.ok) {
         const { failure } = verified
         return {

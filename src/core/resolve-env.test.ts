@@ -264,4 +264,15 @@ describe('resolveEnv', () => {
       test: 'sb_publishable_override',
     })
   })
+
+  it('accepts audience and issuer from overrides', () => {
+    const result = resolveEnv({
+      url: 'https://override.supabase.co',
+      audience: 'https://my-service.internal',
+      issuer: 'https://override.supabase.co/auth/v1',
+    })
+    expect(result.error).toBeNull()
+    expect(result.data!.audience).toBe('https://my-service.internal')
+    expect(result.data!.issuer).toBe('https://override.supabase.co/auth/v1')
+  })
 })

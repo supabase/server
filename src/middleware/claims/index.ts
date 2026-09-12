@@ -30,6 +30,8 @@ export interface WithClaimsConfig {
    * (https endpoint) from the environment.
    */
   jwks?: JSONWebKeySet | URL
+  audience?: string | string[] | null
+  issuer?: string | string[] | null
 }
 
 /**
@@ -107,7 +109,10 @@ export const withClaims: Middleware<
       )
     }
 
-    const verified = await verifyUserJwt(token, jwks)
+    const verified = await verifyUserJwt(token, jwks, {
+      audience: config?.audience,
+      issuer: config?.issuer,
+    })
     if (!verified.ok) {
       const { failure } = verified
       return errorResponse(

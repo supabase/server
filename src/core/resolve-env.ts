@@ -181,6 +181,8 @@ export function resolveEnv(
       overrides?.secretKeys ??
       resolveKeys('SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'),
     jwks: overrides?.jwks ?? resolveJwks(),
+    audience: overrides?.audience ?? null,
+    issuer: overrides?.issuer ?? null,
   }
 
   return { data, error: null }
