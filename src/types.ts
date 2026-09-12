@@ -156,6 +156,12 @@ export interface SupabaseEnv {
    * `null` rather than falling through to the other variable.
    */
   jwks: JSONWebKeySet | URL | null
+
+  /** Expected JWT audience (`aud` claim). */
+  audience?: string | string[] | null
+
+  /** Expected JWT issuer (`iss` claim). */
+  issuer?: string | string[] | null
 }
 
 /**

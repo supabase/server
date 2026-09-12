@@ -276,6 +276,44 @@ describe('withRequiredClaims', () => {
         expect((await res.json()).code).toBe(JwksNotConfiguredError)
       }
     })
+
+    it('respects audience and issuer options in withRequiredClaims', async () => {
+      const { privateKey, publicKey } = await generateKeyPair('RS256')
+      const publicJwk = await exportJWK(publicKey)
+      publicJwk.alg = 'RS256'
+      publicJwk.use = 'sig'
+      publicJwk.kid = 'req-claims-aud-test'
+      const testJwks = { keys: [publicJwk] }
+
+      const validToken = await new SignJWT({
+        sub: 'user-123',
+        role: 'authenticated',
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'req-claims-aud-test' })
+        .setAudience('expected-audience')
+        .setIssuer('expected-issuer')
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+      const matchHandler = withRequiredClaims(
+        {
+          jwks: testJwks,
+          audience: 'expected-audience',
+          issuer: 'expected-issuer',
+        },
+        async (_req, ctx) => Response.json({ sub: ctx.jwtClaims.sub }),
+      )
+      const matchRes = await matchHandler(requestWithToken(validToken))
+      expect(matchRes.status).toBe(200)
+
+      const mismatchHandler = withRequiredClaims(
+        { jwks: testJwks, audience: 'wrong-audience' },
+        async (_req, ctx) => Response.json({ sub: ctx.jwtClaims.sub }),
+      )
+      const mismatchRes = await mismatchHandler(requestWithToken(validToken))
+      expect(mismatchRes.status).toBe(401)
+    })
   })
 })
 

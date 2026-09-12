@@ -289,17 +289,18 @@ describe('verifyCredentials', () => {
   describe('user mode', () => {
     let jwks: JSONWebKeySet
     let validTokens: string[]
+    let privateKey: CryptoKey
+    let jwtSecret: CryptoKey | Uint8Array<ArrayBufferLike>
 
     beforeAll(async () => {
-      // Asymmetric JWK
-      const { privateKey, publicKey } = await generateKeyPair('RS256')
-      const publicJwk = await exportJWK(publicKey)
+      const keyPair = await generateKeyPair('RS256')
+      privateKey = keyPair.privateKey
+      const publicJwk = await exportJWK(keyPair.publicKey)
       publicJwk.alg = 'RS256'
       publicJwk.use = 'sig'
       publicJwk.kid = 'asymmetric-key-id'
 
-      // Symmetric Shared Secret JWK
-      const jwtSecret = await generateSecret('HS256', {
+      jwtSecret = await generateSecret('HS256', {
         extractable: true,
       })
       const symmetricJwk = await exportJWK(jwtSecret)
@@ -345,6 +346,108 @@ describe('verifyCredentials', () => {
         expect(result.data!.jwtClaims!.sub).toBe('user-123')
         expect(result.data!.token).toBe(token)
       }
+    })
+
+    it('succeeds when JWT audience and issuer match configured values', async () => {
+      const token = await new SignJWT({ sub: 'user-123' })
+        .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
+        .setAudience('https://test.supabase.co')
+        .setIssuer('https://test.supabase.co/auth/v1')
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+      const result = await verifyCredentials(
+        { token, apikey: null },
+        {
+          auth: 'user',
+          env: makeEnv({
+            jwks,
+            audience: 'https://test.supabase.co',
+            issuer: 'https://test.supabase.co/auth/v1',
+          }),
+        },
+      )
+
+      expect(result.error).toBeNull()
+      expect(result.data!.jwtClaims!.aud).toBe('https://test.supabase.co')
+      expect(result.data!.jwtClaims!.iss).toBe(
+        'https://test.supabase.co/auth/v1',
+      )
+    })
+
+    it.each([
+      [
+        'audience',
+        'https://wrong.supabase.co',
+        'https://test.supabase.co/auth/v1',
+      ],
+      [
+        'issuer',
+        'https://test.supabase.co',
+        'https://wrong.supabase.co/auth/v1',
+      ],
+    ])(
+      'fails when configured JWT %s does not match',
+      async (_label, audience, issuer) => {
+        const token = await new SignJWT({ sub: 'user-123' })
+          .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
+          .setAudience('https://test.supabase.co')
+          .setIssuer('https://test.supabase.co/auth/v1')
+          .setIssuedAt()
+          .setExpirationTime('1h')
+          .sign(privateKey)
+
+        const result = await verifyCredentials(
+          { token, apikey: null },
+          {
+            auth: 'user',
+            env: makeEnv({ jwks, audience, issuer }),
+          },
+        )
+
+        expect(result.error).not.toBeNull()
+        expect(result.error!.code).toBe(InvalidJwtError)
+      },
+    )
+
+    it('supports audience and issuer validation with symmetric HS256 keys', async () => {
+      const token = await new SignJWT({ sub: 'user-123' })
+        .setProtectedHeader({
+          alg: 'HS256',
+          kid: 'symmetric-shared-secret-key-id',
+        })
+        .setAudience('https://test.supabase.co')
+        .setIssuer('https://test.supabase.co/auth/v1')
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(jwtSecret)
+
+      const matchResult = await verifyCredentials(
+        { token, apikey: null },
+        {
+          auth: 'user',
+          env: makeEnv({
+            jwks,
+            audience: 'https://test.supabase.co',
+            issuer: 'https://test.supabase.co/auth/v1',
+          }),
+        },
+      )
+      expect(matchResult.error).toBeNull()
+
+      const mismatchResult = await verifyCredentials(
+        { token, apikey: null },
+        {
+          auth: 'user',
+          env: makeEnv({
+            jwks,
+            audience: 'https://other.supabase.co',
+          }),
+        },
+      )
+      expect(mismatchResult.error).not.toBeNull()
+      expect(mismatchResult.error!.code).toBe(InvalidJwtError)
     })
 
     it('fails with invalid JWT', async () => {
