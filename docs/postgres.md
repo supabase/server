@@ -313,7 +313,7 @@ The block lifts about a minute after the bad traffic stops, and trips again whil
 
 ### Dropped connections
 
-A pooled connection can be closed underneath the middleware by a pooler restart, a failover, or an idle reap. The query in flight fails, the pool discards the dead connection, and the next request gets a fresh one. Host logs show `[@supabase/server] postgres pool: connection lost: <reason>`. Claims never leak across the event: a connection whose transaction cannot be rolled back is discarded rather than returned to the pool.
+A pooled connection can be closed underneath the middleware by a pooler restart, a failover, or an idle reap. The query in flight fails, the pool discards the dead connection, and the next request gets a fresh one. Host logs show `[@supabase/server] postgres pool: connection lost: <reason>` for a client mid-query, or `idle connection lost (discarded): <reason>` for one sitting idle in the pool when it dropped. Claims never leak across the event: a connection whose transaction cannot be rolled back is discarded rather than returned to the pool.
 
 ### Roles in pooler logs
 
