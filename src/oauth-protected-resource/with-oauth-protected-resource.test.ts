@@ -759,6 +759,8 @@ describe('withOAuthProtectedResource - off-platform defaults fail loudly', () =>
     expect(res.status).toBe(500)
     expect(res.headers.get(ErrorCodeHeader)).toBe(MissingResourceServerError)
     expect((await res.json()).code).toBe(MissingResourceServerError)
+    // Off the metadata route the host's own CORS policy applies.
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 
   it('answers MISSING_AUTHORIZATION_SERVER when only resourceServer is set', async () => {

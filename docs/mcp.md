@@ -92,7 +92,7 @@ Both accept a string or `(req: Request) => string` (`UrlOption`). The full confi
 
 | Option                | Type        | Default on Edge Functions             | Default elsewhere                                                                                                  |
 | --------------------- | ----------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `resourceServer`      | `UrlOption` | `{public origin}/functions/v1/{slug}` | none; `500` with code `MISSING_RESOURCE_SERVER`                                                                    |
+| `resourceServer`      | `UrlOption` | `{public origin}/functions/v1/{slug}` | none; `500` with code `MISSING_RESOURCE_SERVER` on every request but the metadata `OPTIONS` preflight              |
 | `authorizationServer` | `UrlOption` | `{public origin}/auth/v1`             | `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each `+ /auth/v1`; else `500` with code `MISSING_AUTHORIZATION_SERVER` |
 
 Either 500 is the library's JSON error response, with the code in the `x-supabase-server-error` header and a `hint` naming the option to set; see [`docs/error-handling.md`](error-handling.md#enverror-codes). A throw from a `resourceServer` or `authorizationServer` function you supplied is yours and propagates. `errors: { detailed: false }` trims either body to `code` and `message`.

@@ -206,14 +206,17 @@ export const withOAuthProtectedResource: Middleware<
         } catch (error) {
           if (isConstructionFailure(error, 'oauthProtectedResource')) {
             const response = constructionFailureResponse(error, config?.errors)
-            // The metadata route's 200 and 204 carry `*`, and this body is a
-            // deployment diagnostic, so a browser client reads the failure the
-            // same way it reads the document.
-            response.headers.set('Access-Control-Allow-Origin', '*')
-            response.headers.set(
-              'Access-Control-Expose-Headers',
-              ErrorCodeHeader,
-            )
+            // The metadata document is public discovery data that browsers
+            // fetch cross-origin, and its 200 and 204 carry `*`. Its 500 does
+            // too, so a browser reads the failure the same way it reads the
+            // document. Every other route keeps the host's own CORS policy.
+            if (isMetadataRoute) {
+              response.headers.set('Access-Control-Allow-Origin', '*')
+              response.headers.set(
+                'Access-Control-Expose-Headers',
+                ErrorCodeHeader,
+              )
+            }
             return response
           }
           throw error
