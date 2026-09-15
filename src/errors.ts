@@ -848,13 +848,16 @@ const AuthErrorMap = {
       500,
       {
         hint:
-          'Set SUPABASE_JWKS_URL (e.g. https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json) ' +
+          'Set SUPABASE_URL to your project URL (the JWKS is derived from it), or set SUPABASE_JWKS_URL ' +
+          '(e.g. https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json) ' +
           'or SUPABASE_JWKS (inline JSON), or pass ' +
           (context.middleware
             ? `\`jwks\` to ${context.middleware}()`
             : '`env.jwks`') +
           '. Note that a malformed value resolves to null rather than erroring: SUPABASE_JWKS must be ' +
-          'valid JSON, and SUPABASE_JWKS_URL must be https (plain http is only allowed for localhost).',
+          'valid JSON, and SUPABASE_JWKS_URL (or the URL derived from SUPABASE_URL) must be https ' +
+          '(plain http is only allowed for localhost, so a Docker-internal SUPABASE_URL such as ' +
+          'http://kong:8000 does not qualify).',
         details: {
           ...(context.authModes
             ? { acceptedAuthModes: context.authModes }

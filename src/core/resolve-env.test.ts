@@ -139,6 +139,44 @@ describe('resolveEnv', () => {
     expect(result.data!.jwks).toBeNull()
   })
 
+  it('derives the well-known JWKS URL from an https SUPABASE_URL when nothing else is set', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeInstanceOf(URL)
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://test.supabase.co/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('derives the JWKS URL from a loopback http SUPABASE_URL (local CLI)', () => {
+    vi.stubEnv('SUPABASE_URL', 'http://127.0.0.1:54321')
+    const result = resolveEnv()
+    expect((result.data!.jwks as URL).href).toBe(
+      'http://127.0.0.1:54321/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('does not derive a JWKS URL from a non-loopback http SUPABASE_URL', () => {
+    vi.stubEnv('SUPABASE_URL', 'http://kong:8000')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
+  it('strips a trailing slash from SUPABASE_URL before deriving', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co/')
+    const result = resolveEnv()
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://test.supabase.co/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('a malformed SUPABASE_JWKS_URL is authoritative and blocks the derived fallback', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_JWKS_URL', 'not a url')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
   it('SUPABASE_JWKS wins over SUPABASE_JWKS_URL when both are set', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
     const inline = { keys: [{ kty: 'RSA', n: 'inline', e: 'AQAB' }] }

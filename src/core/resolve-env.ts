@@ -119,10 +119,12 @@ function parseJwksUrl(raw: string | undefined): URL | null {
 
 /**
  * Resolves the JWKS source from `SUPABASE_JWKS` (inline JSON) or
- * `SUPABASE_JWKS_URL` (https endpoint). `SUPABASE_JWKS` wins when set;
- * `SUPABASE_JWKS_URL` is only consulted if `SUPABASE_JWKS` is absent. Each
- * variable is treated as authoritative — if set but malformed, the result is
- * `null` and the other variable is *not* consulted as a fallback.
+ * `SUPABASE_JWKS_URL` (https endpoint), falling back to the project's
+ * well-known JWKS endpoint derived from `SUPABASE_URL`. `SUPABASE_JWKS` wins
+ * when set; `SUPABASE_JWKS_URL` is only consulted if `SUPABASE_JWKS` is
+ * absent; the derived URL only when both are absent. Each variable is treated
+ * as authoritative — if set but malformed, the result is `null` and neither
+ * the other variable nor the derived URL is consulted as a fallback.
  *
  * @internal
  */
@@ -135,7 +137,35 @@ export function resolveJwks(): JSONWebKeySet | URL | null {
   if (rawJwksUrl && rawJwksUrl.trim()) {
     return parseJwksUrl(rawJwksUrl)
   }
-  return null
+  return deriveJwksUrl(getEnvVar('SUPABASE_URL'))
+}
+
+/**
+ * Derives the project's JWKS endpoint from `SUPABASE_URL` when neither
+ * `SUPABASE_JWKS` nor `SUPABASE_JWKS_URL` is set. Every Supabase project
+ * publishes its signing keys at `{url}/auth/v1/.well-known/jwks.json`, so
+ * `auth: 'user'` works with only `SUPABASE_URL` configured, as it already does
+ * on Edge Functions where the JWKS is injected.
+ *
+ * The same transport rule as `SUPABASE_JWKS_URL` applies: https, or http on
+ * a loopback host. A Docker-internal `SUPABASE_URL` such as `http://kong:8000`
+ * yields `null`, so a token cannot be verified against keys fetched over a
+ * non-loopback plaintext hop.
+ *
+ * @internal
+ */
+export function deriveJwksUrl(rawUrl: string | undefined): URL | null {
+  if (!rawUrl || !rawUrl.trim()) return null
+  try {
+    const base = new URL(rawUrl.trim())
+    base.pathname =
+      base.pathname.replace(/\/+$/, '') + '/auth/v1/.well-known/jwks.json'
+    base.search = ''
+    base.hash = ''
+    return parseJwksUrl(base.href)
+  } catch {
+    return null
+  }
 }
 
 /**
