@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.1](https://github.com/supabase/server/compare/server-v1.6.0...server-v1.6.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **cors:** preserve network error responses ([#162](https://github.com/supabase/server/issues/162)) ([a0ad38e](https://github.com/supabase/server/commit/a0ad38e8c3993765d889ce34f46effaa8a65c6cc))
+* default Database generic to any, matching createClient() ([#156](https://github.com/supabase/server/issues/156)) ([0c229c2](https://github.com/supabase/server/commit/0c229c2d0c30a11f495731c989c6b3a7e686fd2d))
+* name the key a bare secret/publishable mode rejected ([#155](https://github.com/supabase/server/issues/155)) ([bf1ca09](https://github.com/supabase/server/commit/bf1ca09b59cc36921f8207c6b6eb7deee9b56938))
+
 ## [1.6.0](https://github.com/supabase/server/compare/server-v1.5.3...server-v1.6.0) (2026-09-09)
 
 
