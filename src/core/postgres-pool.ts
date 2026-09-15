@@ -36,6 +36,11 @@ export interface PostgresApi {
    * const rows: NoteRow[] = await ctx.postgres.query`select id, body from notes`
    * ```
    *
+   * `pg` returns `date`, `timestamp`, and `timestamptz` columns as `Date`
+   * objects. Declare those fields as `Date` in the row type, or cast in SQL
+   * (`day::text as day`) when the value feeds a PostgREST filter or a JSON
+   * body.
+   *
    * Identifiers — table, column, `order by` direction — cannot be bind
    * parameters in Postgres. Check them against a set you control and quote
    * them with {@link ident}, then use {@link PostgresApi.queryRaw}.
