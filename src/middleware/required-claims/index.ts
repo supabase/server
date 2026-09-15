@@ -19,7 +19,7 @@ import {
   MissingCredentialsError,
   UnusableCredentialError,
 } from '../../errors.js'
-import type { ErrorResponseConfig, JWTClaims } from '../../types.js'
+import type { JWTClaims, ShortCircuitConfig } from '../../types.js'
 
 /**
  * **Alpha.** Configuration for {@link withRequiredClaims}.
@@ -30,20 +30,13 @@ import type { ErrorResponseConfig, JWTClaims } from '../../types.js'
  * @alpha
  * @category Middleware
  */
-export interface WithRequiredClaimsConfig {
+export interface WithRequiredClaimsConfig extends ShortCircuitConfig {
   /**
    * JWKS source used to verify tokens: an inline key set or a remote JWKS
    * URL. Defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL`
    * (https endpoint) from the environment.
    */
   jwks?: JSONWebKeySet | URL
-
-  /**
-   * How much of an error to include in a short-circuit response body.
-   *
-   * @see {@link ErrorResponseConfig}
-   */
-  errors?: ErrorResponseConfig
 }
 
 /**

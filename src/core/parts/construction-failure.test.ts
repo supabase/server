@@ -16,21 +16,37 @@ describe('construction failure brand', () => {
   it('marks and recognizes an EnvError', () => {
     const error = markConstructionFailure(
       new EnvError('missing key', 'MISSING_DEFAULT_PUBLISHABLE_KEY'),
+      'supabase',
     )
-    expect(isConstructionFailure(error)).toBe(true)
+    expect(isConstructionFailure(error, 'supabase')).toBe(true)
   })
 
   it('does not recognize an unmarked error of the same class', () => {
     expect(
-      isConstructionFailure(new EnvError('handler-level env failure')),
+      isConstructionFailure(
+        new EnvError('handler-level env failure'),
+        'supabase',
+      ),
     ).toBe(false)
-    expect(isConstructionFailure(new Error('x'))).toBe(false)
+    expect(isConstructionFailure(new Error('x'), 'supabase')).toBe(false)
+  })
+
+  it('does not recognize a mark from another scope', () => {
+    // Each boundary answers only its own failures, so an error marked for
+    // withOAuthProtectedResource passes through withSupabase's boundary.
+    const error = markConstructionFailure(
+      new EnvError('resource server missing', 'MISSING_RESOURCE_SERVER'),
+      'oauthProtectedResource',
+    )
+    expect(isConstructionFailure(error, 'oauthProtectedResource')).toBe(true)
+    expect(isConstructionFailure(error, 'supabase')).toBe(false)
   })
 
   it('leaves the error shape and JSON payload untouched', () => {
     const plain = new EnvError('missing key', 'MISSING_DEFAULT_PUBLISHABLE_KEY')
     const marked = markConstructionFailure(
       new EnvError('missing key', 'MISSING_DEFAULT_PUBLISHABLE_KEY'),
+      'supabase',
     )
     expect(Object.getOwnPropertyNames(marked)).toEqual(
       Object.getOwnPropertyNames(plain),
@@ -43,6 +59,7 @@ describe('construction failure brand', () => {
       new EnvError('missing key', 'MISSING_DEFAULT_PUBLISHABLE_KEY', {
         hint: 'set it',
       }),
+      'supabase',
     )
     const res = constructionFailureResponse(error)
     expect(res.status).toBe(500)
@@ -57,6 +74,7 @@ describe('construction failure brand', () => {
   it('renders a CreateSupabaseClientError with its own status', async () => {
     const error = markConstructionFailure(
       Errors[CreateSupabaseClientError]({ cause: new Error('boom') }),
+      'supabase',
     )
     const res = constructionFailureResponse(error)
     expect(res.status).toBe(error.status)
@@ -68,6 +86,7 @@ describe('construction failure brand', () => {
       new EnvError('missing key', 'MISSING_DEFAULT_PUBLISHABLE_KEY', {
         hint: 'set it',
       }),
+      'supabase',
     )
     const body = await constructionFailureResponse(error, {
       detailed: false,

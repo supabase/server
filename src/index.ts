@@ -117,6 +117,7 @@ export type {
   Credentials,
   ErrorResponseConfig,
   JWTClaims,
+  ShortCircuitConfig,
   SupabaseContext,
   SupabaseEnv,
   UserClaims,

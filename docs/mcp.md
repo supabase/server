@@ -85,7 +85,7 @@ withOAuthProtectedResource({
 })
 ```
 
-- `resourceServer`: the public URL of this endpoint. Required off Edge Functions; every request is answered with a 500 and code `MISSING_RESOURCE_SERVER` otherwise.
+- `resourceServer`: the public URL of this endpoint. Required off Edge Functions. Without it, every request except the `OPTIONS` preflight on the metadata route is answered with a 500 and code `MISSING_RESOURCE_SERVER`.
 - `authorizationServer`: the OAuth issuer. Falls back to `SUPABASE_PUBLIC_URL`, then `SUPABASE_URL`, each with `/auth/v1`; the metadata route answers with a 500 and code `MISSING_AUTHORIZATION_SERVER` if neither is set. `fromSupabaseUrl(projectUrl)` builds it from a project URL. A non-Supabase OAuth 2.1 server (Clerk, WorkOS, Auth0) works too.
 
 Both accept a string or `(req: Request) => string` (`UrlOption`). The full config:

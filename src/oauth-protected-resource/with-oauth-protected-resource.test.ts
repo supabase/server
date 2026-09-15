@@ -11,6 +11,7 @@ import {
   MissingAuthorizationServerError,
   MissingResourceServerError,
 } from '../errors.js'
+import { withSupabase } from '../with-supabase.js'
 import { resourceMetadataResponse, unauthorizedResponse } from './responses.js'
 import { isEdgeFunctions } from './runtime.js'
 import { fromSupabaseUrl } from './url.js'
@@ -713,6 +714,41 @@ describe('withOAuthProtectedResource - off-platform defaults fail loudly', () =>
     })
   })
 
+  it('the 500 carries the metadata route CORS headers so a browser can read it', async () => {
+    offEdgeFunctions()
+    clearEnv()
+    const res = await withOAuthProtectedResource(passthrough)(
+      req('GET', '/api/mcp/oauth-protected-resource', vercelHeaders),
+    )
+    expect(res.status).toBe(500)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+    expect(res.headers.get('Access-Control-Expose-Headers')).toBe(
+      ErrorCodeHeader,
+    )
+  })
+
+  it("an escape hatch's throw inside a handler passes through withSupabase", async () => {
+    // The mark is scoped: withSupabase's boundary answers only its own
+    // client-construction failures, so this one stays the caller's.
+    offEdgeFunctions()
+    clearEnv()
+    const handler = withSupabase(
+      {
+        auth: 'none',
+        env: {
+          url: 'https://test.supabase.co',
+          publishableKeys: { default: 'sb_publishable_xyz' },
+          secretKeys: { default: 'sb_secret_xyz' },
+          jwks: null,
+        },
+      },
+      async (request) => unauthorizedResponse(request),
+    )
+    await expect(handler(req('POST', '/api/mcp'))).rejects.toMatchObject({
+      code: MissingResourceServerError,
+    })
+  })
+
   it('answers on every request, not just the metadata route', async () => {
     // getResourceUrl also backs the ctx contribution and the 401 header.
     offEdgeFunctions()
@@ -986,7 +1022,7 @@ describe('withOAuthProtectedResource - root path (no function segment)', () => {
     expect(thrown).toBeInstanceOf(EnvError)
     expect(thrown).toMatchObject({ code: MissingResourceServerError })
     // The escape hatch throws the same marked error the middleware answers.
-    expect(isConstructionFailure(thrown)).toBe(true)
+    expect(isConstructionFailure(thrown, 'oauthProtectedResource')).toBe(true)
   })
 
   it('SUPABASE_FUNCTION_SLUG rescues a root path with a canonical identifier', async () => {

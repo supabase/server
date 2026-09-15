@@ -7,6 +7,7 @@ import { markConstructionFailure } from './construction-failure.js'
 const branded = (hint?: string) => async () => {
   throw markConstructionFailure(
     new EnvError('missing key', 'MISSING_DEFAULT_PUBLISHABLE_KEY', { hint }),
+    'supabase',
   )
 }
 
@@ -33,6 +34,21 @@ describe('withConstructionBoundary', () => {
         throwing,
       )(new Request('http://localhost')),
     ).rejects.toThrow('handler-level env failure')
+  })
+
+  it('lets an error marked for another boundary propagate', async () => {
+    const throwing = async () => {
+      throw markConstructionFailure(
+        new EnvError('resource server missing', 'MISSING_RESOURCE_SERVER'),
+        'oauthProtectedResource',
+      )
+    }
+    await expect(
+      withConstructionBoundary(
+        { auth: 'none' },
+        throwing,
+      )(new Request('http://localhost')),
+    ).rejects.toMatchObject({ code: 'MISSING_RESOURCE_SERVER' })
   })
 
   it('passes a normal response through unchanged', async () => {

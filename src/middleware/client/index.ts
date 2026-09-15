@@ -62,6 +62,7 @@ const base = defineMiddleware<
         e instanceof EnvError
           ? e
           : Errors[CreateSupabaseClientError]({ cause: e }),
+        'supabase',
       )
     }
     return { supabase }

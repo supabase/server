@@ -21,7 +21,7 @@ describe('withSupabaseClient construction failures', () => {
     )
 
     await expect(handler(new Request('http://localhost'))).rejects.toSatisfy(
-      isConstructionFailure,
+      (error) => isConstructionFailure(error, 'supabase'),
     )
   })
 })

@@ -412,6 +412,24 @@ export interface ErrorResponseConfig {
 }
 
 /**
+ * The option every middleware that answers a request itself accepts:
+ * `withClaims`, `withRequiredClaims`, `withPostgresClient`,
+ * `withPostgresAdminClient` and `withOAuthProtectedResource`. Each applies
+ * `errors` to its own short-circuit responses. `withSupabase` takes the same
+ * option on {@link WithSupabaseConfig}.
+ *
+ * @category Types
+ */
+export interface ShortCircuitConfig {
+  /**
+   * How much of an error to include in a short-circuit response body.
+   *
+   * @see {@link ErrorResponseConfig}
+   */
+  errors?: ErrorResponseConfig
+}
+
+/**
  * Auth identity for client creation functions.
  *
  * @see {@link core.verifyAuth}, {@link core.verifyCredentials}

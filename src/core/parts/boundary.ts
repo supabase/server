@@ -33,7 +33,7 @@ export const withConstructionBoundary: Middleware<
         const response: Response = yield { supabaseBoundary: true }
         return response
       } catch (error) {
-        if (isConstructionFailure(error)) {
+        if (isConstructionFailure(error, 'supabase')) {
           return constructionFailureResponse(error, config.errors)
         }
         throw error

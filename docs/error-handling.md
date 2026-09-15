@@ -38,7 +38,7 @@ Access-Control-Expose-Headers: x-supabase-server-error
 
 The code is repeated in the `x-supabase-server-error` response header, and added to `Access-Control-Expose-Headers` so cross-origin browser code can actually read it.
 
-Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`, `withOAuthProtectedResource`). The `@supabase/server/middleware/*` subpaths and `@supabase/server/oauth-protected-resource` are alpha; the error payload documented here is stable either way.
+Every layer that answers a request directly uses this shape: `withSupabase`, and the middleware that short-circuit (`withClaims`, `withRequiredClaims`, `withPostgresClient`, `withPostgresAdminClient`, `withOAuthProtectedResource`). The `@supabase/server/middleware/*` subpaths and `@supabase/server/oauth-protected-resource` are alpha; the error payload documented here is stable either way.
 
 ## Trimming the response body
 
@@ -249,9 +249,9 @@ Set `SUPABASE_SECRET_KEY`, or add a `"default"` entry to `SUPABASE_SECRET_KEYS`,
 
 ### `MISSING_RESOURCE_SERVER`
 
-`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request, so it short-circuits with a 500 on every request: the resource URL backs the metadata document, the `WWW-Authenticate` challenge and `ctx.oauthProtectedResource` alike. Pass `resourceServer` — `hint` shows the shape. `withOAuthProtectedResource` treats the environment as Edge Functions when `SUPABASE_FUNCTION_SLUG` or `SB_EXECUTION_ID` is set, or when the host runtime is Deno. `details.runtime` carries the runtime name the SDK detected.
+`withOAuthProtectedResource` is running outside Supabase Edge Functions, where it can't derive the resource URL from the request. It answers every request with a 500, except the `OPTIONS` preflight on the metadata route. The resource URL backs the metadata document, the `WWW-Authenticate` challenge, and `ctx.oauthProtectedResource` alike. Pass `resourceServer`; `hint` shows the shape. `withOAuthProtectedResource` treats the environment as Edge Functions when `SUPABASE_FUNCTION_SLUG` or `SB_EXECUTION_ID` is set, or when the host runtime is Deno. `details.runtime` carries the runtime name the SDK detected.
 
-The escape hatches `resourceMetadataResponse` and `unauthorizedResponse` throw this error rather than returning it.
+The escape hatches `resourceMetadataResponse` and `unauthorizedResponse` throw this error rather than returning it. `withSupabase` does not catch it either. Its boundary answers only its own client-construction failures.
 
 ### `MISSING_AUTHORIZATION_SERVER`
 
@@ -274,7 +274,8 @@ Generic environment error. The default code when constructing an `EnvError` your
 | `withSupabase()`               | Auto-response | Returns the JSON payload above, with CORS and `x-supabase-server-error`                           |
 | `withClaims()`                 | Auto-response | Same payload, short-circuiting the pipeline                                                       |
 | `withRequiredClaims()`         | Auto-response | Same payload, short-circuiting the pipeline                                                       |
-| `withPostgresClient()`         | Auto-response | Same payload, on an unsupported `role` claim                                                      |
+| `withPostgresClient()`         | Auto-response | Same payload, on an unsupported `role` claim or a missing connection string                       |
+| `withPostgresAdminClient()`    | Auto-response | Same payload, on a missing connection string                                                      |
 | `withOAuthProtectedResource()` | Auto-response | Same payload, when a default URL cannot be derived (a configured URL function's throw propagates) |
 | `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
 | `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |

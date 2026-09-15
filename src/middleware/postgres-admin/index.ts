@@ -8,7 +8,7 @@ import {
 } from '../../core/postgres-pool.js'
 import type { PostgresApi } from '../../core/postgres-pool.js'
 import { compileTemplate, ident } from '../../core/sql.js'
-import type { ErrorResponseConfig } from '../../types.js'
+import type { ShortCircuitConfig } from '../../types.js'
 
 export type { PostgresApi }
 // `ident` is exported here rather than only from core: it is the companion
@@ -24,16 +24,9 @@ export { ident }
  * @alpha
  * @category Middleware
  */
-export interface WithPostgresAdminClientConfig {
+export interface WithPostgresAdminClientConfig extends ShortCircuitConfig {
   /** Defaults to `getEnv('SUPABASE_DB_URL')` (from `@supabase/middleware`). */
   connectionString?: string
-
-  /**
-   * How much of an error to include in a short-circuit response body.
-   *
-   * @see {@link ErrorResponseConfig}
-   */
-  errors?: ErrorResponseConfig
 }
 
 /**

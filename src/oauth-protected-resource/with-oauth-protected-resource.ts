@@ -1,10 +1,13 @@
 import { defineMiddleware } from '@supabase/middleware'
 import type { Middleware } from '@supabase/middleware'
 
-import { isConstructionFailure } from '../core/parts/construction-failure.js'
+import {
+  constructionFailureResponse,
+  isConstructionFailure,
+} from '../core/parts/construction-failure.js'
 import { tagPreAuth } from '../core/pre-auth.js'
-import { errorResponse } from '../error-response.js'
-import type { ErrorResponseConfig } from '../types.js'
+import { ErrorCodeHeader } from '../errors.js'
+import type { ShortCircuitConfig } from '../types.js'
 import { resourceMetadataResponse } from './responses.js'
 import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
 import type { UrlOption } from './url.js'
@@ -37,15 +40,15 @@ export interface OAuthProtectedResourceContribution {
  * @alpha
  * @category Types
  */
-export interface OAuthProtectedResourceConfig {
+export interface OAuthProtectedResourceConfig extends ShortCircuitConfig {
   /**
    * The resource identifier to advertise — this endpoint's externally-visible
    * URL, which RFC 9728 §3.3 requires to equal the URL the client called.
    *
    * Defaults to the Edge Functions derivation. Required on any other backend,
    * usually from the request — `(req) => new URL(req.url).origin + '/api/mcp'`.
-   * Unset there, every request is answered with a `500` and code
-   * `MISSING_RESOURCE_SERVER`.
+   * Unset there, every request other than the metadata route's `OPTIONS`
+   * preflight is answered with a `500` and code `MISSING_RESOURCE_SERVER`.
    */
   resourceServer?: UrlOption
   /**
@@ -59,13 +62,6 @@ export interface OAuthProtectedResourceConfig {
    * directly.
    */
   authorizationServer?: UrlOption
-
-  /**
-   * How much of an error to include in a short-circuit response body.
-   *
-   * @see {@link ErrorResponseConfig}
-   */
-  errors?: ErrorResponseConfig
 }
 
 /**
@@ -208,8 +204,17 @@ export const withOAuthProtectedResource: Middleware<
             config?.resourceServer,
           )
         } catch (error) {
-          if (isConstructionFailure(error)) {
-            return errorResponse(error, { errors: config?.errors })
+          if (isConstructionFailure(error, 'oauthProtectedResource')) {
+            const response = constructionFailureResponse(error, config?.errors)
+            // The metadata route's 200 and 204 carry `*`, and this body is a
+            // deployment diagnostic, so a browser client reads the failure the
+            // same way it reads the document.
+            response.headers.set('Access-Control-Allow-Origin', '*')
+            response.headers.set(
+              'Access-Control-Expose-Headers',
+              ErrorCodeHeader,
+            )
+            return response
           }
           throw error
         }
