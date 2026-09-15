@@ -710,6 +710,65 @@ describe('verifyCredentials', () => {
       expect(b.data!.userClaims!.id).toBe('user-remote-b')
       expect(fetchMock).toHaveBeenCalledTimes(2)
     })
+
+    it('fetches the key set before verifying an HS256 token on a cold resolver', async () => {
+      // A URL no other test uses, so this resolver has never fetched. The
+      // HS256 token is the first request it sees; nothing else warms the cache.
+      const jwksUrl = new URL('https://jwks-cold-hs256.example/jwks.json')
+      const hs256Token = validTokens.at(1)! // matches the 'HS256' token
+
+      const result = await verifyCredentials(
+        { token: hs256Token, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+      )
+
+      expect(result.error).toBeNull()
+      expect(result.data!.userClaims!.id).toBe('user-remote')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports a missing HS256 key only after fetching the remote key set', async () => {
+      // The remote key set carries only the asymmetric key.
+      fetchMock.mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ keys: [jwks.keys[0]] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+      )
+
+      const result = await verifyCredentials(
+        { token: validTokens.at(1)!, apikey: null },
+        {
+          auth: 'user',
+          env: makeEnv({
+            jwks: new URL('https://jwks-cold-hs256-missing.example/jwks.json'),
+          }),
+        },
+      )
+
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidJwtError)
+      expect(result.error!.message).toContain('no HS256 key')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports a JWKS fetch failure for an HS256 token on a cold resolver', async () => {
+      fetchMock.mockResolvedValueOnce(new Response('boom', { status: 500 }))
+
+      const result = await verifyCredentials(
+        { token: validTokens.at(1)!, apikey: null },
+        {
+          auth: 'user',
+          env: makeEnv({
+            jwks: new URL('https://jwks-cold-hs256-error.example/jwks.json'),
+          }),
+        },
+      )
+
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(JwksFetchFailedError)
+    })
   })
 
   describe('parseAuthMode edge cases', () => {

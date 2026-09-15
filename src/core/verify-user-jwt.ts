@@ -30,7 +30,10 @@ export function jwtClaimsToUserClaims(jwtClaims: JWTClaims): UserClaims {
  * @category Primitives
  */
 export type JwksResolver = JWTVerifyGetKey & {
+  /** The key set as currently cached; `undefined` before the first fetch. */
   jwks: () => JSONWebKeySet | undefined
+  /** Fetches the key set into the cache. Present on remote resolvers only. */
+  reload?: () => Promise<void>
 }
 
 let remoteJwksResolver: { url: string; resolver: JwksResolver } | undefined =
@@ -247,6 +250,14 @@ export async function verifyUserJwt(
 
     // Symmetric algorithm requires importing the shared secret
     if (alg === 'HS256') {
+      // A remote resolver fetches only from inside `jwtVerify`; its `jwks()`
+      // is a cache accessor and stays `undefined` until then. The symmetric
+      // lookup never goes through `jwtVerify`, so it loads the key set itself.
+      // Otherwise "no matching key" would be reported for a key set that was
+      // never retrieved.
+      if (jwkResolver.jwks() === undefined) {
+        await jwkResolver.reload?.()
+      }
       const jwk = jwkResolver
         .jwks()
         ?.keys.find((key) => key.alg === alg && key.kid === kid)
