@@ -34,6 +34,10 @@ export type JwksResolver = JWTVerifyGetKey & {
   jwks: () => JSONWebKeySet | undefined
   /** Fetches the key set into the cache. Present on remote resolvers only. */
   reload?: () => Promise<void>
+  /** `true` while a fetch happened within the cooldown window. Remote resolvers only. */
+  coolingDown?: boolean
+  /** `true` while the cached key set is within its max age. Remote resolvers only. */
+  fresh?: boolean
 }
 
 let remoteJwksResolver: { url: string; resolver: JwksResolver } | undefined =
@@ -250,17 +254,26 @@ export async function verifyUserJwt(
 
     // Symmetric algorithm requires importing the shared secret
     if (alg === 'HS256') {
-      // A remote resolver fetches only from inside `jwtVerify`; its `jwks()`
-      // is a cache accessor and stays `undefined` until then. The symmetric
-      // lookup never goes through `jwtVerify`, so it loads the key set itself.
-      // Otherwise "no matching key" would be reported for a key set that was
-      // never retrieved.
-      if (jwkResolver.jwks() === undefined) {
+      // A remote resolver refreshes its key set only from inside `jwtVerify`,
+      // which the symmetric lookup never calls. This branch applies jose's own
+      // policy by hand: load the key set when it is absent or past its max
+      // age, and on an unknown `kid` reload once unless a fetch happened within
+      // the cooldown window. "No matching key" is reported only after that, so
+      // a rotated key is picked up without a restart and a hostile `kid`
+      // cannot force a fetch per request.
+      const findKey = () =>
+        jwkResolver
+          .jwks()
+          ?.keys.find((key) => key.alg === alg && key.kid === kid)
+
+      if (jwkResolver.jwks() === undefined || jwkResolver.fresh === false) {
         await jwkResolver.reload?.()
       }
-      const jwk = jwkResolver
-        .jwks()
-        ?.keys.find((key) => key.alg === alg && key.kid === kid)
+      let jwk = findKey()
+      if (!jwk && jwkResolver.reload && jwkResolver.coolingDown === false) {
+        await jwkResolver.reload()
+        jwk = findKey()
+      }
       if (!jwk) {
         return {
           ok: false,

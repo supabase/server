@@ -769,6 +769,109 @@ describe('verifyCredentials', () => {
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(JwksFetchFailedError)
     })
+
+    it('refetches the key set for an HS256 token with an unknown kid once the cooldown has passed', async () => {
+      // A URL no other test uses, so this resolver starts cold.
+      const jwksUrl = new URL('https://jwks-hs256-rotation.example/jwks.json')
+
+      // The key the project rotates to. Its kid is not in the fixture key set.
+      const rotatedSecret = await generateSecret('HS256', { extractable: true })
+      const rotatedJwk = await exportJWK(rotatedSecret)
+      rotatedJwk.alg = 'HS256'
+      rotatedJwk.kid = 'remote-key-3'
+      const rotatedToken = await new SignJWT({
+        sub: 'user-rotated',
+        role: 'authenticated',
+      })
+        .setProtectedHeader({ alg: 'HS256', kid: 'remote-key-3' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(rotatedSecret)
+
+      // jose gates refetches on Date.now(): a 30s cooldown after each fetch.
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        const before = await verifyCredentials(
+          { token: validTokens.at(1)!, apikey: null },
+          { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+        )
+        expect(before.error).toBeNull()
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        // The endpoint now serves only the rotated key.
+        fetchMock.mockImplementation(
+          async () =>
+            new Response(JSON.stringify({ keys: [rotatedJwk] }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+        )
+        vi.setSystemTime(Date.now() + 31_000)
+
+        const after = await verifyCredentials(
+          { token: rotatedToken, apikey: null },
+          { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+        )
+
+        expect(after.error).toBeNull()
+        expect(after.data!.userClaims!.id).toBe('user-rotated')
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not refetch for an unknown HS256 kid while the resolver is cooling down', async () => {
+      const jwksUrl = new URL('https://jwks-hs256-cooldown.example/jwks.json')
+      const unknownKidToken = await new SignJWT({ sub: 'user-unknown' })
+        .setProtectedHeader({ alg: 'HS256', kid: 'remote-key-never-published' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(await generateSecret('HS256', { extractable: true }))
+
+      const warm = await verifyCredentials(
+        { token: validTokens.at(1)!, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+      )
+      expect(warm.error).toBeNull()
+
+      // Same instant as the fetch above, so the cooldown is still in force.
+      const result = await verifyCredentials(
+        { token: unknownKidToken, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+      )
+
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidJwtError)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('refetches a stale key set before verifying an HS256 token', async () => {
+      const jwksUrl = new URL('https://jwks-hs256-stale.example/jwks.json')
+
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        const first = await verifyCredentials(
+          { token: validTokens.at(1)!, apikey: null },
+          { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+        )
+        expect(first.error).toBeNull()
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        // Past jose's 10 minute cache max-age.
+        vi.setSystemTime(Date.now() + 601_000)
+
+        const second = await verifyCredentials(
+          { token: validTokens.at(1)!, apikey: null },
+          { auth: 'user', env: makeEnv({ jwks: jwksUrl }) },
+        )
+
+        expect(second.error).toBeNull()
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   describe('parseAuthMode edge cases', () => {
