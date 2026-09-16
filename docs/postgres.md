@@ -69,6 +69,17 @@ const rows: NoteRow[] = await ctx.postgres.query`select id, body from notes`
 
 Passing a plain string to `query` throws. The two calls differ only in their brackets, so refusing is safer than reinterpreting one as the other.
 
+### Dates come back as `Date`
+
+`pg` returns `date`, `timestamp`, and `timestamptz` columns as JavaScript `Date` objects, not strings. Declare those fields as `Date` in your row type. When a value feeds a PostgREST filter through `ctx.supabase`, or goes straight into a JSON body, cast it in SQL instead:
+
+```ts
+const rows: NoteWithDay[] = await ctx.postgres
+  .query`select day::text as day, body from notes`
+```
+
+`::text` makes the column a string on the wire, so the row type and the consumer agree without a conversion step.
+
 ### `queryRaw` for text you build
 
 Use `queryRaw(text, params)` when the SQL cannot be a literal — a query builder or codegen emitting `{ sql, parameters }`, or a statement held in a constant:

@@ -94,6 +94,32 @@ pnpm test:e2e
 See [`e2e/README.md`](e2e/README.md) for details. CI runs this suite in a
 separate workflow (`.github/workflows/e2e.yml`).
 
+### Trying a PR build
+
+CI publishes every pull request as a preview package. From Node, install it by
+PR number:
+
+```bash
+npm install https://pkg.pr.new/@supabase/server@<pr-number>
+```
+
+Deno's `npm:` specifier rejects tarball URLs, and an import map pointing at
+an extracted `dist/index.mjs` passes `deno check` without checking anything,
+so neither route exercises the build there. esm.sh serves the PR's commit
+directly, subpaths included:
+
+```ts
+import { withSupabase } from 'https://esm.sh/pr/supabase/server/@supabase/server@<sha>?target=deno'
+import { withPostgresClient } from 'https://esm.sh/pr/supabase/server/@supabase/server@<sha>/middleware/postgres?target=deno'
+```
+
+Pin the full commit sha, and add `&deps=@supabase/supabase-js@<version>` so
+esm.sh resolves the peer to the version your project uses.
+
+To try a release published to npm the same day, pass
+`--minimum-dependency-age 0` to `deno check`. Deno 2.9 and later apply a
+minimum dependency age to npm packages.
+
 ## Submitting Changes
 
 ### Commit Messages
