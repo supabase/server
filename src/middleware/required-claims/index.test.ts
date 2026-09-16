@@ -195,8 +195,11 @@ describe('withRequiredClaims', () => {
     // Both gates share `verifyUserJwt`; these tests pin the rest of the
     // contract — the same request yields the same status and error code
     // through either entry point.
+    // With a null `jwks`, `resolveEnv` derives the well-known endpoint from
+    // the project URL, so "no JWKS" uses a Docker-internal URL that the
+    // transport rule rejects.
     const supabaseEnv = (jwksSource: JSONWebKeySet | null) => ({
-      url: 'https://test.supabase.co',
+      url: jwksSource ? 'https://test.supabase.co' : 'http://kong:8000',
       publishableKeys: { default: 'sb_publishable_xyz' },
       secretKeys: { default: 'sb_secret_xyz' },
       jwks: jwksSource,

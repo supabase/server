@@ -80,7 +80,7 @@ When both singular and plural forms are set, the plural form takes priority.
 
 ## JWKS source
 
-JWT verification (`auth: 'user'`) needs a JWKS. For a Supabase project nothing extra is needed: when neither variable below is set, the JWKS URL is derived from `SUPABASE_URL` as `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`, which is where every project publishes its signing keys. Set one of the two variables to override that, for example to pin keys inline or to point at a non-Supabase issuer:
+JWT verification (`auth: 'user'`) needs a JWKS. For a Supabase project nothing extra is needed: when neither variable below is set, the JWKS URL is derived from the project URL as `{url}/auth/v1/.well-known/jwks.json`, which is where every project publishes its signing keys. The project URL is `SUPABASE_PUBLIC_URL` when set, otherwise `SUPABASE_URL` (or the `url` passed to `resolveEnv()`), the same order the OAuth issuer uses. Self-hosted stacks need `SUPABASE_PUBLIC_URL`: the compose file sets `SUPABASE_URL` to the Docker-internal gateway (`http://kong:8000`), which fails the transport rule below. `SUPABASE_PUBLIC_URL` must also be reachable from where this server runs; the compose default of `http://localhost:8000` passes the loopback rule but points at the server's own container rather than the gateway. Set one of the two variables to override the derivation, for example to pin keys inline or to point at a non-Supabase issuer:
 
 ```
 # Inline JSON — standard JWKS format
@@ -105,8 +105,11 @@ SUPABASE_JWKS_URL=http://localhost:54321/auth/v1/.well-known/jwks.json
 1. `SUPABASE_JWKS` — when set, treated as authoritative inline JSON.
 2. `SUPABASE_JWKS_URL` — only checked when `SUPABASE_JWKS` is unset or empty.
    Must be `https://`, except loopback hosts may use `http://`.
-3. Derived from `SUPABASE_URL` — `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`.
-4. Otherwise — `null`. JWT verification (`auth: 'user'`) is unavailable.
+3. Derived from `SUPABASE_PUBLIC_URL` — `{SUPABASE_PUBLIC_URL}/auth/v1/.well-known/jwks.json`.
+   Same transport rule as `SUPABASE_JWKS_URL`; when set, `SUPABASE_URL` is not consulted.
+4. Derived from `SUPABASE_URL` (or the `url` passed to `resolveEnv()`) — `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`.
+   Same transport rule, so a Docker-internal `http://kong:8000` yields `null`.
+5. Otherwise — `null`. JWT verification (`auth: 'user'`) is unavailable.
 
 ## Runtime-specific behavior
 

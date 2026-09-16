@@ -120,15 +120,24 @@ function parseJwksUrl(raw: string | undefined): URL | null {
 /**
  * Resolves the JWKS source from `SUPABASE_JWKS` (inline JSON) or
  * `SUPABASE_JWKS_URL` (https endpoint), falling back to the project's
- * well-known JWKS endpoint derived from `SUPABASE_URL`. `SUPABASE_JWKS` wins
+ * well-known JWKS endpoint derived from the project URL. `SUPABASE_JWKS` wins
  * when set; `SUPABASE_JWKS_URL` is only consulted if `SUPABASE_JWKS` is
  * absent; the derived URL only when both are absent. Each variable is treated
  * as authoritative — if set but malformed, the result is `null` and neither
  * the other variable nor the derived URL is consulted as a fallback.
  *
+ * The derivation reads `SUPABASE_PUBLIC_URL` first, then `supabaseUrl` (the
+ * URL {@link resolveEnv} already resolved, so an `overrides.url` reaches the
+ * derivation), then `SUPABASE_URL`. This is the same order
+ * `defaultAuthorizationServer` uses for the OAuth issuer: on self-hosted
+ * stacks `SUPABASE_URL` is the Docker-internal gateway (`http://kong:8000`)
+ * and `SUPABASE_PUBLIC_URL` carries the externally reachable domain.
+ *
+ * @param supabaseUrl - The already-resolved project URL, if the caller has one.
+ *
  * @internal
  */
-export function resolveJwks(): JSONWebKeySet | URL | null {
+export function resolveJwks(supabaseUrl?: string): JSONWebKeySet | URL | null {
   const rawJwks = getEnvVar('SUPABASE_JWKS')
   if (rawJwks && rawJwks.trim()) {
     return parseJwks(rawJwks)
@@ -137,20 +146,26 @@ export function resolveJwks(): JSONWebKeySet | URL | null {
   if (rawJwksUrl && rawJwksUrl.trim()) {
     return parseJwksUrl(rawJwksUrl)
   }
-  return deriveJwksUrl(getEnvVar('SUPABASE_URL'))
+  const publicUrl = getEnvVar('SUPABASE_PUBLIC_URL')
+  if (publicUrl && publicUrl.trim()) {
+    return deriveJwksUrl(publicUrl)
+  }
+  return deriveJwksUrl(supabaseUrl ?? getEnvVar('SUPABASE_URL'))
 }
 
 /**
- * Derives the project's JWKS endpoint from `SUPABASE_URL` when neither
+ * Derives the project's JWKS endpoint from a project URL when neither
  * `SUPABASE_JWKS` nor `SUPABASE_JWKS_URL` is set. Every Supabase project
  * publishes its signing keys at `{url}/auth/v1/.well-known/jwks.json`, so
  * `auth: 'user'` works with only `SUPABASE_URL` configured, as it already does
  * on Edge Functions where the JWKS is injected.
  *
  * The same transport rule as `SUPABASE_JWKS_URL` applies: https, or http on
- * a loopback host. A Docker-internal `SUPABASE_URL` such as `http://kong:8000`
- * yields `null`, so a token cannot be verified against keys fetched over a
- * non-loopback plaintext hop.
+ * a loopback host. A Docker-internal URL such as `http://kong:8000` yields
+ * `null`, so a token cannot be verified against keys fetched over a
+ * non-loopback plaintext hop. Self-hosted stacks set `SUPABASE_PUBLIC_URL`
+ * to the external domain, which {@link resolveJwks} prefers for exactly this
+ * reason.
  *
  * @internal
  */
@@ -172,9 +187,10 @@ export function deriveJwksUrl(rawUrl: string | undefined): URL | null {
  * Resolves Supabase environment configuration from runtime environment variables.
  *
  * Reads `SUPABASE_URL`, keys (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`),
- * and the JWKS source (`SUPABASE_JWKS` for inline keys, or `SUPABASE_JWKS_URL`
- * for a remote endpoint). Works across Deno, Node.js, and Bun. For Cloudflare
- * Workers, use `overrides` or enable node-compat.
+ * and the JWKS source (`SUPABASE_JWKS` for inline keys, `SUPABASE_JWKS_URL`
+ * for a remote endpoint, or the well-known endpoint derived from
+ * `SUPABASE_PUBLIC_URL` / the resolved `url`). Works across Deno, Node.js,
+ * and Bun. For Cloudflare Workers, use `overrides` or enable node-compat.
  *
  * @param overrides - Partial values that take precedence over env vars.
  * @returns `{ data: SupabaseEnv, error: null }` on success, `{ data: null, error: EnvError }` on failure.
@@ -210,7 +226,7 @@ export function resolveEnv(
     secretKeys:
       overrides?.secretKeys ??
       resolveKeys('SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'),
-    jwks: overrides?.jwks ?? resolveJwks(),
+    jwks: overrides?.jwks ?? resolveJwks(url),
   }
 
   return { data, error: null }

@@ -162,6 +162,60 @@ describe('resolveEnv', () => {
     expect(result.data!.jwks).toBeNull()
   })
 
+  it('derives the JWKS URL from overrides.url when SUPABASE_URL is unset', () => {
+    const result = resolveEnv({ url: 'http://localhost:54321' })
+    expect(result.error).toBeNull()
+    expect((result.data!.jwks as URL).href).toBe(
+      'http://localhost:54321/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('derives from overrides.url rather than SUPABASE_URL when both are set', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://env.supabase.co')
+    const result = resolveEnv({ url: 'https://override.supabase.co' })
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://override.supabase.co/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('derives from SUPABASE_PUBLIC_URL before SUPABASE_URL (self-hosted)', () => {
+    vi.stubEnv('SUPABASE_URL', 'http://kong:8000')
+    vi.stubEnv('SUPABASE_PUBLIC_URL', 'https://supabase.example.com')
+    const result = resolveEnv()
+    expect(result.data!.url).toBe('http://kong:8000')
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://supabase.example.com/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('SUPABASE_PUBLIC_URL outranks overrides.url for the derivation', () => {
+    vi.stubEnv('SUPABASE_PUBLIC_URL', 'https://supabase.example.com')
+    const result = resolveEnv({ url: 'http://kong:8000' })
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://supabase.example.com/auth/v1/.well-known/jwks.json',
+    )
+  })
+
+  it('a non-loopback http SUPABASE_PUBLIC_URL is authoritative and yields null', () => {
+    vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co')
+    vi.stubEnv('SUPABASE_PUBLIC_URL', 'http://supabase.example.com')
+    const result = resolveEnv()
+    expect(result.data!.jwks).toBeNull()
+  })
+
+  it('SUPABASE_JWKS_URL wins over SUPABASE_PUBLIC_URL', () => {
+    vi.stubEnv('SUPABASE_URL', 'http://kong:8000')
+    vi.stubEnv('SUPABASE_PUBLIC_URL', 'https://supabase.example.com')
+    vi.stubEnv(
+      'SUPABASE_JWKS_URL',
+      'https://other.example.com/.well-known/jwks.json',
+    )
+    const result = resolveEnv()
+    expect((result.data!.jwks as URL).href).toBe(
+      'https://other.example.com/.well-known/jwks.json',
+    )
+  })
+
   it('strips a trailing slash from SUPABASE_URL before deriving', () => {
     vi.stubEnv('SUPABASE_URL', 'https://test.supabase.co/')
     const result = resolveEnv()

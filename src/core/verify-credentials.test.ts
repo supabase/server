@@ -391,22 +391,28 @@ describe('verifyCredentials', () => {
   })
 
   describe('user mode without a JWKS source', () => {
-    // `resolveEnv` falls back from a null `jwks` override to the env vars, so
-    // they are stubbed empty to make "no JWKS anywhere" explicit.
+    // `resolveEnv` falls back from a null `jwks` override to the env vars and
+    // then to the well-known endpoint derived from the project URL, so the env
+    // vars are stubbed empty and the URL is the Docker-internal gateway of a
+    // self-hosted stack, which the transport rule rejects. That is the
+    // realistic "no JWKS anywhere" setup.
     beforeEach(() => {
       vi.stubEnv('SUPABASE_JWKS', '')
       vi.stubEnv('SUPABASE_JWKS_URL', '')
+      vi.stubEnv('SUPABASE_PUBLIC_URL', '')
     })
 
     afterEach(() => {
       vi.unstubAllEnvs()
     })
 
+    const noJwksEnv = () => makeEnv({ url: 'http://kong:8000' })
+
     it('fails 500 JWKS_NOT_CONFIGURED when a user token is present', async () => {
       const creds: Credentials = { token: 'some.jwt.token', apikey: null }
       const result = await verifyCredentials(creds, {
         auth: 'user',
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(JwksNotConfiguredError)
@@ -421,7 +427,7 @@ describe('verifyCredentials', () => {
       const creds: Credentials = { token: null, apikey: null }
       const result = await verifyCredentials(creds, {
         auth: 'user',
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(MissingCredentialsError)
@@ -435,7 +441,7 @@ describe('verifyCredentials', () => {
       const creds: Credentials = { token: 'sb_secret_xyz', apikey: null }
       const result = await verifyCredentials(creds, {
         auth: 'user',
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(UnusableCredentialError)
@@ -460,7 +466,7 @@ describe('verifyCredentials', () => {
       }
       const result = await verifyCredentials(creds, {
         auth: 'user',
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(UnusableCredentialError)
@@ -476,7 +482,7 @@ describe('verifyCredentials', () => {
       const creds: Credentials = { token: null, apikey: 'sb_publishable_xyz' }
       const result = await verifyCredentials(creds, {
         auth: 'user',
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(UnusableCredentialError)
@@ -492,7 +498,7 @@ describe('verifyCredentials', () => {
       }
       const result = await verifyCredentials(creds, {
         auth: ['user', 'publishable'],
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidApiKeyError)
@@ -506,7 +512,7 @@ describe('verifyCredentials', () => {
       }
       const result = await verifyCredentials(creds, {
         auth: ['user', 'publishable'],
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).toBeNull()
       expect(result.data!.authMode).toBe('publishable')
@@ -516,7 +522,7 @@ describe('verifyCredentials', () => {
       const creds: Credentials = { token: 'some.jwt.token', apikey: null }
       const result = await verifyCredentials(creds, {
         auth: ['user', 'publishable'],
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(JwksNotConfiguredError)
@@ -527,7 +533,7 @@ describe('verifyCredentials', () => {
       const creds: Credentials = { token: 'some.jwt.token', apikey: null }
       const result = await verifyCredentials(creds, {
         auth: 'publishable',
-        env: makeEnv(),
+        env: noJwksEnv(),
       })
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidCredentialsError)
@@ -1131,9 +1137,10 @@ describe('verifyCredentials', () => {
     })
 
     it('reports a missing JWKS as a 500, not a 401', async () => {
+      // A Docker-internal project URL cannot derive a JWKS endpoint.
       const error = await failWith(
         { token: 'header.payload.signature', apikey: null },
-        { auth: 'user', env: makeEnv({ jwks: null }) },
+        { auth: 'user', env: makeEnv({ url: 'http://kong:8000', jwks: null }) },
       )
       expect(error.code).toBe(JwksNotConfiguredError)
       expect(error.status).toBe(500)
