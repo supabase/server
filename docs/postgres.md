@@ -74,7 +74,7 @@ Passing a plain string to `query` throws. The two calls differ only in their bra
 `pg` returns `date`, `timestamp`, and `timestamptz` columns as JavaScript `Date` objects, not strings. Declare those fields as `Date` in your row type. When a value feeds a PostgREST filter through `ctx.supabase`, or goes straight into a JSON body, cast it in SQL instead:
 
 ```ts
-const rows: { day: string; body: string }[] = await ctx.postgres
+const rows: NoteWithDay[] = await ctx.postgres
   .query`select day::text as day, body from notes`
 ```
 
