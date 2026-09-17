@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.7.0](https://github.com/supabase/server/compare/server-v1.6.1...server-v1.7.0) (2026-09-17)
+
+
+### Features
+
+* accept errors.detailed on every direct-answering middleware ([#158](https://github.com/supabase/server/issues/158)) ([c8c8198](https://github.com/supabase/server/commit/c8c819820a947b8307831d3a4ac34ded0e971d93))
+* derive the `JWKS URL` from `SUPABASE_URL` ([#167](https://github.com/supabase/server/issues/167)) ([08b9518](https://github.com/supabase/server/commit/08b95180158666b64b463ea14c4c9f2c0fe4f1c6))
+* validate jwt audience and issuer ([#160](https://github.com/supabase/server/issues/160)) ([1c65709](https://github.com/supabase/server/commit/1c65709f3b52f67281b29f45229ae9290879cfbd))
+
+
+### Bug Fixes
+
+* fetch the remote JWKS before rejecting an HS256 token ([#163](https://github.com/supabase/server/issues/163)) ([d298878](https://github.com/supabase/server/commit/d298878e8df89bc231df3154b9aafac03ffc0730))
+* refresh a remote JWKS for HS256 tokens after key rotation ([#165](https://github.com/supabase/server/issues/165)) ([85caf73](https://github.com/supabase/server/commit/85caf732b554a303e79bbe4f9f3b3d72e5fcc2c8))
+
 ## [1.6.1](https://github.com/supabase/server/compare/server-v1.6.0...server-v1.6.1) (2026-09-15)
 
 
