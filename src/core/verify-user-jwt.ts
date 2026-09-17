@@ -7,6 +7,7 @@ import {
   jwtVerify,
   type JWTPayload,
   type JWTVerifyGetKey,
+  type JWTVerifyOptions,
 } from 'jose'
 
 import type { JWTClaims, UserClaims } from '../types.js'
@@ -187,6 +188,12 @@ const MalformedTokenHint =
   'The Authorization header must carry a compact JWS — three base64url segments separated by dots. ' +
   'Check the token was not truncated, URL-encoded, or wrapped in quotes.'
 
+/** @internal */
+export interface VerifyUserJwtOptions {
+  audience?: string | string[]
+  issuer?: string | string[]
+}
+
 /**
  * Verifies a user JWT against the project JWKS — the single verification core
  * shared by `verifyCredentials`'s `user` mode and the `withClaims` /
@@ -209,6 +216,7 @@ const MalformedTokenHint =
 export async function verifyUserJwt(
   token: string,
   jwks: JSONWebKeySet | URL,
+  options?: VerifyUserJwtOptions,
 ): Promise<VerifyUserJwtResult> {
   let alg: string | undefined
   let kid: string | undefined
@@ -248,9 +256,45 @@ export async function verifyUserJwt(
     }
   }
 
+  if (
+    options?.audience === '' ||
+    (options?.audience as unknown) === null ||
+    (Array.isArray(options?.audience) && options.audience.some((a) => !a))
+  ) {
+    return {
+      ok: false,
+      failure: {
+        kind: 'token',
+        reason: 'the configured "audience" option is empty',
+        hint: 'Pass a non-empty string or array, or omit the option to skip audience validation.',
+        jwt,
+      },
+    }
+  }
+  if (
+    options?.issuer === '' ||
+    (options?.issuer as unknown) === null ||
+    (Array.isArray(options?.issuer) && options.issuer.some((i) => !i))
+  ) {
+    return {
+      ok: false,
+      failure: {
+        kind: 'token',
+        reason: 'the configured "issuer" option is empty',
+        hint: 'Pass a non-empty string or array, or omit the option to skip issuer validation.',
+        jwt,
+      },
+    }
+  }
+
   try {
     const jwkResolver = getJwksResolver(jwks)
     let payload: JWTPayload | null = null
+
+    const verifyOptions: JWTVerifyOptions = {
+      audience: options?.audience,
+      issuer: options?.issuer,
+    }
 
     // Symmetric algorithm requires importing the shared secret
     if (alg === 'HS256') {
@@ -290,10 +334,10 @@ export async function verifyUserJwt(
       }
       const sharedSecret = await importJWK(jwk, 'HS256')
 
-      const verify = await jwtVerify(token, sharedSecret)
+      const verify = await jwtVerify(token, sharedSecret, verifyOptions)
       payload = verify.payload
     } else {
-      const verify = await jwtVerify(token, jwkResolver)
+      const verify = await jwtVerify(token, jwkResolver, verifyOptions)
       payload = verify.payload
     }
 

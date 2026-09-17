@@ -50,6 +50,10 @@ export interface VerifyCredentialsOptions {
    * both are provided, `auth` wins.
    */
   allow?: AuthModeWithKey | AuthModeWithKey[]
+  /** Expected JWT audience (`aud`) claim to validate. Applies to `user` mode only. */
+  audience?: string | string[]
+  /** Expected JWT issuer (`iss`) claim to validate. Applies to `user` mode only. */
+  issuer?: string | string[]
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>
@@ -183,6 +187,7 @@ async function tryMode(
   mode: AuthModeWithKey,
   credentials: Credentials,
   env: SupabaseEnv,
+  options?: VerifyCredentialsOptions,
 ): Promise<ModeOutcome> {
   const { base, keyName } = parseAuthMode(mode)
 
@@ -265,7 +270,10 @@ async function tryMode(
         return { kind: 'skip', skip: { reason: 'jwks-not-configured' } }
       }
 
-      const verified = await verifyUserJwt(credentials.token, env.jwks)
+      const verified = await verifyUserJwt(credentials.token, env.jwks, {
+        audience: options?.audience,
+        issuer: options?.issuer,
+      })
       if (!verified.ok) {
         const { failure } = verified
         return {
@@ -507,7 +515,7 @@ export async function verifyCredentials(
 
   const skips: ModeSkip[] = []
   for (const mode of modes) {
-    const outcome = await tryMode(mode, credentials, env)
+    const outcome = await tryMode(mode, credentials, env, options)
     if (outcome.kind === 'match') {
       return { data: outcome.auth, error: null }
     }

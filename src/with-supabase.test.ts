@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineMiddleware, getEnv, pipeline } from '@supabase/middleware'
 import type { FetchHandler } from '@supabase/middleware'
+import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
 import { createSupabaseContext } from './create-supabase-context.js'
@@ -847,6 +848,81 @@ describe('withSupabase config without a middleware option', () => {
     } as unknown as WithSupabaseConfig
     expect(() => withSupabase(config, async () => new Response('ok'))).toThrow(
       /has no `middleware` option/,
+    )
+  })
+})
+
+describe('withSupabase audience and issuer validation', () => {
+  it('validates audience and issuer when configured', async () => {
+    const { privateKey, publicKey } = await generateKeyPair('RS256')
+    const publicJwk = await exportJWK(publicKey)
+    publicJwk.alg = 'RS256'
+    publicJwk.use = 'sig'
+    publicJwk.kid = 'with-supabase-aud-test'
+    const testJwks = { keys: [publicJwk] }
+
+    const token = await new SignJWT({
+      sub: 'user-123',
+      role: 'authenticated',
+    })
+      .setProtectedHeader({ alg: 'RS256', kid: 'with-supabase-aud-test' })
+      .setAudience('expected-audience')
+      .setIssuer('expected-issuer')
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(privateKey)
+
+    const matchHandler = withSupabase(
+      {
+        auth: 'user',
+        audience: 'expected-audience',
+        issuer: 'expected-issuer',
+        env: { ...baseEnv, jwks: testJwks },
+      },
+      async (_req, ctx) => Response.json({ sub: ctx.userClaims?.id }),
+    )
+
+    const matchRes = await matchHandler(
+      new Request('http://localhost', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    )
+    expect(matchRes.status).toBe(200)
+
+    const mismatchHandler = withSupabase(
+      {
+        auth: 'user',
+        audience: 'wrong-audience',
+        env: { ...baseEnv, jwks: testJwks },
+      },
+      async (_req, ctx) => Response.json({ sub: ctx.userClaims?.id }),
+    )
+
+    const mismatchRes = await mismatchHandler(
+      new Request('http://localhost', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    )
+    expect(mismatchRes.status).toBe(401)
+
+    const emptyAudHandler = withSupabase(
+      {
+        auth: 'user',
+        audience: '',
+        env: { ...baseEnv, jwks: testJwks },
+      },
+      async (_req, ctx) => Response.json({ sub: ctx.userClaims?.id }),
+    )
+
+    const emptyAudRes = await emptyAudHandler(
+      new Request('http://localhost', {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    )
+    expect(emptyAudRes.status).toBe(401)
+    const emptyAudBody = await emptyAudRes.json()
+    expect(emptyAudBody.message).toContain(
+      'the configured "audience" option is empty',
     )
   })
 })

@@ -37,6 +37,8 @@ export const withAuthGate: Middleware<
     const { data, error } = await verifyAuth(req, {
       auth: config.auth,
       allow: config.allow,
+      audience: config.audience,
+      issuer: config.issuer,
       env: config.env,
     })
     if (error) return errorResponse(error, { errors: config.errors })

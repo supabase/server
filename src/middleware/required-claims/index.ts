@@ -37,6 +37,10 @@ export interface WithRequiredClaimsConfig extends ShortCircuitConfig {
    * (https endpoint) from the environment.
    */
   jwks?: JSONWebKeySet | URL
+  /** Expected JWT audience (`aud`) claim to validate. Applies to `user` mode only. */
+  audience?: string | string[]
+  /** Expected JWT issuer (`iss`) claim to validate. Applies to `user` mode only. */
+  issuer?: string | string[]
 }
 
 /**
@@ -155,7 +159,10 @@ export const withRequiredClaims: Middleware<
       )
     }
 
-    const verified = await verifyUserJwt(token, jwks)
+    const verified = await verifyUserJwt(token, jwks, {
+      audience: config?.audience,
+      issuer: config?.issuer,
+    })
     if (!verified.ok) {
       const { failure } = verified
       return errorResponse(

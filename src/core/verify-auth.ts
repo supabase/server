@@ -29,6 +29,10 @@ export interface VerifyAuthOptions {
    * provided, `auth` wins.
    */
   allow?: AuthModeWithKey | AuthModeWithKey[]
+  /** Expected JWT audience (`aud`) claim to validate. Applies to `user` mode only. */
+  audience?: string | string[]
+  /** Expected JWT issuer (`iss`) claim to validate. Applies to `user` mode only. */
+  issuer?: string | string[]
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */
   env?: Partial<SupabaseEnv>

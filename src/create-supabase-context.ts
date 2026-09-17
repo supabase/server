@@ -46,6 +46,8 @@ export async function createSupabaseContext<Database = UntypedDatabase>(
   const { data: auth, error } = await verifyAuth(request, {
     auth: options?.auth,
     allow: options?.allow,
+    audience: options?.audience,
+    issuer: options?.issuer,
     env: options?.env,
   })
   if (error) {

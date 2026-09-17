@@ -309,6 +309,10 @@ export interface WithSupabaseConfig extends ShortCircuitConfig {
    * is where the {@link AuthConfig} ordering rule is enforced.
    */
   allow?: AuthModeWithKey | AuthModeWithKey[]
+  /** Expected JWT audience (`aud`) claim to validate. Applies to `user` mode only. */
+  audience?: string | string[]
+  /** Expected JWT issuer (`iss`) claim to validate. Applies to `user` mode only. */
+  issuer?: string | string[]
 
   /**
    * Override auto-detected environment variables. Useful for testing
