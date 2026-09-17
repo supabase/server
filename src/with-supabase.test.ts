@@ -145,8 +145,11 @@ describe('withSupabase', () => {
     })
 
     it('reports a missing JWKS as a 500, not a 401', async () => {
-      const handler = withSupabase({ auth: 'user', env: baseEnv }, async () =>
-        Response.json({ ok: true }),
+      // A Docker-internal project URL cannot derive a JWKS endpoint, so with
+      // no SUPABASE_JWKS* variable there is no JWKS anywhere.
+      const handler = withSupabase(
+        { auth: 'user', env: { ...baseEnv, url: 'http://kong:8000' } },
+        async () => Response.json({ ok: true }),
       )
       const res = await handler(
         new Request('http://localhost', {

@@ -848,13 +848,17 @@ const AuthErrorMap = {
       500,
       {
         hint:
-          'Set SUPABASE_JWKS_URL (e.g. https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json) ' +
+          'Set SUPABASE_URL to your project URL (the JWKS is derived from it), or set SUPABASE_JWKS_URL ' +
+          '(e.g. https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json) ' +
           'or SUPABASE_JWKS (inline JSON), or pass ' +
           (context.middleware
             ? `\`jwks\` to ${context.middleware}()`
             : '`env.jwks`') +
           '. Note that a malformed value resolves to null rather than erroring: SUPABASE_JWKS must be ' +
-          'valid JSON, and SUPABASE_JWKS_URL must be https (plain http is only allowed for localhost).',
+          'valid JSON, and SUPABASE_JWKS_URL (or the URL derived from SUPABASE_PUBLIC_URL, then ' +
+          'SUPABASE_URL) must be https (plain http is only allowed for localhost). On self-hosted ' +
+          'stacks SUPABASE_URL is the Docker-internal gateway (http://kong:8000), which does not ' +
+          'qualify: set SUPABASE_PUBLIC_URL to the externally reachable https URL of the stack.',
         details: {
           ...(context.authModes
             ? { acceptedAuthModes: context.authModes }
