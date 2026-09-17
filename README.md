@@ -299,6 +299,8 @@ Adapters wrap `withSupabase` for a specific framework's middleware contract. The
 
 See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
 
+To run `@supabase/middleware` entries inside Hono, H3, Elysia, or NestJS without an adapter, copy the bridge for your framework from [`examples/frameworks/`](examples/frameworks/). The [Frameworks guide](https://supabase.com/docs/reference/server/frameworks) explains the bridges and how to move off the adapters.
+
 ### Elysia
 
 ```ts
