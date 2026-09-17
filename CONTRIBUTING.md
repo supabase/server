@@ -6,23 +6,21 @@ Thank you for your interest in contributing to `@supabase/server`! This document
 
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
-- [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
 - [Testing](#testing)
-- [Code Style](#code-style)
 - [Submitting Changes](#submitting-changes)
 - [Contributing a framework adapter](#contributing-a-framework-adapter)
 - [Release Process](#release-process)
 
 ## Getting Started
 
-TBD
+Check the [open issues](https://github.com/supabase/server/issues) for something to work on, or open one to discuss a bug or feature before sending a PR.
 
 ## Development Setup
 
 ### Prerequisites
 
-- **Node.js**: 20.x or higher
+- **Node.js**: 22.x or higher
 - **pnpm**
 
 ### Installation
