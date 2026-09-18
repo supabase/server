@@ -292,7 +292,7 @@ export interface WithSupabaseConfig extends ShortCircuitConfig {
   /**
    * Auth mode(s) to accept. Modes are tried in order — the first match wins.
    * A mode falls through only when its credential is absent; a present-but-invalid
-   * JWT short-circuits the chain with `InvalidCredentialsError`.
+   * JWT short-circuits the chain with `InvalidJwtError` (`INVALID_JWT`).
    *
    * `"none"` matches unconditionally, so it belongs last in a list or on its
    * own — see {@link AuthConfig}.
@@ -309,9 +309,17 @@ export interface WithSupabaseConfig extends ShortCircuitConfig {
    * is where the {@link AuthConfig} ordering rule is enforced.
    */
   allow?: AuthModeWithKey | AuthModeWithKey[]
-  /** Expected JWT audience (`aud`) claim to validate. Applies to `user` mode only. */
+  /**
+   * Accepted `aud` claim value(s) for `user` mode. When set, a token without
+   * `aud` is rejected, and a token whose `aud` is an array passes when any
+   * entry is accepted.
+   */
   audience?: string | string[]
-  /** Expected JWT issuer (`iss`) claim to validate. Applies to `user` mode only. */
+  /**
+   * Accepted `iss` claim value(s) for `user` mode. When set, a token without
+   * `iss` is rejected. Supabase Auth issues `https://<project-ref>.supabase.co/auth/v1`,
+   * which `fromSupabaseUrl(url)` builds from a project URL.
+   */
   issuer?: string | string[]
 
   /**
