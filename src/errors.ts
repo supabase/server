@@ -499,7 +499,8 @@ export const InvalidApiKeyError = 'INVALID_API_KEY'
 /**
  * A JWT was present in the `Authorization` header but failed verification.
  * `details.jwt` and the message carry the specific reason (expired, bad
- * signature, unknown `kid`, malformed, no `sub`).
+ * signature, unknown `kid`, malformed token or claim, no `sub`, mismatched or
+ * missing `aud` / `iss`, `nbf` in the future).
  *
  * @category Errors
  */

@@ -153,10 +153,11 @@ A JWT was present in `Authorization` but failed verification. The message names 
 | its header is missing `alg` or `kid`         | Legacy JWT signed with the shared JWT secret                                                               |
 | it has no `sub` claim                        | Not a user token — likely an `anon` / `service_role` JWT                                                   |
 | its `aud` / `iss` claim does not match       | Mistyped `audience` / `issuer` option, or another project                                                  |
-| it has no `aud` / `iss` claim                | `audience` / `issuer` configured, token carries neither                                                    |
+| it has no `aud` / `iss` claim                | The claim the configured option checks is absent from the token                                            |
 | its `nbf` claim is in the future             | Server clock skew                                                                                          |
 | its `<claim>` claim is malformed             | Claim present with the wrong type, such as a non-numeric `iat`, `nbf`, or `exp`; not a Supabase Auth token |
 | its `<claim>` claim failed validation        | Any other check jose reports on a registered claim                                                         |
+| a registered claim failed validation         | jose reported a claim failure without naming the claim                                                     |
 | the token is malformed                       | Truncated, URL-encoded, or quoted token                                                                    |
 
 `details.jwt` carries the token's `alg` and `kid` — both client-supplied and public — which is what you need to debug a JWKS mismatch. Claim values are never included.

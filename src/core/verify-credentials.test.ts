@@ -524,6 +524,8 @@ describe('verifyCredentials', () => {
       ['issuer', ''],
       ['audience', ['']],
       ['issuer', ['']],
+      ['audience', []],
+      ['issuer', []],
     ])('fails when JWT %s option is empty', async (field, value) => {
       const token = await new SignJWT({ sub: 'user-123' })
         .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })

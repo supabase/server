@@ -212,7 +212,7 @@ const ConfiguredClaims = {
  *
  * @internal
  */
-function describeClaimFailure(error: unknown): {
+export function describeClaimFailure(error: unknown): {
   reason: string
   hint: string
 } {
@@ -221,6 +221,15 @@ function describeClaimFailure(error: unknown): {
     reason?: unknown
   }
   const name = typeof claim === 'string' ? claim : 'unspecified'
+
+  if (reason === 'invalid') {
+    return {
+      reason: `its "${name}" claim is malformed`,
+      hint:
+        'The claim is present but has the wrong type. Supabase Auth issues numeric "iat", "nbf", ' +
+        'and "exp" claims, so check which service minted the token.',
+    }
+  }
 
   if (name === 'aud' || name === 'iss') {
     const { option, issued } = ConfiguredClaims[name]
@@ -242,15 +251,6 @@ function describeClaimFailure(error: unknown): {
       hint:
         'The token is not valid yet. Check the server clock for skew against Supabase Auth, ' +
         'then retry once "nbf" has passed.',
-    }
-  }
-
-  if (reason === 'invalid') {
-    return {
-      reason: `its "${name}" claim is malformed`,
-      hint:
-        'The claim is present but has the wrong type. Supabase Auth issues numeric "iat", "nbf", ' +
-        'and "exp" claims, so check which service minted the token.',
     }
   }
 
@@ -339,7 +339,8 @@ export async function verifyUserJwt(
   if (
     options?.audience === '' ||
     (options?.audience as unknown) === null ||
-    (Array.isArray(options?.audience) && options.audience.some((a) => !a))
+    (Array.isArray(options?.audience) &&
+      (options.audience.length === 0 || options.audience.some((a) => !a)))
   ) {
     return {
       ok: false,
@@ -354,7 +355,8 @@ export async function verifyUserJwt(
   if (
     options?.issuer === '' ||
     (options?.issuer as unknown) === null ||
-    (Array.isArray(options?.issuer) && options.issuer.some((i) => !i))
+    (Array.isArray(options?.issuer) &&
+      (options.issuer.length === 0 || options.issuer.some((i) => !i)))
   ) {
     return {
       ok: false,
