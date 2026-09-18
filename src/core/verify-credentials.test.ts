@@ -475,7 +475,30 @@ describe('verifyCredentials', () => {
       expect(result.error!.hint).not.toContain('"issuer"')
     })
 
-    it('names any other claim jose rejects', async () => {
+    it('names the "nbf" claim as malformed when it is not a number', async () => {
+      // jose types `nbf` as a number; the cast sends what a hand-built token can carry.
+      const token = await new SignJWT({
+        sub: 'user-123',
+        nbf: 'soon' as unknown as number,
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+      const result = await verifyCredentials(
+        { token, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks }) },
+      )
+
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidJwtError)
+      expect(result.error!.message).toContain('its "nbf" claim is malformed')
+      expect(result.error!.message).not.toContain('in the future')
+      expect(result.error!.hint).not.toContain('server clock')
+    })
+
+    it('names any other claim jose rejects as malformed', async () => {
       // jose types `iat` as a number; the cast sends what a hand-built token can carry.
       const token = await new SignJWT({
         sub: 'user-123',
@@ -492,9 +515,8 @@ describe('verifyCredentials', () => {
 
       expect(result.error).not.toBeNull()
       expect(result.error!.code).toBe(InvalidJwtError)
-      expect(result.error!.message).toContain(
-        'its "iat" claim failed validation',
-      )
+      expect(result.error!.message).toContain('its "iat" claim is malformed')
+      expect(result.error!.hint).not.toContain('server clock')
     })
 
     it.each([

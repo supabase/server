@@ -206,8 +206,9 @@ const ConfiguredClaims = {
  * `aud` and `iss` are the only checks driven by server configuration, so their
  * hint points at the option first: the same `jose` error covers a mistyped
  * option (every request fails) and a token from another project (some do).
- * `nbf` is a clock question. Anything else keeps the claim name and a generic
- * hint.
+ * A future `nbf` is a clock question. A claim with the wrong type (`jose`
+ * reason `invalid`) is malformed, whatever the claim. Anything else keeps the
+ * claim name and a generic hint.
  *
  * @internal
  */
@@ -235,12 +236,21 @@ function describeClaimFailure(error: unknown): {
     }
   }
 
-  if (name === 'nbf') {
+  if (name === 'nbf' && reason === 'check_failed') {
     return {
       reason: 'its "nbf" claim is in the future',
       hint:
         'The token is not valid yet. Check the server clock for skew against Supabase Auth, ' +
         'then retry once "nbf" has passed.',
+    }
+  }
+
+  if (reason === 'invalid') {
+    return {
+      reason: `its "${name}" claim is malformed`,
+      hint:
+        'The claim is present but has the wrong type. Supabase Auth issues numeric "iat", "nbf", ' +
+        'and "exp" claims, so check which service minted the token.',
     }
   }
 
