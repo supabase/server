@@ -58,14 +58,14 @@ This limits the blast radius if a key is compromised. An attacker with the `web`
 JWT verification in `user` mode works as follows:
 
 1. The `Authorization: Bearer <token>` header is extracted from the request
-2. The token is verified against the JWKS from the `SUPABASE_JWKS` environment variable
-3. Verification uses `jose`'s `jwtVerify` with a **local** key set — there are no network calls to a JWKS endpoint
+2. The token is verified against the project JWKS. The key set comes from `SUPABASE_JWKS` (inline JSON), else `SUPABASE_JWKS_URL`, else the well-known endpoint derived from `SUPABASE_PUBLIC_URL` or `SUPABASE_URL`; see the resolution order in `docs/environment-variables.md`
+3. Verification uses `jose`'s `jwtVerify`. An inline key set needs no network. A URL source is fetched on first use and cached in memory under jose's cooldown and max-age rules; the endpoint must be `https://`, or `http://` on a loopback host
 4. If `audience` is configured, the token's `aud` claim must match
 5. If `issuer` is configured, the token's `iss` claim must match
 6. The token must contain a `sub` (subject) claim to be considered valid
 7. On success, the decoded claims are available as `ctx.userClaims` and `ctx.jwtClaims`
 
-If JWKS is not configured (`SUPABASE_JWKS` is missing or malformed), `user` mode is unavailable and will always reject requests.
+If no JWKS source resolves (no inline key set, no URL, and no project URL that passes the transport rule), `user` mode is unavailable and always rejects requests.
 
 **Audience and issuer validation.** In setups where multiple services share the same signing keys, a JWT minted by one service could be accepted by another. Passing `audience` and `issuer` options (e.g. `withSupabase({ auth: 'user', issuer: fromSupabaseUrl(SUPABASE_URL) })` or `withRequiredClaims({ issuer: fromSupabaseUrl(SUPABASE_URL) })`) prevents this by rejecting tokens that weren't issued for your specific service. Both are optional for backward compatibility but recommended in multi-service deployments.
 
