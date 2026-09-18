@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/supabase/server/compare/server-v1.7.0...server-v1.7.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* name the claim when JWT aud, iss, or nbf validation fails ([#171](https://github.com/supabase/server/issues/171)) ([a94e5e2](https://github.com/supabase/server/commit/a94e5e2ff74602ca8b1bf8d7bb19b450b690ebee))
+
 ## [1.7.0](https://github.com/supabase/server/compare/server-v1.6.1...server-v1.7.0) (2026-09-17)
 
 
