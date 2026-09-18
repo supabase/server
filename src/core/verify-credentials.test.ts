@@ -375,19 +375,21 @@ describe('verifyCredentials', () => {
     })
 
     it.each([
-      [
-        'audience',
-        'https://wrong.supabase.co',
-        'https://test.supabase.co/auth/v1',
-      ],
-      [
-        'issuer',
-        'https://test.supabase.co',
-        'https://wrong.supabase.co/auth/v1',
-      ],
+      {
+        option: 'audience',
+        claim: 'aud',
+        audience: 'https://wrong.supabase.co',
+        issuer: 'https://test.supabase.co/auth/v1',
+      },
+      {
+        option: 'issuer',
+        claim: 'iss',
+        audience: 'https://test.supabase.co',
+        issuer: 'https://wrong.supabase.co/auth/v1',
+      },
     ])(
-      'fails when configured JWT %s does not match',
-      async (_label, audience, issuer) => {
+      'names the "$claim" claim when the configured $option does not match',
+      async ({ option, claim, audience, issuer }) => {
         const token = await new SignJWT({ sub: 'user-123' })
           .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
           .setAudience('https://test.supabase.co')
@@ -408,8 +410,92 @@ describe('verifyCredentials', () => {
 
         expect(result.error).not.toBeNull()
         expect(result.error!.code).toBe(InvalidJwtError)
+        expect(result.error!.message).toContain(
+          `its "${claim}" claim does not match the configured ${option}`,
+        )
+        expect(result.error!.hint).toContain(`"${option}" option`)
+        expect(result.error!.hint).not.toContain('server clock')
+        // Neither the token's claim values nor the configured value leave the server.
+        expect(result.error!.message).not.toContain('supabase.co')
+        expect(result.error!.hint).not.toContain('wrong.supabase.co')
+        expect(result.error!.hint).not.toContain('test.supabase.co')
       },
     )
+
+    it.each([
+      { option: 'audience', claim: 'aud' },
+      { option: 'issuer', claim: 'iss' },
+    ])(
+      'names the "$claim" claim when the token has none and $option is configured',
+      async ({ option, claim }) => {
+        const token = await new SignJWT({ sub: 'user-123' })
+          .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
+          .setIssuedAt()
+          .setExpirationTime('1h')
+          .sign(privateKey)
+
+        const result = await verifyCredentials(
+          { token, apikey: null },
+          {
+            auth: 'user',
+            [option]: 'https://test.supabase.co',
+            env: makeEnv({ jwks }),
+          },
+        )
+
+        expect(result.error).not.toBeNull()
+        expect(result.error!.code).toBe(InvalidJwtError)
+        expect(result.error!.message).toContain(
+          `it has no "${claim}" claim, but an ${option} is configured`,
+        )
+        expect(result.error!.hint).toContain(`"${option}" option`)
+      },
+    )
+
+    it('names the "nbf" claim and points at the clock when the token is not yet valid', async () => {
+      const token = await new SignJWT({ sub: 'user-123' })
+        .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
+        .setIssuedAt()
+        .setNotBefore('1h')
+        .setExpirationTime('2h')
+        .sign(privateKey)
+
+      const result = await verifyCredentials(
+        { token, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks }) },
+      )
+
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidJwtError)
+      expect(result.error!.message).toContain(
+        'its "nbf" claim is in the future',
+      )
+      expect(result.error!.hint).toContain('server clock')
+      expect(result.error!.hint).not.toContain('"audience"')
+      expect(result.error!.hint).not.toContain('"issuer"')
+    })
+
+    it('names any other claim jose rejects', async () => {
+      // jose types `iat` as a number; the cast sends what a hand-built token can carry.
+      const token = await new SignJWT({
+        sub: 'user-123',
+        iat: 'not-a-number' as unknown as number,
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'asymmetric-key-id' })
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+      const result = await verifyCredentials(
+        { token, apikey: null },
+        { auth: 'user', env: makeEnv({ jwks }) },
+      )
+
+      expect(result.error).not.toBeNull()
+      expect(result.error!.code).toBe(InvalidJwtError)
+      expect(result.error!.message).toContain(
+        'its "iat" claim failed validation',
+      )
+    })
 
     it.each([
       ['audience', ''],
