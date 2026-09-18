@@ -80,7 +80,9 @@ function getJwksResolver(jwks: JSONWebKeySet | URL): JwksResolver {
  *
  * `kind` separates the two audiences: `token` failures are the caller's
  * problem (`401`), `jwks-source` failures are the operator's (`500`) — a JWKS
- * endpoint outage is not a bad request.
+ * endpoint outage is not a bad request. An `aud` / `iss` mismatch is a
+ * `token` failure: the same `jose` error covers a mistyped option and a token
+ * from another project, so the hint names both and the status is `401`.
  *
  * @internal
  */
@@ -161,12 +163,7 @@ function describeJoseFailure(error: unknown): { reason: string; hint: string } {
           "at the project's own /auth/v1/.well-known/jwks.json.",
       }
     case 'ERR_JWT_CLAIM_VALIDATION_FAILED':
-      return {
-        reason: 'a registered claim failed validation',
-        hint:
-          'Usually "nbf" (not-before) being in the future, or a mismatched "aud" / "iss". Check the ' +
-          'server clock and that the token came from the expected Supabase project.',
-      }
+      return describeClaimFailure(error)
     case 'ERR_JOSE_ALG_NOT_ALLOWED':
     case 'ERR_JOSE_NOT_SUPPORTED':
       return {
@@ -180,6 +177,89 @@ function describeJoseFailure(error: unknown): { reason: string; hint: string } {
         reason: 'the token is malformed',
         hint: MalformedTokenHint,
       }
+  }
+}
+
+/**
+ * The verify option that drives each claim check, and the value Supabase Auth
+ * puts in that claim on a user access token.
+ *
+ * @internal
+ */
+const ConfiguredClaims = {
+  aud: {
+    option: 'audience',
+    issued: 'Supabase Auth sets "aud" to "authenticated" on user access tokens',
+  },
+  iss: {
+    option: 'issuer',
+    issued:
+      'Supabase Auth sets "iss" to the project\'s Auth URL, ' +
+      'https://<project-ref>.supabase.co/auth/v1, with no trailing slash',
+  },
+} as const
+
+/**
+ * Translates a `jose` claim-validation failure into a reason that names the
+ * claim and a hint aimed at whoever can fix it.
+ *
+ * `aud` and `iss` are the only checks driven by server configuration, so their
+ * hint points at the option first: the same `jose` error covers a mistyped
+ * option (every request fails) and a token from another project (some do).
+ * A future `nbf` is a clock question. A claim with the wrong type (`jose`
+ * reason `invalid`) is malformed, whatever the claim. Anything else keeps the
+ * claim name and a generic hint.
+ *
+ * @internal
+ */
+export function describeClaimFailure(error: unknown): {
+  reason: string
+  hint: string
+} {
+  const { claim, reason } = (error ?? {}) as {
+    claim?: unknown
+    reason?: unknown
+  }
+  const name = typeof claim === 'string' ? claim : 'unspecified'
+
+  if (reason === 'invalid') {
+    return {
+      reason: `its "${name}" claim is malformed`,
+      hint:
+        'The claim is present but has the wrong type. Supabase Auth issues numeric "iat", "nbf", ' +
+        'and "exp" claims, so check which service minted the token.',
+    }
+  }
+
+  if (name === 'aud' || name === 'iss') {
+    const { option, issued } = ConfiguredClaims[name]
+    return {
+      reason:
+        reason === 'missing'
+          ? `it has no "${name}" claim, but an ${option} is configured`
+          : `its "${name}" claim does not match the configured ${option}`,
+      hint:
+        `Compare the "${option}" option with what the token carries: ${issued}. ` +
+        'If every request fails, the option is wrong; if only some do, those tokens were issued by ' +
+        `a different project. Omit the option to skip ${option} validation.`,
+    }
+  }
+
+  if (name === 'nbf' && reason === 'check_failed') {
+    return {
+      reason: 'its "nbf" claim is in the future',
+      hint:
+        'The token is not valid yet. Check the server clock for skew against Supabase Auth, ' +
+        'then retry once "nbf" has passed.',
+    }
+  }
+
+  return {
+    reason:
+      name === 'unspecified'
+        ? 'a registered claim failed validation'
+        : `its "${name}" claim failed validation`,
+    hint: 'Check the server clock for skew and that the token came from the expected Supabase project.',
   }
 }
 
@@ -204,8 +284,8 @@ export interface VerifyUserJwtOptions {
  * string `sub` is rejected — a user token always identifies a subject.
  *
  * On failure it returns *why*, so callers can report the specific cause
- * (expired, bad signature, unknown `kid`, malformed, no `sub`) rather than a
- * blanket "invalid credentials".
+ * (expired, bad signature, unknown `kid`, malformed, no `sub`, mismatched
+ * `aud` / `iss`) rather than a blanket "invalid credentials".
  *
  * @param token - The bearer token to verify.
  * @param jwks - JWKS source: an inline key set or a remote JWKS URL.
@@ -259,7 +339,8 @@ export async function verifyUserJwt(
   if (
     options?.audience === '' ||
     (options?.audience as unknown) === null ||
-    (Array.isArray(options?.audience) && options.audience.some((a) => !a))
+    (Array.isArray(options?.audience) &&
+      (options.audience.length === 0 || options.audience.some((a) => !a)))
   ) {
     return {
       ok: false,
@@ -274,7 +355,8 @@ export async function verifyUserJwt(
   if (
     options?.issuer === '' ||
     (options?.issuer as unknown) === null ||
-    (Array.isArray(options?.issuer) && options.issuer.some((i) => !i))
+    (Array.isArray(options?.issuer) &&
+      (options.issuer.length === 0 || options.issuer.some((i) => !i)))
   ) {
     return {
       ok: false,

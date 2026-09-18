@@ -145,15 +145,20 @@ Otherwise the key was well-formed but simply unknown — usually a different Sup
 
 A JWT was present in `Authorization` but failed verification. The message names the specific reason and `hint` explains it:
 
-| Reason                                       | Usual cause                                              |
-| -------------------------------------------- | -------------------------------------------------------- |
-| the token has expired                        | Stale access token, or server clock skew                 |
-| the signature did not verify                 | JWKS belongs to a different project                      |
-| no key in the JWKS matches the token's `kid` | Wrong project, or a rotated signing key with stale JWKS  |
-| its header is missing `alg` or `kid`         | Legacy JWT signed with the shared JWT secret             |
-| it has no `sub` claim                        | Not a user token — likely an `anon` / `service_role` JWT |
-| a registered claim failed validation         | `nbf` in the future, or a mismatched `aud` / `iss`       |
-| the token is malformed                       | Truncated, URL-encoded, or quoted token                  |
+| Reason                                       | Usual cause                                                                                                |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| the token has expired                        | Stale access token, or server clock skew                                                                   |
+| the signature did not verify                 | JWKS belongs to a different project                                                                        |
+| no key in the JWKS matches the token's `kid` | Wrong project, or a rotated signing key with stale JWKS                                                    |
+| its header is missing `alg` or `kid`         | Legacy JWT signed with the shared JWT secret                                                               |
+| it has no `sub` claim                        | Not a user token — likely an `anon` / `service_role` JWT                                                   |
+| its `aud` / `iss` claim does not match       | Mistyped `audience` / `issuer` option, or another project                                                  |
+| it has no `aud` / `iss` claim                | The claim the configured option checks is absent from the token                                            |
+| its `nbf` claim is in the future             | Server clock skew                                                                                          |
+| its `<claim>` claim is malformed             | Claim present with the wrong type, such as a non-numeric `iat`, `nbf`, or `exp`; not a Supabase Auth token |
+| its `<claim>` claim failed validation        | Any other check jose reports on a registered claim                                                         |
+| a registered claim failed validation         | jose reported a claim failure without naming the claim                                                     |
+| the token is malformed                       | Truncated, URL-encoded, or quoted token                                                                    |
 
 `details.jwt` carries the token's `alg` and `kid` — both client-supplied and public — which is what you need to debug a JWKS mismatch. Claim values are never included.
 
