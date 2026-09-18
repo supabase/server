@@ -263,6 +263,20 @@ withSupabase(
 
 `env` overrides environment variable resolution. Defaults to reading `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`, and `SUPABASE_JWKS` from the runtime environment.
 
+`audience` and `issuer` pin the `aud` and `iss` claims of a `user`-mode token. Each takes a string or an array. A token that lacks the claim, or carries a value outside the list, is rejected with `INVALID_JWT`. Supabase Auth sets `aud` to `authenticated` and `iss` to `https://<project-ref>.supabase.co/auth/v1`, so `issuer: fromSupabaseUrl(url)` limits an endpoint to tokens from one project.
+
+```ts
+import { fromSupabaseUrl, withSupabase } from '@supabase/server'
+
+withSupabase(
+  {
+    auth: 'user',
+    issuer: fromSupabaseUrl('https://<project-ref>.supabase.co'),
+  },
+  handler,
+)
+```
+
 Called with config only, `withSupabase(config)` returns an entry for `pipeline` from `@supabase/middleware`. Entries placed after it in the array receive the Supabase context and contribute their own typed keys; entries placed before it run ahead of the auth gate. The first-party entries live on the `@supabase/server/middleware/*` subpaths; see [Postgres](#postgres-rls-scoped-queries).
 
 > **Alpha.** Composing `withSupabase` as a `pipeline` entry and the

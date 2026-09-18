@@ -50,9 +50,17 @@ export interface VerifyCredentialsOptions {
    * both are provided, `auth` wins.
    */
   allow?: AuthModeWithKey | AuthModeWithKey[]
-  /** Expected JWT audience (`aud`) claim to validate. Applies to `user` mode only. */
+  /**
+   * Accepted `aud` claim value(s) for `user` mode. When set, a token without
+   * `aud` is rejected, and a token whose `aud` is an array passes when any
+   * entry is accepted.
+   */
   audience?: string | string[]
-  /** Expected JWT issuer (`iss`) claim to validate. Applies to `user` mode only. */
+  /**
+   * Accepted `iss` claim value(s) for `user` mode. When set, a token without
+   * `iss` is rejected. Supabase Auth issues `https://<project-ref>.supabase.co/auth/v1`,
+   * which `fromSupabaseUrl(url)` builds from a project URL.
+   */
   issuer?: string | string[]
 
   /** Optional environment overrides (passed through to {@link resolveEnv}). */

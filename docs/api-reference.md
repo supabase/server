@@ -80,12 +80,14 @@ function verifyAuth(
   request: Request,
   options: {
     auth?: AuthModeWithKey | AuthModeWithKey[]
+    audience?: string | string[]
+    issuer?: string | string[]
     env?: Partial<SupabaseEnv>
   },
 ): Promise<{ data: AuthResult; error: null } | { data: null; error: AuthError }>
 ```
 
-Extracts credentials from a request and verifies them. Convenience wrapper over `extractCredentials` + `verifyCredentials`.
+Extracts credentials from a request and verifies them. Convenience wrapper over `extractCredentials` + `verifyCredentials`. `audience` and `issuer` apply to `user` mode; see [`WithSupabaseConfig`](#withsupabaseconfig).
 
 ### verifyCredentials
 
@@ -94,12 +96,14 @@ function verifyCredentials(
   credentials: Credentials,
   options: {
     auth?: AuthModeWithKey | AuthModeWithKey[]
+    audience?: string | string[]
+    issuer?: string | string[]
     env?: Partial<SupabaseEnv>
   },
 ): Promise<{ data: AuthResult; error: null } | { data: null; error: AuthError }>
 ```
 
-Verifies pre-extracted credentials against allowed auth modes. Tries each mode in order — first match wins.
+Verifies pre-extracted credentials against allowed auth modes. Tries each mode in order — first match wins. `audience` and `issuer` apply to `user` mode; see [`WithSupabaseConfig`](#withsupabaseconfig).
 
 ### extractCredentials
 
@@ -233,11 +237,13 @@ Responses use the standard [error payload](error-handling.md#what-a-failure-look
 ```ts
 interface WithClaimsConfig {
   jwks?: JSONWebKeySet | URL
+  audience?: string | string[]
+  issuer?: string | string[]
   errors?: ErrorResponseConfig
 }
 ```
 
-`jwks` defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
+`jwks` defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment. `audience` and `issuer` pin the token's `aud` and `iss` claims; see [`WithSupabaseConfig`](#withsupabaseconfig) for the rules. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ---
 
@@ -298,11 +304,13 @@ const entry = (h: (req: Request, ctx: object) => Promise<Response>) =>
 ```ts
 interface WithRequiredClaimsConfig {
   jwks?: JSONWebKeySet | URL
+  audience?: string | string[]
+  issuer?: string | string[]
   errors?: ErrorResponseConfig
 }
 ```
 
-`jwks` defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
+`jwks` defaults to `SUPABASE_JWKS` (inline JSON) or `SUPABASE_JWKS_URL` (https endpoint) from the environment. `audience` and `issuer` pin the token's `aud` and `iss` claims; see [`WithSupabaseConfig`](#withsupabaseconfig) for the rules. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ---
 
@@ -571,12 +579,16 @@ interface WithSupabaseConfig {
   auth?: AuthConfig // default: 'user'
   /** @deprecated use `auth` instead — will be removed in a future major release */
   allow?: AuthModeWithKey | AuthModeWithKey[]
+  audience?: string | string[]
+  issuer?: string | string[]
   env?: Partial<SupabaseEnv>
   cors?: boolean | Record<string, string> // default: true
   supabaseOptions?: SupabaseClientOptions<string>
   errors?: ErrorResponseConfig
 }
 ```
+
+`audience` and `issuer` apply to `user` mode. Each accepts a string or an array of accepted values. When an option is set, a token without that claim is rejected. A token with the claim passes when its value is in the accepted list. For an `aud` array on the token, one matching entry is enough. Supabase Auth sets `aud` to `authenticated` and `iss` to `https://<project-ref>.supabase.co/auth/v1`, so `issuer: fromSupabaseUrl(url)` pins an endpoint to one project. A failed check rejects with `InvalidJwtError` (`INVALID_JWT`).
 
 ### ErrorResponseConfig
 

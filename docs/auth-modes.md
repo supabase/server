@@ -164,7 +164,7 @@ withSupabase({ auth: ['none'] }, handler) // ❌ use the bare 'none'
 withSupabase({ auth: ['none', 'user'] }, handler) // ❌ 'user' is unreachable
 ```
 
-**Fallthrough vs rejection.** A mode is only "tried" when its credential is actually present. A request with no `Authorization` header moves on to the next mode. But if a JWT _is_ present and fails verification (malformed, expired, wrong signature, or missing a `sub` claim), the request is rejected immediately with `InvalidCredentialsError` — it will not silently fall through to `'publishable'`, `'secret'`, or `'none'`. The same rule applies on the API-key side: `'publishable'` and `'secret'` fall through only when no `apikey` header is sent. This prevents a bad credential from being downgraded to a less-privileged auth mode.
+**Fallthrough vs rejection.** A mode is only "tried" when its credential is actually present. A request with no `Authorization` header moves on to the next mode. But if a JWT _is_ present and fails verification (malformed, expired, wrong signature, or missing a `sub` claim), the request is rejected immediately with `InvalidJwtError` (`INVALID_JWT`) — it will not silently fall through to `'publishable'`, `'secret'`, or `'none'`. This prevents a bad token from being downgraded to a less-privileged auth mode. API keys behave differently: `'publishable'` and `'secret'` fall through when no `apikey` header is sent and also when the key matches none of the mode's configured keys, because a key held under another name may still match a later mode. When no mode matches, the final error reports the mismatch.
 
 ## Named key syntax
 
@@ -239,6 +239,6 @@ To use this library, migrate your project to the new API key format and to JWT s
 
 1. `extractCredentials(request)` reads `Authorization: Bearer <token>` and `apikey` from headers
 2. Each mode in `auth` is tried in order against the extracted credentials
-3. First match wins — returns an `AuthResult` with `authMode`, `token`, `userClaims`, `jwtClaims`, and `keyName`. A mode falls through to the next only when its credential is absent; a credential that is present but invalid terminates the chain with `InvalidCredentialsError`.
+3. First match wins — returns an `AuthResult` with `authMode`, `token`, `userClaims`, `jwtClaims`, and `keyName`. A JWT that is present but fails verification terminates the chain with `InvalidJwtError` (`INVALID_JWT`). An `apikey` that matches none of a mode's keys falls through to the next mode, as does any absent credential.
 4. The auth result is used to create scoped clients (`supabase` with the user's token, `supabaseAdmin` with the secret key — constructed on its first property access)
 5. Everything is bundled into a `SupabaseContext` and passed to your handler
