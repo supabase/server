@@ -5,23 +5,28 @@ const h = vi.hoisted(() => {
   const issued: string[] = []
   const params: (unknown[] | undefined)[] = []
   const pooled: string[] = []
-  // pool.query — the admin path never checks a client out itself.
-  const poolQuery = vi.fn(async (text: string, p?: unknown[]) => {
+  // Each statement checks a connection out and releases it; the admin path
+  // wraps nothing around it.
+  const clientQuery = vi.fn(async (text: string, p?: unknown[]) => {
     issued.push(text)
     params.push(p)
     return { rows: [{ ok: true }] }
   })
-  const connect = vi.fn()
-  return { issued, params, pooled, poolQuery, connect }
+  const release = vi.fn()
+  const connect = vi.fn(async () => ({ query: clientQuery, release }))
+  return { issued, params, pooled, clientQuery, release, connect }
 })
 
 vi.mock('pg', async () => {
   const { EventEmitter } = await import('node:events')
   // Real pg pools are EventEmitters; getPool attaches 'error' and 'connect'
-  // listeners on construction, so the mock must accept them.
+  // listeners on construction, so the mock must accept them. The counters are
+  // what the connect-failure backoff reads to decide whether a checkout would
+  // open a new connection.
   class Pool extends EventEmitter {
-    query = h.poolQuery
     connect = h.connect
+    idleCount = 0
+    totalCount = 0
     constructor(config: { connectionString: string }) {
       super()
       h.pooled.push(config.connectionString)
@@ -37,7 +42,8 @@ describe('withPostgresAdminClient', () => {
   beforeEach(() => {
     h.issued.length = 0
     h.params.length = 0
-    h.poolQuery.mockClear()
+    h.clientQuery.mockClear()
+    h.release.mockClear()
     h.connect.mockClear()
     vi.stubEnv('SUPABASE_DB_URL', 'postgres://localhost/test')
   })
@@ -91,6 +97,8 @@ describe('withPostgresAdminClient', () => {
     expect(h.issued).not.toContain('begin')
     expect(h.issued.some((s) => s.includes('set_config'))).toBe(false)
     expect(h.issued.some((s) => s.startsWith('set local role'))).toBe(false)
+    // A clean release, so the connection goes back to the pool.
+    expect(h.release).toHaveBeenCalledWith()
   })
 
   it('passes query parameters through', async () => {

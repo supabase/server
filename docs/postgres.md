@@ -246,8 +246,9 @@ withPostgresAdminClient({ connectionString: 'postgresql://...' })
 Connections are pooled per process, lazily, one pool per connection string. The pool outlives individual requests, which is what makes this viable on a per-request runtime. Three facts about the pool decide how a deployment behaves under load:
 
 - Each process opens at most 4 connections. A stack on 10 isolates holds up to 40 database connections.
-- A request that finds all 4 connections busy waits for one with no time limit. Under saturation, latency rises and nothing errors.
+- A request that finds all 4 connections busy waits up to 10 seconds for one, then fails with `timeout exceeded when trying to connect`. Under saturation, latency rises to that ceiling and then requests fail.
 - A scoped query holds its connection for five round trips: `begin`, `set_config`, `set local role`, the query, and `commit`. An admin query holds it for one.
+- After a connection attempt fails, the pool pauses new attempts — one second, doubling up to thirty, with jitter — until one succeeds. A request that would open a connection during the pause fails immediately with `new connections paused for <n>ms after a connection failure: <reason>`. Requests that reuse an idle connection, or wait for a busy one, are unaffected.
 
 Both middleware share the pool for the same connection string, so composing the pair opens one pool, not two. Sharing is safe because everything the scoped half sets is transaction-local: a connection always returns to the pool clean, and an admin query can never inherit a previous caller's claims or role.
 
@@ -286,9 +287,10 @@ Without it, `deno check` passes and the function fails at startup with `Could no
 | 500 with code `UNSUPPORTED_ROLE`                                                     | The token's `role` claim is `service_role` or a custom role            | [Which roles are assumed](#which-roles-are-assumed)               |
 | `permission denied for table` (SQLSTATE `42501`)                                     | The role has no grant on the table                                     | [Table grants](#table-grants)                                     |
 | The query succeeds and returns zero rows                                             | The query ran as `anon`, or a policy reads a setting that is never set | [Zero rows](#zero-rows)                                           |
-| Latency rises under load and nothing errors                                          | All 4 connections are busy and requests are queuing                    | [Slow under load](#slow-under-load)                               |
+| `timeout exceeded when trying to connect (all 4 pooled connections were busy ...)`   | All 4 connections stayed busy for the whole 10-second checkout wait    | [Slow under load](#slow-under-load)                               |
 | `Max client connections reached` or `remaining connection slots are reserved`        | Total connections exceed the pooler or database cap                    | [Which connection string to use](#which-connection-string-to-use) |
-| Every client of the project gets `ECIRCUITBREAKER: too many authentication failures` | A deployment with a wrong password is retrying without pause           | [Wrong password](#wrong-password)                                 |
+| `new connections paused for <n>ms after a connection failure: <reason>`              | A connection attempt failed and the pool is backing off                | [Wrong password](#wrong-password)                                 |
+| Every client of the project gets `ECIRCUITBREAKER: too many authentication failures` | Something is retrying a bad credential without pause                   | [Wrong password](#wrong-password)                                 |
 | Occasional 500 with `terminating connection due to administrator command`            | A pooled connection was closed by the pooler or the database           | [Dropped connections](#dropped-connections)                       |
 | Pooler logs show `postgres`, never `authenticated`                                   | Expected. The role is set inside the transaction                       | [Roles in pooler logs](#roles-in-pooler-logs)                     |
 | `Could not find package 'pg'` on Deno                                                | The optional peer is not in the module graph                           | [Runtime support](#runtime-support)                               |
@@ -308,7 +310,7 @@ const [who] = await ctx.postgres
 
 ### Slow under load
 
-The throughput ceiling is 4 concurrent queries per process. Above it, requests wait for a connection with no timeout, so a saturated pool shows up as rising latency rather than errors. Three levers:
+The throughput ceiling is 4 concurrent queries per process. Above it, requests wait up to 10 seconds for a connection and then fail with `timeout exceeded when trying to connect (all 4 pooled connections were busy for 10000ms)`, so a saturated pool shows up first as rising latency and then as that error. Three levers:
 
 - Fewer queries per request. Put multi-statement logic in a database function and call it once.
 - Route heavy reads through `ctx.supabase`, which talks HTTP to PostgREST and does not use the pool.
@@ -316,13 +318,15 @@ The throughput ceiling is 4 concurrent queries per process. Above it, requests w
 
 ### Wrong password
 
-`pg` retries a failed connection with no pause, so a single process attempts dozens of connections per second. Within seconds the pooler's authentication circuit breaker trips and rejects new connections for the whole project, including ones with the correct password:
+A connection attempt that fails — a wrong password, a refused or unreachable host, a connect that hangs past 10 seconds — makes the pool pause new connection attempts: one second the first time, doubling on each failing round up to thirty seconds, with jitter, until a connection succeeds. Host logs show `[@supabase/server] postgres pool: connection failed, pausing new connections for <n>ms: <reason>` once per pause. A request that would open a connection during the pause fails immediately with `new connections paused for <n>ms after a connection failure: <reason>`, carrying the original error as `cause`; a request served by an idle connection is unaffected. Usual triggers: a database password reset, a restored or resumed project, or a connection string copied from another project.
+
+The pause is what protects the rest of the project. Left to itself, `pg` retries a failed connection as fast as the failure comes back — dozens of attempts per second per process — and within seconds the pooler's authentication circuit breaker rejects new connections for the whole project, including ones with the correct password:
 
 ```
 ECIRCUITBREAKER: too many authentication failures, new connections are temporarily blocked
 ```
 
-The block lifts about a minute after the bad traffic stops, and trips again while it continues. Fix the credential or stop the deployment, then wait a minute. Usual triggers: a database password reset, a restored or resumed project, or a connection string copied from another project.
+That block lifts about a minute after the bad traffic stops, and trips again while it continues. Seeing it means something is retrying without pause: another client, or an older version of this package. Fix the credential or stop that deployment, then wait a minute.
 
 ### Dropped connections
 
@@ -337,7 +341,7 @@ The pooler records the role a client connects with, which is `postgres` for `SUP
 - **One transaction per `query()` call.** There is no multi-statement transaction API, so you cannot yet span several `query()` calls in one atomic unit. Put multi-statement logic in a database function and call it in a single query.
 - **No read-replica routing** and **no trace propagation** — both are tracked separately.
 - **No composing wrapper.** There is no `withPostgres()` that gives you both clients at once; list the two entries you want. The name is reserved in case that changes.
-- **No pool tuning.** The pool size is fixed at 4 per process, a waiting request has no checkout timeout, and connections carry no `application_name`.
+- **No pool tuning.** The pool size is fixed at 4 per process, the checkout wait at 10 seconds, and connections carry no `application_name`.
 
 ## See also
 

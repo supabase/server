@@ -20,9 +20,13 @@ const h = vi.hoisted(() => {
 vi.mock('pg', async () => {
   const { EventEmitter } = await import('node:events')
   // Real pg pools are EventEmitters; getPool attaches 'error' and 'connect'
-  // listeners on construction, so the mock must accept them.
+  // listeners on construction, so the mock must accept them. The counters are
+  // what the connect-failure backoff reads to decide whether a checkout would
+  // open a new connection.
   class Pool extends EventEmitter {
     connect = h.connect
+    idleCount = 0
+    totalCount = 0
     constructor(config: { connectionString: string }) {
       super()
       h.pooled.push(config.connectionString)
@@ -506,5 +510,32 @@ describe('withPostgresClient', () => {
     })
 
     expect(h.issued).toContain('set local role "authenticated"')
+  })
+
+  it('pauses new connection attempts after one fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failure = new Error('password authentication failed for user')
+    h.connect.mockRejectedValueOnce(failure)
+    // Its own connection string: the pool cache — and so the pause — lives
+    // for the whole process, and must not leak into the other tests.
+    const handler = withPostgresClient(
+      { connectionString: 'postgres://localhost/wrong-password' },
+      async (_req, ctx) => {
+        await ctx.postgres.query`select 1`
+        return Response.json({ ok: true })
+      },
+    )
+    const request = () =>
+      handler(new Request('http://localhost'), {
+        ...seedContext(),
+        jwtClaims: { role: 'authenticated' },
+      })
+
+    await expect(request()).rejects.toBe(failure)
+    await expect(request()).rejects.toThrow(
+      /new connections paused for \d+ms after a connection failure: password authentication failed/,
+    )
+    // One attempt reached pg; the second request was refused before it could.
+    expect(h.connect).toHaveBeenCalledTimes(1)
   })
 })
