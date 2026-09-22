@@ -4,8 +4,34 @@ import pg from 'pg'
 import { errorResponse } from '../error-response.js'
 import { Errors, MissingConnectionStringError } from '../errors.js'
 import type { ErrorResponseConfig } from '../types.js'
+import { createConnectBackoff } from './postgres-backoff.js'
+import type { ConnectBackoff } from './postgres-backoff.js'
 
 const { Pool } = pg
+
+/**
+ * Connections per process. The pooler team recommends a client-side pool of
+ * one to four for serverless deployments.
+ *
+ * @internal
+ */
+export const POOL_MAX = 4
+
+/**
+ * How long a checkout waits for a free connection before failing, and how
+ * long a new connection may take to come up. Supavisor's own checkout timeout
+ * is sixty seconds; this has to expire well before it so the failure surfaces
+ * here, where the message can say what happened.
+ *
+ * @internal
+ */
+export const CHECKOUT_TIMEOUT_MS = 10_000
+
+const LOG_PREFIX = '[@supabase/server] postgres pool:'
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
 
 /**
  * The shape of `ctx.postgres` and `ctx.postgresAdmin`.
@@ -79,6 +105,157 @@ export interface PostgresApi {
   ): Promise<T[]>
 }
 
+/**
+ * A checked-out connection: run statements on it, then release it.
+ *
+ * @internal
+ */
+export interface PooledClient {
+  query(text: string, params?: unknown[]): Promise<pg.QueryResult>
+  /**
+   * Return the connection to the pool. A truthy argument discards it instead,
+   * as `pg.PoolClient#release` does.
+   */
+  release(destroy?: Error | boolean): void
+}
+
+/**
+ * The pool as the middleware see it: `pg.Pool`'s checkout and one-shot query,
+ * paced by a connect-failure backoff.
+ *
+ * @internal
+ */
+export interface PostgresPool {
+  /**
+   * Check a connection out. Waits up to {@link CHECKOUT_TIMEOUT_MS} for a
+   * free slot, and rejects without trying while new connection attempts are
+   * paused after a failure, so a bad credential cannot storm the pooler.
+   */
+  connect(): Promise<PooledClient>
+  /** Check out, run one statement, release — like `pg.Pool#query`. */
+  query(text: string, params?: unknown[]): Promise<pg.QueryResult>
+  readonly pool: pg.Pool
+}
+
+/** @internal */
+export function createPostgresPool(
+  pool: pg.Pool,
+  backoff: ConnectBackoff,
+): PostgresPool {
+  const max = pool.options.max
+  // The wrapper, not pg-pool, holds the line on how many checkouts are in
+  // flight. pg-pool hands the next item in its own queue a fresh connection
+  // attempt the moment one fails, so a queue it owns turns one bad credential
+  // into a burst of attempts before any pause can start.
+  let admitted = 0
+  const waiters: Array<() => void> = []
+
+  // pg-pool emits 'connect' only for a physically new connection, which is
+  // the one event that proves connecting works again.
+  pool.on('connect', () => backoff.succeed())
+
+  function acquireSlot(): Promise<void> {
+    if (admitted < max) {
+      admitted += 1
+      return Promise.resolve()
+    }
+    return new Promise((resolve, reject) => {
+      const wake = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+      const timer = setTimeout(() => {
+        const i = waiters.indexOf(wake)
+        if (i !== -1) waiters.splice(i, 1)
+        reject(
+          new Error(
+            `${LOG_PREFIX} all ${max} connections stayed busy for ${CHECKOUT_TIMEOUT_MS}ms`,
+          ),
+        )
+      }, CHECKOUT_TIMEOUT_MS)
+      ;(timer as { unref?: () => void }).unref?.()
+      waiters.push(wake)
+    })
+  }
+
+  function releaseSlot(): void {
+    const next = waiters.shift()
+    if (next) next()
+    else admitted -= 1
+  }
+
+  async function connect(): Promise<PooledClient> {
+    await acquireSlot()
+
+    const remaining = backoff.remainingMs()
+    // Refuse only a checkout that would open a new connection. pg-pool hands
+    // idle connections to its pending checkouts first, at the next tick, so an
+    // idle connection is spare for this one only when there are more idle than
+    // pending. A checkout that is opening its own connection is neither.
+    if (remaining > 0 && pool.idleCount <= pool.waitingCount) {
+      releaseSlot()
+      const cause = backoff.lastError()
+      throw new Error(
+        `${LOG_PREFIX} new connections paused for ${remaining}ms after a connection failure: ${messageOf(cause)}`,
+        { cause },
+      )
+    }
+
+    let client: pg.PoolClient
+    try {
+      client = await pool.connect()
+    } catch (e) {
+      releaseSlot()
+      const pause = backoff.fail(e)
+      if (pause > 0) {
+        console.error(
+          `${LOG_PREFIX} connection failed, pausing new connections for ${pause}ms: ${messageOf(e)}`,
+        )
+      }
+      throw e
+    }
+
+    let released = false
+    return {
+      query: (text, params) => client.query(text, params),
+      release(destroy) {
+        // The slot comes back exactly once, whatever pg-pool does with the
+        // release: a throw on the first call must not lose it for the life of
+        // the process, and pg-pool throwing on a second call must not return
+        // it twice.
+        try {
+          if (destroy === undefined) client.release()
+          else client.release(destroy)
+        } finally {
+          if (!released) {
+            released = true
+            releaseSlot()
+          }
+        }
+      },
+    }
+  }
+
+  async function query(
+    text: string,
+    params?: unknown[],
+  ): Promise<pg.QueryResult> {
+    const client = await connect()
+    try {
+      const res = await client.query(text, params)
+      client.release()
+      return res
+    } catch (e) {
+      // pg-pool's own query() releases with the error, which discards the
+      // connection rather than returning it to the pool.
+      client.release(e instanceof Error ? e : true)
+      throw e
+    }
+  }
+
+  return { connect, query, pool }
+}
+
 // One pool per connection string per process, lazily created. Keyed rather than
 // a bare singleton so two handlers pointed at different databases in the same
 // process don't share one pool.
@@ -88,13 +265,19 @@ export interface PostgresApi {
 // preamble runs. Both `set_config(..., true)` and `SET LOCAL` are
 // transaction-local, so a connection always returns to the pool clean — an
 // admin query can never inherit a previous caller's claims or role.
-const pools = new Map<string, pg.Pool>()
+const pools = new Map<string, PostgresPool>()
 
 /** @internal */
-export function getPool(connectionString: string): pg.Pool {
-  let pool = pools.get(connectionString)
-  if (!pool) {
-    pool = new Pool({ connectionString, max: 4 })
+export function getPool(connectionString: string): PostgresPool {
+  let entry = pools.get(connectionString)
+  if (!entry) {
+    const pool = new Pool({
+      connectionString,
+      max: POOL_MAX,
+      // Caps how long a new connection may take to come up. Waiting for a
+      // free slot happens in the wrapper, never in pg-pool's queue.
+      connectionTimeoutMillis: CHECKOUT_TIMEOUT_MS,
+    })
     // A backend can die under any pooled connection at any time — pooler
     // restart, failover, idle-connection reap. pg surfaces that as an 'error'
     // event on the pool (idle client) or on the client itself (checked out
@@ -104,19 +287,21 @@ export function getPool(connectionString: string): pg.Pool {
     // and the pool discards the dead client.
     pool.on('error', (e) => {
       console.error(
-        `[@supabase/server] postgres pool: idle connection lost (discarded): ${e.message}`,
+        `${LOG_PREFIX} idle connection lost (discarded): ${e.message}`,
       )
     })
     pool.on('connect', (client) => {
       client.on('error', (e) => {
-        console.error(
-          `[@supabase/server] postgres pool: connection lost: ${e.message}`,
-        )
+        console.error(`${LOG_PREFIX} connection lost: ${e.message}`)
       })
     })
-    pools.set(connectionString, pool)
+    entry = createPostgresPool(
+      pool,
+      createConnectBackoff({ now: Date.now, random: Math.random }),
+    )
+    pools.set(connectionString, entry)
   }
-  return pool
+  return entry
 }
 
 /** @internal */
