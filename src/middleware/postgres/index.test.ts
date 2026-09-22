@@ -534,9 +534,16 @@ describe('withPostgresClient', () => {
       })
 
     await expect(request()).rejects.toBe(failure)
-    await expect(request()).rejects.toThrow(
+    const refused = request()
+    await expect(refused).rejects.toThrow(
       /new connections paused for \d+ms after a connection failure: password authentication failed/,
     )
+    // The refusal reaches the handler as a typed error the host can turn into
+    // a 503.
+    await expect(refused).rejects.toMatchObject({
+      code: 'POSTGRES_CONNECT_PAUSED',
+      status: 503,
+    })
     // One attempt reached pg; the second request was refused before it could.
     expect(h.connect).toHaveBeenCalledTimes(1)
   })

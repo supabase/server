@@ -2,7 +2,13 @@ import { getEnv } from '@supabase/middleware'
 import pg from 'pg'
 
 import { errorResponse } from '../error-response.js'
-import { Errors, MissingConnectionStringError } from '../errors.js'
+import {
+  Errors,
+  MissingConnectionStringError,
+  PostgresConnectPausedError,
+  PostgresPoolBusyError,
+  messageOf,
+} from '../errors.js'
 import type { ErrorResponseConfig } from '../types.js'
 import { createConnectBackoff } from './postgres-backoff.js'
 import type { ConnectBackoff } from './postgres-backoff.js'
@@ -28,10 +34,6 @@ export const POOL_MAX = 4
 export const CHECKOUT_TIMEOUT_MS = 10_000
 
 const LOG_PREFIX = '[@supabase/server] postgres pool:'
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
 
 /**
  * The shape of `ctx.postgres` and `ctx.postgresAdmin`.
@@ -130,6 +132,8 @@ export interface PostgresPool {
    * Check a connection out. Waits up to {@link CHECKOUT_TIMEOUT_MS} for a
    * free slot, and rejects without trying while new connection attempts are
    * paused after a failure, so a bad credential cannot storm the pooler.
+   * Both refusals are `PostgresPoolError` instances, coded
+   * `POSTGRES_POOL_BUSY` and `POSTGRES_CONNECT_PAUSED`.
    */
   connect(): Promise<PooledClient>
   /** Check out, run one statement, release — like `pg.Pool#query`. */
@@ -168,9 +172,10 @@ export function createPostgresPool(
         const i = waiters.indexOf(wake)
         if (i !== -1) waiters.splice(i, 1)
         reject(
-          new Error(
-            `${LOG_PREFIX} all ${max} connections stayed busy for ${CHECKOUT_TIMEOUT_MS}ms`,
-          ),
+          Errors[PostgresPoolBusyError]({
+            max,
+            waitedMs: CHECKOUT_TIMEOUT_MS,
+          }),
         )
       }, CHECKOUT_TIMEOUT_MS)
       ;(timer as { unref?: () => void }).unref?.()
@@ -194,11 +199,10 @@ export function createPostgresPool(
     // pending. A checkout that is opening its own connection is neither.
     if (remaining > 0 && pool.idleCount <= pool.waitingCount) {
       releaseSlot()
-      const cause = backoff.lastError()
-      throw new Error(
-        `${LOG_PREFIX} new connections paused for ${remaining}ms after a connection failure: ${messageOf(cause)}`,
-        { cause },
-      )
+      throw Errors[PostgresConnectPausedError]({
+        remainingMs: remaining,
+        cause: backoff.lastError(),
+      })
     }
 
     let client: pg.PoolClient

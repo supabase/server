@@ -360,7 +360,7 @@ interface PostgresApi {
 }
 ```
 
-The value at `ctx.postgres`. Both methods return the result rows directly (not a `pg` `Result`).
+The value at `ctx.postgres`. Both methods return the result rows directly (not a `pg` `Result`). Both throw a [`PostgresPoolError`](#postgrespoolerror) when the pool cannot hand out a connection. Any other failure is the `pg` error itself.
 
 `query` is a **tagged template**, so every interpolation becomes a bind parameter and can never alter the statement:
 
@@ -764,6 +764,21 @@ class AuthError extends SupabaseServerError {
 }
 ```
 
+### PostgresPoolError
+
+```ts
+class PostgresPoolError extends SupabaseServerError {
+  readonly status: 503
+  constructor(
+    message: string,
+    code: string,
+    options?: SupabaseServerErrorOptions,
+  )
+}
+```
+
+Thrown by `ctx.postgres` and `ctx.postgresAdmin` queries when the pool cannot hand out a connection. See [PostgresPoolError codes](error-handling.md#postgrespoolerror-codes).
+
 ### ErrorPayload
 
 The JSON body every auto-responding layer returns, and the return type of `toJSON()`.
@@ -794,28 +809,30 @@ interface SupabaseServerErrorOptions {
 
 ## Error Code Constants
 
-| Constant                            | Value                               | Class       | Meaning                                                              |
-| ----------------------------------- | ----------------------------------- | ----------- | -------------------------------------------------------------------- |
-| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`  | Generic environment error                                            |
-| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`  | `SUPABASE_URL` not set                                               |
-| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`  | Named publishable key not found                                      |
-| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`  | No default publishable key                                           |
-| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`  | Named secret key not found                                           |
-| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`  | No default secret key                                                |
-| `MissingResourceServerError`        | `'MISSING_RESOURCE_SERVER'`         | `EnvError`  | `withOAuthProtectedResource` cannot derive a `resourceServer`        |
-| `MissingAuthorizationServerError`   | `'MISSING_AUTHORIZATION_SERVER'`    | `EnvError`  | `withOAuthProtectedResource` cannot derive an authorization server   |
-| `MissingConnectionStringError`      | `'MISSING_CONNECTION_STRING'`       | `EnvError`  | No Postgres connection string configured                             |
-| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError` | Generic auth error (401)                                             |
-| `MissingCredentialsError`           | `'MISSING_CREDENTIALS'`             | `AuthError` | Request carried no credentials at all (401)                          |
-| `UnusableCredentialError`           | `'UNUSABLE_CREDENTIAL'`             | `AuthError` | A credential arrived but cannot be used (401)                        |
-| `InvalidApiKeyError`                | `'INVALID_API_KEY'`                 | `AuthError` | `apikey` matched no configured key (401)                             |
-| `InvalidJwtError`                   | `'INVALID_JWT'`                     | `AuthError` | JWT failed verification (401)                                        |
-| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError` | Fallback credential failure (401)                                    |
-| `JwksNotConfiguredError`            | `'JWKS_NOT_CONFIGURED'`             | `AuthError` | JWT sent but no JWKS configured (500)                                |
-| `JwksFetchFailedError`              | `'JWKS_FETCH_FAILED'`               | `AuthError` | Remote JWKS unreachable or unusable (500)                            |
-| `NoKeysConfiguredError`             | `'NO_KEYS_CONFIGURED'`              | `AuthError` | Auth mode no configured key can match (500)                          |
-| `UnsupportedRoleError`              | `'UNSUPPORTED_ROLE'`                | `AuthError` | `withPostgresClient` will not assume the caller's `role` claim (500) |
-| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError` | Client creation failed after auth (500)                              |
+| Constant                            | Value                               | Class               | Meaning                                                               |
+| ----------------------------------- | ----------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| `EnvGenericError`                   | `'ENV_ERROR'`                       | `EnvError`          | Generic environment error                                             |
+| `MissingSupabaseURLError`           | `'MISSING_SUPABASE_URL'`            | `EnvError`          | `SUPABASE_URL` not set                                                |
+| `MissingPublishableKeyError`        | `'MISSING_PUBLISHABLE_KEY'`         | `EnvError`          | Named publishable key not found                                       |
+| `MissingDefaultPublishableKeyError` | `'MISSING_DEFAULT_PUBLISHABLE_KEY'` | `EnvError`          | No default publishable key                                            |
+| `MissingSecretKeyError`             | `'MISSING_SECRET_KEY'`              | `EnvError`          | Named secret key not found                                            |
+| `MissingDefaultSecretKeyError`      | `'MISSING_DEFAULT_SECRET_KEY'`      | `EnvError`          | No default secret key                                                 |
+| `MissingResourceServerError`        | `'MISSING_RESOURCE_SERVER'`         | `EnvError`          | `withOAuthProtectedResource` cannot derive a `resourceServer`         |
+| `MissingAuthorizationServerError`   | `'MISSING_AUTHORIZATION_SERVER'`    | `EnvError`          | `withOAuthProtectedResource` cannot derive an authorization server    |
+| `MissingConnectionStringError`      | `'MISSING_CONNECTION_STRING'`       | `EnvError`          | No Postgres connection string configured                              |
+| `AuthGenericError`                  | `'AUTH_ERROR'`                      | `AuthError`         | Generic auth error (401)                                              |
+| `MissingCredentialsError`           | `'MISSING_CREDENTIALS'`             | `AuthError`         | Request carried no credentials at all (401)                           |
+| `UnusableCredentialError`           | `'UNUSABLE_CREDENTIAL'`             | `AuthError`         | A credential arrived but cannot be used (401)                         |
+| `InvalidApiKeyError`                | `'INVALID_API_KEY'`                 | `AuthError`         | `apikey` matched no configured key (401)                              |
+| `InvalidJwtError`                   | `'INVALID_JWT'`                     | `AuthError`         | JWT failed verification (401)                                         |
+| `InvalidCredentialsError`           | `'INVALID_CREDENTIALS'`             | `AuthError`         | Fallback credential failure (401)                                     |
+| `JwksNotConfiguredError`            | `'JWKS_NOT_CONFIGURED'`             | `AuthError`         | JWT sent but no JWKS configured (500)                                 |
+| `JwksFetchFailedError`              | `'JWKS_FETCH_FAILED'`               | `AuthError`         | Remote JWKS unreachable or unusable (500)                             |
+| `NoKeysConfiguredError`             | `'NO_KEYS_CONFIGURED'`              | `AuthError`         | Auth mode no configured key can match (500)                           |
+| `UnsupportedRoleError`              | `'UNSUPPORTED_ROLE'`                | `AuthError`         | `withPostgresClient` will not assume the caller's `role` claim (500)  |
+| `CreateSupabaseClientError`         | `'CREATE_SUPABASE_CLIENT_ERROR'`    | `AuthError`         | Client creation failed after auth (500)                               |
+| `PostgresPoolBusyError`             | `'POSTGRES_POOL_BUSY'`              | `PostgresPoolError` | Every pooled connection stayed busy for the whole checkout wait (503) |
+| `PostgresConnectPausedError`        | `'POSTGRES_CONNECT_PAUSED'`         | `PostgresPoolError` | New connection attempts are paused after a failure (503)              |
 
 Also exported: `ErrorSource` (`'@supabase/server'`) and `ErrorCodeHeader` (`'x-supabase-server-error'`).
 
@@ -854,6 +871,11 @@ const Errors: {
     supportedRoles
   }) => AuthError
   [CreateSupabaseClientError]: (options?: { cause?: unknown }) => AuthError
+  [PostgresPoolBusyError]: (context: { max; waitedMs }) => PostgresPoolError
+  [PostgresConnectPausedError]: (context: {
+    remainingMs
+    cause
+  }) => PostgresPoolError
 }
 ```
 

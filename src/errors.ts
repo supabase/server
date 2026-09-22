@@ -40,6 +40,11 @@ function quoteList(items: readonly string[]): string {
   return items.map((item) => `"${item}"`).join(', ')
 }
 
+/** The message of an `Error`, or the string form of anything else. @internal */
+export function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 /**
  * Optional diagnostics attached to a {@link SupabaseServerError}.
  * @category Errors
@@ -1005,6 +1010,116 @@ const AuthErrorMap = {
 }
 
 /**
+ * Thrown when the Postgres pool cannot hand a query a connection: every pooled
+ * connection stayed busy for the whole checkout wait, or new connection
+ * attempts are paused after one failed.
+ *
+ * Always has `status: 503`. Both conditions are transient, so the request can
+ * be retried. `details.retryAfterMs` gives the time left when a pause is
+ * running.
+ *
+ * `ctx.postgres` and `ctx.postgresAdmin` throw this from the query call. The
+ * middleware do not turn it into a response; the handler or the host's error
+ * handler decides how the request answers.
+ *
+ * @example Answering 503 with a Retry-After header
+ * ```ts
+ * import { PostgresPoolError } from '@supabase/server'
+ *
+ * try {
+ *   return Response.json(await ctx.postgres.query`select * from notes`)
+ * } catch (e) {
+ *   if (e instanceof PostgresPoolError) {
+ *     const retryAfterMs = Number(e.details?.retryAfterMs ?? 1000)
+ *     return Response.json(e.toJSON(), {
+ *       status: e.status,
+ *       headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) },
+ *     })
+ *   }
+ *   throw e
+ * }
+ * ```
+ *
+ * @category Errors
+ */
+export class PostgresPoolError extends SupabaseServerError {
+  /** Always `503`. Nothing about the request is wrong; the pool has no connection for it yet. */
+  readonly status = 503
+
+  /**
+   * @param message - Human-readable description. Prefixed with `[@supabase/server]`.
+   * @param code - Machine-readable code. @see {@link PostgresPoolBusyError},
+   *   {@link PostgresConnectPausedError}
+   * @param options - Optional `hint`, `details`, `docs`, and `cause`.
+   */
+  constructor(
+    message: string,
+    code: string,
+    options?: SupabaseServerErrorOptions,
+  ) {
+    super(message, code, options)
+    this.name = 'PostgresPoolError'
+  }
+}
+
+/**
+ * Every pooled connection stayed busy for the whole checkout wait, so the
+ * query could not get one. `details.max` is the pool size and
+ * `details.waitedMs` the wait.
+ *
+ * @category Errors
+ */
+export const PostgresPoolBusyError = 'POSTGRES_POOL_BUSY'
+
+/**
+ * A connection attempt failed and the pool is pausing new attempts, so a query
+ * that needed a new connection was refused without trying. `cause` is the
+ * failure and `details.retryAfterMs` the time left in the pause.
+ *
+ * @category Errors
+ */
+export const PostgresConnectPausedError = 'POSTGRES_CONNECT_PAUSED'
+
+const PostgresPoolErrorMap = {
+  [PostgresPoolBusyError]: (context: {
+    /** Connections the pool holds at most. */
+    max: number
+    /** How long the checkout waited before giving up. */
+    waitedMs: number
+  }): PostgresPoolError =>
+    new PostgresPoolError(
+      `postgres pool: all ${context.max} connections stayed busy for ${context.waitedMs}ms`,
+      PostgresPoolBusyError,
+      {
+        hint:
+          'Every pooled connection was in use for the whole wait. Run fewer statements per request, ' +
+          'move multi-statement logic into a database function, route heavy reads through ctx.supabase, ' +
+          'or add processes.',
+        details: { max: context.max, waitedMs: context.waitedMs },
+      },
+    ),
+
+  [PostgresConnectPausedError]: (context: {
+    /** Time left in the pause. */
+    remainingMs: number
+    /** The connection failure that opened the pause, or the latest one during it. */
+    cause: unknown
+  }): PostgresPoolError =>
+    new PostgresPoolError(
+      `postgres pool: new connections paused for ${context.remainingMs}ms after a connection failure: ${messageOf(context.cause)}`,
+      PostgresConnectPausedError,
+      {
+        hint:
+          'Check the connection string and the database password. The pause doubles on each failing ' +
+          'round, up to 30 seconds, and ends on the first successful connection. details.retryAfterMs ' +
+          'is the time left.',
+        details: { retryAfterMs: context.remainingMs },
+        cause: context.cause,
+      },
+    ),
+}
+
+/**
  * Returns a copy of `error` carrying an extra leading hint sentence and merged
  * `details`. Lets an outer layer add diagnostics the inner layer could not see —
  * {@link core.verifyAuth} can inspect the raw `Authorization` header, while
@@ -1030,8 +1145,8 @@ export function withExtraDiagnostics(
 
 /**
  * Factory map for all error types. Keyed by error code constant, each entry
- * returns a pre-configured {@link EnvError} or {@link AuthError} complete with
- * `hint`, `docs`, and `details`.
+ * returns a pre-configured {@link EnvError}, {@link AuthError}, or
+ * {@link PostgresPoolError} complete with `hint`, `docs`, and `details`.
  *
  * @example Throwing typed errors
  * ```ts
@@ -1044,4 +1159,5 @@ export function withExtraDiagnostics(
 export const Errors = {
   ...EnvErrorMap,
   ...AuthErrorMap,
+  ...PostgresPoolErrorMap,
 }
