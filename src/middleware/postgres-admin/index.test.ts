@@ -5,6 +5,8 @@ const h = vi.hoisted(() => {
   const issued: string[] = []
   const params: (unknown[] | undefined)[] = []
   const pooled: string[] = []
+  // The full config of every Pool constructed, in the same order.
+  const configs: Record<string, unknown>[] = []
   // Each statement checks a connection out and releases it; the admin path
   // wraps nothing around it.
   const clientQuery = vi.fn(async (text: string, p?: unknown[]) => {
@@ -14,7 +16,7 @@ const h = vi.hoisted(() => {
   })
   const release = vi.fn()
   const connect = vi.fn(async () => ({ query: clientQuery, release }))
-  return { issued, params, pooled, clientQuery, release, connect }
+  return { issued, params, pooled, configs, clientQuery, release, connect }
 })
 
 vi.mock('pg', async () => {
@@ -28,10 +30,12 @@ vi.mock('pg', async () => {
     connect = h.connect
     idleCount = 0
     waitingCount = 0
-    options = { max: 4 }
+    options: Record<string, unknown>
     constructor(config: { connectionString: string }) {
       super()
+      this.options = config
       h.pooled.push(config.connectionString)
+      h.configs.push(config)
     }
   }
   return { default: { Pool }, Pool }
@@ -84,6 +88,35 @@ describe('withPostgresAdminClient', () => {
       code: 'MISSING_CONNECTION_STRING',
       message: expect.stringMatching(/^\[@supabase\/server\]/),
     })
+  })
+
+  it('takes the same pool options as the scoped middleware', async () => {
+    const handler = withPostgresAdminClient(
+      {
+        connectionString: 'postgres://localhost/admin-tuned',
+        pool: { max: 3 },
+      },
+      async (_req, ctx) => {
+        await ctx.postgresAdmin.query`select 1`
+        return Response.json({ ok: true })
+      },
+    )
+
+    await handler(new Request('http://localhost'), seedContext())
+
+    expect(h.configs.at(-1)).toMatchObject({
+      connectionString: 'postgres://localhost/admin-tuned',
+      max: 3,
+      connectionTimeoutMillis: 10_000,
+    })
+  })
+
+  it('refuses invalid pool options when the middleware is built', () => {
+    expect(() =>
+      withPostgresAdminClient({ pool: { max: 1.5 } }, async () =>
+        Response.json({ ok: true }),
+      ),
+    ).toThrow(RangeError)
   })
 
   it('runs the query as-is — no transaction, no claims, no role switch', async () => {

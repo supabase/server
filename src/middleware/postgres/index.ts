@@ -5,14 +5,18 @@ import {
   getPool,
   missingConnectionStringResponse,
   resolveConnectionString,
+  resolvePoolOptions,
 } from '../../core/postgres-pool.js'
-import type { PostgresApi } from '../../core/postgres-pool.js'
+import type {
+  PostgresApi,
+  PostgresPoolOptions,
+} from '../../core/postgres-pool.js'
 import { compileTemplate, ident } from '../../core/sql.js'
 import { errorResponse } from '../../error-response.js'
 import { Errors, UnsupportedRoleError } from '../../errors.js'
 import type { ErrorResponseConfig, ShortCircuitConfig } from '../../types.js'
 
-export type { PostgresApi }
+export type { PostgresApi, PostgresPoolOptions }
 // `ident` is exported here rather than only from core: it is the companion
 // to `queryRaw`, so it belongs on the subpath a caller already imports.
 export { ident }
@@ -91,6 +95,12 @@ export interface RequestClaims {
 export interface WithPostgresClientConfig extends ShortCircuitConfig {
   /** Defaults to `getEnv('SUPABASE_DB_URL')` (from `@supabase/middleware`). */
   connectionString?: string
+  /**
+   * Pool size and checkout timeout for this connection string. Checked when
+   * the middleware is built; an invalid value throws a `RangeError` then.
+   * Entries whose options resolve to the same values share one pool.
+   */
+  pool?: PostgresPoolOptions
 }
 
 /**
@@ -161,80 +171,86 @@ export const withPostgresClient: Middleware<
   PostgresApi
 >({
   key: 'postgres',
-  run: (config) => async (_req, ctx) => {
-    const connectionString = resolveConnectionString(config?.connectionString)
-    if (!connectionString) {
-      return missingConnectionStringResponse(
-        'withPostgresClient',
-        config?.errors,
-      )
-    }
+  run: (config) => {
+    const poolOptions = resolvePoolOptions(config?.pool)
+    return async (_req, ctx) => {
+      const connectionString = resolveConnectionString(config?.connectionString)
+      if (!connectionString) {
+        return missingConnectionStringResponse(
+          'withPostgresClient',
+          config?.errors,
+        )
+      }
 
-    const claims = ctx.jwtClaims
-    const role = resolveRole(claims, config?.errors)
-    // Refused before the handler runs and before a connection is checked out.
-    if (role instanceof Response) return role
+      const claims = ctx.jwtClaims
+      const role = resolveRole(claims, config?.errors)
+      // Refused before the handler runs and before a connection is checked out.
+      if (role instanceof Response) return role
 
-    const p = getPool(connectionString)
-    // Fixed for the request, so serialize once rather than per query.
-    const claimsJson = JSON.stringify(claims ?? {})
+      const p = getPool(connectionString, poolOptions)
+      // Fixed for the request, so serialize once rather than per query.
+      const claimsJson = JSON.stringify(claims ?? {})
 
-    const api: PostgresApi = {
-      query<T = Record<string, unknown>>(
-        strings: TemplateStringsArray,
-        ...values: unknown[]
-      ) {
-        const compiled = compileTemplate(strings, values)
-        return api.queryRaw<T>(compiled.text, compiled.values)
-      },
-      async queryRaw<T = Record<string, unknown>>(
-        text: string,
-        params?: unknown[],
-      ) {
-        const client = await p.connect()
-        // Set when the transaction could not be unwound, so the connection is
-        // discarded rather than pooled — see the catch below.
-        let poisoned = false
-        try {
-          await client.query('begin')
-          await client.query(
-            `select set_config('request.jwt.claims', $1, true)`,
-            [claimsJson],
-          )
-          // `role` is one of SUPPORTED_ROLES, so this interpolation is already
-          // safe; quoting it keeps that true if the allowlist ever widens to
-          // the custom roles the docstring promises.
-          await client.query(`set local role ${ident(role)}`)
-          const res = await client.query(text, params)
-          await client.query('commit')
-          return res.rows as T[]
-        } catch (e) {
-          // A broken connection makes the rollback throw too; that failure
-          // must not replace the error the caller actually needs to see.
+      const api: PostgresApi = {
+        query<T = Record<string, unknown>>(
+          strings: TemplateStringsArray,
+          ...values: unknown[]
+        ) {
+          const compiled = compileTemplate(strings, values)
+          return api.queryRaw<T>(compiled.text, compiled.values)
+        },
+        async queryRaw<T = Record<string, unknown>>(
+          text: string,
+          params?: unknown[],
+        ) {
+          const client = await p.connect()
+          // Set when the transaction could not be unwound, so the connection is
+          // discarded rather than pooled — see the catch below.
+          let poisoned = false
           try {
-            await client.query('rollback')
-          } catch {
-            // The original error wins — but we can no longer assume the
-            // session is clean. The transaction may still be open with the
-            // caller's role set, and this pool is shared with
-            // withPostgresAdminClient, which begins no transaction and would
-            // inherit that state on the next checkout. Discard the connection
-            // instead of pooling it.
-            poisoned = true
+            await client.query('begin')
+            await client.query(
+              `select set_config('request.jwt.claims', $1, true)`,
+              [claimsJson],
+            )
+            // `role` is one of SUPPORTED_ROLES, so this interpolation is already
+            // safe; quoting it keeps that true if the allowlist ever widens to
+            // the custom roles the docstring promises.
+            await client.query(`set local role ${ident(role)}`)
+            const res = await client.query(text, params)
+            await client.query('commit')
+            return res.rows as T[]
+          } catch (e) {
+            // A broken connection makes the rollback throw too; that failure
+            // must not replace the error the caller actually needs to see.
+            try {
+              await client.query('rollback')
+            } catch {
+              // The original error wins — but we can no longer assume the
+              // session is clean. The transaction may still be open with the
+              // caller's role set, and this pool is shared with
+              // withPostgresAdminClient, which begins no transaction and would
+              // inherit that state on the next checkout. Discard the connection
+              // instead of pooling it.
+              poisoned = true
+            }
+            // 42501 insufficient_privilege: the role lacks table grants.
+            if (
+              e instanceof Error &&
+              (e as { code?: string }).code === '42501'
+            ) {
+              e.message += ` (RLS-scoped queries run as the caller's role '${role}' — grant that role the table privileges it needs, e.g. "grant select on <table> to ${role}")`
+            }
+            throw e
+          } finally {
+            // pg-pool removes the client instead of reusing it when release()
+            // gets a truthy argument.
+            client.release(poisoned)
           }
-          // 42501 insufficient_privilege: the role lacks table grants.
-          if (e instanceof Error && (e as { code?: string }).code === '42501') {
-            e.message += ` (RLS-scoped queries run as the caller's role '${role}' — grant that role the table privileges it needs, e.g. "grant select on <table> to ${role}")`
-          }
-          throw e
-        } finally {
-          // pg-pool removes the client instead of reusing it when release()
-          // gets a truthy argument.
-          client.release(poisoned)
-        }
-      },
-    }
+        },
+      }
 
-    return { postgres: api }
+      return { postgres: api }
+    }
   },
 })

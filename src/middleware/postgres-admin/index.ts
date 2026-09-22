@@ -5,12 +5,16 @@ import {
   getPool,
   missingConnectionStringResponse,
   resolveConnectionString,
+  resolvePoolOptions,
 } from '../../core/postgres-pool.js'
-import type { PostgresApi } from '../../core/postgres-pool.js'
+import type {
+  PostgresApi,
+  PostgresPoolOptions,
+} from '../../core/postgres-pool.js'
 import { compileTemplate, ident } from '../../core/sql.js'
 import type { ShortCircuitConfig } from '../../types.js'
 
-export type { PostgresApi }
+export type { PostgresApi, PostgresPoolOptions }
 // `ident` is exported here rather than only from core: it is the companion
 // to `queryRaw`, so it belongs on the subpath a caller already imports.
 export { ident }
@@ -27,6 +31,12 @@ export { ident }
 export interface WithPostgresAdminClientConfig extends ShortCircuitConfig {
   /** Defaults to `getEnv('SUPABASE_DB_URL')` (from `@supabase/middleware`). */
   connectionString?: string
+  /**
+   * Pool size and checkout timeout for this connection string. Checked when
+   * the middleware is built; an invalid value throws a `RangeError` then.
+   * Entries whose options resolve to the same values share one pool.
+   */
+  pool?: PostgresPoolOptions
 }
 
 /**
@@ -84,36 +94,39 @@ export const withPostgresAdminClient: Middleware<
   PostgresApi
 >({
   key: 'postgresAdmin',
-  run: (config) => async () => {
-    const connectionString = resolveConnectionString(config?.connectionString)
-    if (!connectionString) {
-      return missingConnectionStringResponse(
-        'withPostgresAdminClient',
-        config?.errors,
-      )
+  run: (config) => {
+    const poolOptions = resolvePoolOptions(config?.pool)
+    return async () => {
+      const connectionString = resolveConnectionString(config?.connectionString)
+      if (!connectionString) {
+        return missingConnectionStringResponse(
+          'withPostgresAdminClient',
+          config?.errors,
+        )
+      }
+
+      const p = getPool(connectionString, poolOptions)
+
+      const api: PostgresApi = {
+        query<T = Record<string, unknown>>(
+          strings: TemplateStringsArray,
+          ...values: unknown[]
+        ) {
+          const compiled = compileTemplate(strings, values)
+          return api.queryRaw<T>(compiled.text, compiled.values)
+        },
+        async queryRaw<T = Record<string, unknown>>(
+          text: string,
+          params?: unknown[],
+        ) {
+          // No transaction preamble: pool.query checks a connection out and back
+          // for us, and there is no session state to set up or tear down.
+          const res = await p.query(text, params)
+          return res.rows as T[]
+        },
+      }
+
+      return { postgresAdmin: api }
     }
-
-    const p = getPool(connectionString)
-
-    const api: PostgresApi = {
-      query<T = Record<string, unknown>>(
-        strings: TemplateStringsArray,
-        ...values: unknown[]
-      ) {
-        const compiled = compileTemplate(strings, values)
-        return api.queryRaw<T>(compiled.text, compiled.values)
-      },
-      async queryRaw<T = Record<string, unknown>>(
-        text: string,
-        params?: unknown[],
-      ) {
-        // No transaction preamble: pool.query checks a connection out and back
-        // for us, and there is no session state to set up or tear down.
-        const res = await p.query(text, params)
-        return res.rows as T[]
-      },
-    }
-
-    return { postgresAdmin: api }
   },
 })

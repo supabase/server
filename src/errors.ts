@@ -1110,9 +1110,9 @@ const PostgresPoolErrorMap = {
       PostgresConnectPausedError,
       {
         hint:
-          'Check the connection string and the database password. The pause doubles on each failing ' +
-          'round, up to 30 seconds, and ends on the first successful connection. details.retryAfterMs ' +
-          'is the time left.',
+          'Check the connection string and the database password. The pause starts between half a ' +
+          'second and one second, doubles on each failing round up to between 15 and 30 seconds, and ' +
+          'ends on the first successful connection. details.retryAfterMs is the time left.',
         details: { retryAfterMs: context.remainingMs },
         cause: context.cause,
       },

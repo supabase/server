@@ -397,11 +397,23 @@ const rows = await ctx.postgres.queryRaw(
 ```ts
 interface WithPostgresClientConfig {
   connectionString?: string
+  pool?: PostgresPoolOptions
   errors?: ErrorResponseConfig
 }
 ```
 
-`connectionString` defaults to the `SUPABASE_DB_URL` environment variable. Pools are created lazily, one per connection string per process. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
+`connectionString` defaults to the `SUPABASE_DB_URL` environment variable. Pools are created lazily, one per connection string and pool options per process. `pool` sizes that pool; see [`PostgresPoolOptions`](#postgrespooloptions). `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
+
+### PostgresPoolOptions
+
+```ts
+interface PostgresPoolOptions {
+  max?: number
+  checkoutTimeoutMs?: number
+}
+```
+
+`max` is how many connections the process opens at most on the connection string: a positive integer, `4` by default. `checkoutTimeoutMs` is how long a query waits for a free connection before failing with `POSTGRES_POOL_BUSY`, and how long a new connection may take to come up: a positive number, `10000` by default. Both are validated when the middleware is built; an invalid value throws a `RangeError`. Two entries on one connection string share a pool only when their options resolve to the same values. Exported from both `./middleware/postgres` and `./middleware/postgres-admin`.
 
 ### RequestClaims
 
@@ -436,7 +448,7 @@ const withPostgresAdminClient: Middleware<
 
 Contributes `ctx.postgresAdmin` — a `pg` client that **bypasses RLS**. Queries run as-is, as the role in the connection string: no claim injection, no role switching, no wrapping transaction.
 
-Declares no upstream prerequisite, so it composes in any auth mode including `'secret'` and `'none'`. Shares the pool cache with `withPostgresClient` — same connection string, one pool.
+Declares no upstream prerequisite, so it composes in any auth mode including `'secret'` and `'none'`. Shares the pool cache with `withPostgresClient`: same connection string and pool options, one pool.
 
 Short-circuits with a 500 and code `MISSING_CONNECTION_STRING` when no connection string is available.
 
@@ -447,11 +459,12 @@ Authorization is the caller's responsibility: RLS is not consulted, so per-user 
 ```ts
 interface WithPostgresAdminClientConfig {
   connectionString?: string
+  pool?: PostgresPoolOptions
   errors?: ErrorResponseConfig
 }
 ```
 
-`connectionString` defaults to the `SUPABASE_DB_URL` environment variable. `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
+`connectionString` defaults to the `SUPABASE_DB_URL` environment variable. `pool` sizes the pool; see [`PostgresPoolOptions`](#postgrespooloptions). `errors` trims the short-circuit response body; see [`ErrorResponseConfig`](#errorresponseconfig).
 
 ---
 

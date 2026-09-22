@@ -36,6 +36,83 @@ export const CHECKOUT_TIMEOUT_MS = 10_000
 const LOG_PREFIX = '[@supabase/server] postgres pool:'
 
 /**
+ * **Alpha.** Pool sizing for `withPostgresClient` and
+ * `withPostgresAdminClient`. Two entries on the same connection string share
+ * a pool only when their options resolve to the same values.
+ *
+ * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
+ * shapes, context keys, and config options may change between 0.x releases.
+ *
+ * @alpha
+ * @category Middleware
+ */
+export interface PostgresPoolOptions {
+  /**
+   * Connections this process opens at most on this connection string. A
+   * positive integer. The pooler team recommends one to four for serverless
+   * deployments.
+   *
+   * @defaultValue 4
+   */
+  max?: number
+  /**
+   * Milliseconds a query waits for a free connection before failing with
+   * `POSTGRES_POOL_BUSY`, and how long a new connection may take to come up.
+   * A positive number. Keep it well under the pooler's own 60 second checkout
+   * timeout so the failure surfaces here, with a message that says what
+   * happened.
+   *
+   * @defaultValue 10000
+   */
+  checkoutTimeoutMs?: number
+}
+
+/** @internal */
+export interface ResolvedPoolOptions {
+  max: number
+  checkoutTimeoutMs: number
+}
+
+/** @internal */
+export const DEFAULT_POOL_OPTIONS: ResolvedPoolOptions = {
+  max: POOL_MAX,
+  checkoutTimeoutMs: CHECKOUT_TIMEOUT_MS,
+}
+
+/**
+ * Fill in the defaults and refuse values the pool cannot run with. Called
+ * when a middleware is built, so a bad value fails the deploy rather than the
+ * first request.
+ *
+ * @internal
+ */
+export function resolvePoolOptions(
+  options?: PostgresPoolOptions,
+): ResolvedPoolOptions {
+  const max = options?.max ?? POOL_MAX
+  if (!Number.isInteger(max) || max < 1) {
+    throw new RangeError(
+      `[@supabase/server] pool.max must be a positive integer (received ${max})`,
+    )
+  }
+  const checkoutTimeoutMs = options?.checkoutTimeoutMs ?? CHECKOUT_TIMEOUT_MS
+  if (!Number.isFinite(checkoutTimeoutMs) || checkoutTimeoutMs <= 0) {
+    throw new RangeError(
+      `[@supabase/server] pool.checkoutTimeoutMs must be a positive number of milliseconds (received ${checkoutTimeoutMs})`,
+    )
+  }
+  return { max, checkoutTimeoutMs }
+}
+
+// Names this traffic in pooler-side logs. An `application_name` in the
+// connection string itself takes precedence: pg merges the parsed string over
+// the config object when it builds a client.
+function applicationName(): string {
+  const slug = getEnv('SUPABASE_FUNCTION_SLUG')
+  return slug ? `supabase-server:${slug}` : 'supabase-server'
+}
+
+/**
  * The shape of `ctx.postgres` and `ctx.postgresAdmin`.
  *
  * Both halves expose the same surface — they differ in what runs around the
@@ -129,7 +206,7 @@ export interface PooledClient {
  */
 export interface PostgresPool {
   /**
-   * Check a connection out. Waits up to {@link CHECKOUT_TIMEOUT_MS} for a
+   * Check a connection out. Waits up to the pool's checkout timeout for a
    * free slot, and rejects without trying while new connection attempts are
    * paused after a failure, so a bad credential cannot storm the pooler.
    * Both refusals are `PostgresPoolError` instances, coded
@@ -147,6 +224,8 @@ export function createPostgresPool(
   backoff: ConnectBackoff,
 ): PostgresPool {
   const max = pool.options.max
+  const checkoutTimeoutMs =
+    pool.options.connectionTimeoutMillis ?? CHECKOUT_TIMEOUT_MS
   // The wrapper, not pg-pool, holds the line on how many checkouts are in
   // flight. pg-pool hands the next item in its own queue a fresh connection
   // attempt the moment one fails, so a queue it owns turns one bad credential
@@ -174,10 +253,10 @@ export function createPostgresPool(
         reject(
           Errors[PostgresPoolBusyError]({
             max,
-            waitedMs: CHECKOUT_TIMEOUT_MS,
+            waitedMs: checkoutTimeoutMs,
           }),
         )
-      }, CHECKOUT_TIMEOUT_MS)
+      }, checkoutTimeoutMs)
       ;(timer as { unref?: () => void }).unref?.()
       waiters.push(wake)
     })
@@ -260,9 +339,10 @@ export function createPostgresPool(
   return { connect, query, pool }
 }
 
-// One pool per connection string per process, lazily created. Keyed rather than
-// a bare singleton so two handlers pointed at different databases in the same
-// process don't share one pool.
+// One pool per connection string and pool options per process, lazily
+// created. Keyed rather than a bare singleton so two handlers pointed at
+// different databases in the same process don't share one pool, and so two
+// entries that size the pool differently each get the pool they asked for.
 //
 // The scoped and admin middleware deliberately share this cache: they use the
 // same connection string, and the only difference is whether the transaction
@@ -272,15 +352,24 @@ export function createPostgresPool(
 const pools = new Map<string, PostgresPool>()
 
 /** @internal */
-export function getPool(connectionString: string): PostgresPool {
-  let entry = pools.get(connectionString)
+export function getPool(
+  connectionString: string,
+  options: ResolvedPoolOptions = DEFAULT_POOL_OPTIONS,
+): PostgresPool {
+  const key = JSON.stringify([
+    connectionString,
+    options.max,
+    options.checkoutTimeoutMs,
+  ])
+  let entry = pools.get(key)
   if (!entry) {
     const pool = new Pool({
       connectionString,
-      max: POOL_MAX,
+      max: options.max,
       // Caps how long a new connection may take to come up. Waiting for a
       // free slot happens in the wrapper, never in pg-pool's queue.
-      connectionTimeoutMillis: CHECKOUT_TIMEOUT_MS,
+      connectionTimeoutMillis: options.checkoutTimeoutMs,
+      application_name: applicationName(),
     })
     // A backend can die under any pooled connection at any time — pooler
     // restart, failover, idle-connection reap. pg surfaces that as an 'error'
@@ -303,7 +392,7 @@ export function getPool(connectionString: string): PostgresPool {
       pool,
       createConnectBackoff({ now: Date.now, random: Math.random }),
     )
-    pools.set(connectionString, entry)
+    pools.set(key, entry)
   }
   return entry
 }

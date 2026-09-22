@@ -7,6 +7,8 @@ const h = vi.hoisted(() => {
   // Every connection string a Pool was constructed with, in order. The pool
   // cache lives at module scope, so this accumulates across the whole file.
   const pooled: string[] = []
+  // The full config of every Pool constructed, in the same order.
+  const configs: Record<string, unknown>[] = []
   const clientQuery = vi.fn(async (text: string, p?: unknown[]) => {
     issued.push(text)
     params.push(p)
@@ -14,7 +16,7 @@ const h = vi.hoisted(() => {
   })
   const release = vi.fn()
   const connect = vi.fn(async () => ({ query: clientQuery, release }))
-  return { issued, params, pooled, clientQuery, release, connect }
+  return { issued, params, pooled, configs, clientQuery, release, connect }
 })
 
 vi.mock('pg', async () => {
@@ -28,10 +30,12 @@ vi.mock('pg', async () => {
     connect = h.connect
     idleCount = 0
     waitingCount = 0
-    options = { max: 4 }
+    options: Record<string, unknown>
     constructor(config: { connectionString: string }) {
       super()
+      this.options = config
       h.pooled.push(config.connectionString)
+      h.configs.push(config)
     }
   }
   return { default: { Pool }, Pool }
@@ -157,6 +161,69 @@ describe('withPostgresClient', () => {
 
     expect(h.pooled).toContain('postgres://localhost/from-config')
     expect(h.pooled).not.toContain('postgres://localhost/test')
+  })
+
+  it('passes pool options through and names the connection', async () => {
+    const handler = withPostgresClient(
+      {
+        connectionString: 'postgres://localhost/tuned',
+        pool: { max: 8, checkoutTimeoutMs: 2_500 },
+      },
+      async (_req, ctx) => {
+        await ctx.postgres.query`select 1`
+        return Response.json({ ok: true })
+      },
+    )
+
+    await handler(new Request('http://localhost'), {
+      ...seedContext(),
+      jwtClaims: { role: 'authenticated' },
+    })
+
+    expect(h.configs.at(-1)).toMatchObject({
+      connectionString: 'postgres://localhost/tuned',
+      max: 8,
+      connectionTimeoutMillis: 2_500,
+      application_name: 'supabase-server',
+    })
+  })
+
+  it('gives differing pool options on one connection string their own pools', async () => {
+    const run = async (pool: { max: number }) => {
+      const handler = withPostgresClient(
+        { connectionString: 'postgres://localhost/split', pool },
+        async (_req, ctx) => {
+          await ctx.postgres.query`select 1`
+          return Response.json({ ok: true })
+        },
+      )
+      await handler(new Request('http://localhost'), {
+        ...seedContext(),
+        jwtClaims: { role: 'authenticated' },
+      })
+    }
+
+    const before = h.configs.length
+    await run({ max: 2 })
+    await run({ max: 6 })
+    await run({ max: 2 })
+
+    expect(h.configs.slice(before).map((c) => c.max)).toEqual([2, 6])
+  })
+
+  it('refuses invalid pool options when the middleware is built, not per request', () => {
+    expect(() =>
+      withPostgresClient({ pool: { max: 0 } }, async () =>
+        Response.json({ ok: true }),
+      ),
+    ).toThrow(RangeError)
+    expect(() =>
+      withPostgresClient({ pool: { checkoutTimeoutMs: -1 } }, async () =>
+        Response.json({ ok: true }),
+      ),
+    ).toThrow(/pool\.checkoutTimeoutMs/)
+    // Nothing reached pg.
+    expect(h.connect).not.toHaveBeenCalled()
   })
 
   it('gives each connection string its own pool, and reuses it', async () => {

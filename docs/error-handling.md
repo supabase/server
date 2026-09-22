@@ -284,11 +284,11 @@ Thrown by `ctx.postgres` and `ctx.postgresAdmin` queries when the pool cannot ha
 
 ### `POSTGRES_POOL_BUSY`
 
-All pooled connections were in use for the whole 10-second checkout wait. `details.max` is the pool size and `details.waitedMs` the wait. The pool is saturated, not broken. Run fewer statements per request, move multi-statement logic into a database function, route heavy reads through `ctx.supabase`, or add processes. See [Slow under load](postgres.md#slow-under-load).
+All pooled connections were in use for the whole checkout wait (`pool.checkoutTimeoutMs`, 10 seconds by default). `details.max` is the pool size and `details.waitedMs` the wait. The pool is saturated, not broken. Run fewer statements per request, move multi-statement logic into a database function, route heavy reads through `ctx.supabase`, or add processes. See [Slow under load](postgres.md#slow-under-load).
 
 ### `POSTGRES_CONNECT_PAUSED`
 
-A connection attempt failed, and the pool is pausing new attempts so a bad credential cannot storm the pooler. The pause starts at one second, doubles on each failing round up to 30 seconds, and ends on the first successful connection. Only a query that needs a new connection is refused. A query served by an idle connection goes through.
+A connection attempt failed, and the pool is pausing new attempts so a bad credential cannot storm the pooler. The pause starts between half a second and one second, doubles on each failing round up to between 15 and 30 seconds, and ends on the first successful connection. Only a query that needs a new connection is refused. A query served by an idle connection goes through.
 
 `cause` is the connection failure. `details.retryAfterMs` is the time left in the pause, which fits a `Retry-After` header. Check the connection string and the database password. See [Wrong password](postgres.md#wrong-password).
 
