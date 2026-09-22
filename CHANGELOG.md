@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/supabase/server/compare/server-v1.7.2...server-v1.8.0) (2026-09-22)
+
+
+### Features
+
+* add PostgresPoolError codes for pool busy and connect paused ([#177](https://github.com/supabase/server/issues/177)) ([f7aeabd](https://github.com/supabase/server/commit/f7aeabd524f902931e5eb9d1ec30dc8a31099235))
+* pool size and checkout timeout options, default application_name ([#180](https://github.com/supabase/server/issues/180)) ([cf31fc9](https://github.com/supabase/server/commit/cf31fc943e167792cb3c9d4538a3363a4bab4664))
+
 ## [1.7.2](https://github.com/supabase/server/compare/server-v1.7.1...server-v1.7.2) (2026-09-22)
 
 
