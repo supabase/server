@@ -18,18 +18,14 @@ const { Pool } = pg
 export const POOL_MAX = 4
 
 /**
- * How long a checkout waits for a free connection — or for a new one to
- * connect — before failing. Supavisor's own checkout timeout is sixty
- * seconds; this has to expire well before it so the failure surfaces here,
- * where the message can say what happened.
+ * How long a checkout waits for a free connection before failing, and how
+ * long a new connection may take to come up. Supavisor's own checkout timeout
+ * is sixty seconds; this has to expire well before it so the failure surfaces
+ * here, where the message can say what happened.
  *
  * @internal
  */
 export const CHECKOUT_TIMEOUT_MS = 10_000
-
-// pg-pool's queue-wait timeout carries no code; the message is the only
-// handle on it.
-const QUEUE_TIMEOUT_MESSAGE = 'timeout exceeded when trying to connect'
 
 const LOG_PREFIX = '[@supabase/server] postgres pool:'
 
@@ -110,6 +106,20 @@ export interface PostgresApi {
 }
 
 /**
+ * A checked-out connection: run statements on it, then release it.
+ *
+ * @internal
+ */
+export interface PooledClient {
+  query(text: string, params?: unknown[]): Promise<pg.QueryResult>
+  /**
+   * Return the connection to the pool. A truthy argument discards it instead,
+   * as `pg.PoolClient#release` does.
+   */
+  release(destroy?: Error | boolean): void
+}
+
+/**
  * The pool as the middleware see it: `pg.Pool`'s checkout and one-shot query,
  * paced by a connect-failure backoff.
  *
@@ -117,10 +127,11 @@ export interface PostgresApi {
  */
 export interface PostgresPool {
   /**
-   * Check a connection out. Rejects immediately while new connection attempts
-   * are paused after a failure, so a bad credential cannot storm the pooler.
+   * Check a connection out. Waits up to {@link CHECKOUT_TIMEOUT_MS} for a
+   * free slot, and rejects without trying while new connection attempts are
+   * paused after a failure, so a bad credential cannot storm the pooler.
    */
-  connect(): Promise<pg.PoolClient>
+  connect(): Promise<PooledClient>
   /** Check out, run one statement, release — like `pg.Pool#query`. */
   query(text: string, params?: unknown[]): Promise<pg.QueryResult>
   readonly pool: pg.Pool
@@ -131,16 +142,60 @@ export function createPostgresPool(
   pool: pg.Pool,
   backoff: ConnectBackoff,
 ): PostgresPool {
+  const max = pool.options.max
+  // The wrapper, not pg-pool, holds the line on how many checkouts are in
+  // flight. pg-pool hands the next item in its own queue a fresh connection
+  // attempt the moment one fails, so a queue it owns turns one bad credential
+  // into a burst of attempts before any pause can start.
+  let admitted = 0
+  // Admitted checkouts whose pool.connect() has not settled. pg-pool serves
+  // them from idle connections first, so each one claims an idle connection
+  // ahead of a checkout arriving after it.
+  let acquiring = 0
+  const waiters: Array<() => void> = []
+
   // pg-pool emits 'connect' only for a physically new connection, which is
   // the one event that proves connecting works again.
   pool.on('connect', () => backoff.succeed())
 
-  async function connect(): Promise<pg.PoolClient> {
+  function acquireSlot(): Promise<void> {
+    if (admitted < max) {
+      admitted += 1
+      return Promise.resolve()
+    }
+    return new Promise((resolve, reject) => {
+      const wake = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+      const timer = setTimeout(() => {
+        const i = waiters.indexOf(wake)
+        if (i !== -1) waiters.splice(i, 1)
+        reject(
+          new Error(
+            `${LOG_PREFIX} all ${max} connections stayed busy for ${CHECKOUT_TIMEOUT_MS}ms`,
+          ),
+        )
+      }, CHECKOUT_TIMEOUT_MS)
+      ;(timer as { unref?: () => void }).unref?.()
+      waiters.push(wake)
+    })
+  }
+
+  function releaseSlot(): void {
+    const next = waiters.shift()
+    if (next) next()
+    else admitted -= 1
+  }
+
+  async function connect(): Promise<PooledClient> {
+    await acquireSlot()
+
     const remaining = backoff.remainingMs()
-    // Only a checkout that would open a new connection is refused. With an
-    // idle connection pg-pool reuses it, and with every slot taken it queues
-    // for a release; neither touches the pooler.
-    if (remaining > 0 && pool.idleCount === 0 && pool.totalCount < POOL_MAX) {
+    // Refuse only a checkout that would open a new connection: one that finds
+    // no idle connection left over after the checkouts already claiming them.
+    if (remaining > 0 && pool.idleCount <= acquiring) {
+      releaseSlot()
       const cause = backoff.lastError()
       throw new Error(
         `${LOG_PREFIX} new connections paused for ${remaining}ms after a connection failure: ${messageOf(cause)}`,
@@ -148,14 +203,13 @@ export function createPostgresPool(
       )
     }
 
+    acquiring += 1
+    let client: pg.PoolClient
     try {
-      return await pool.connect()
+      client = await pool.connect()
     } catch (e) {
-      if (e instanceof Error && e.message === QUEUE_TIMEOUT_MESSAGE) {
-        // Waiting out a busy pool says nothing about whether connecting works.
-        e.message += ` (all ${POOL_MAX} pooled connections were busy for ${CHECKOUT_TIMEOUT_MS}ms)`
-        throw e
-      }
+      acquiring -= 1
+      releaseSlot()
       const pause = backoff.fail(e)
       if (pause > 0) {
         console.error(
@@ -163,6 +217,27 @@ export function createPostgresPool(
         )
       }
       throw e
+    }
+    acquiring -= 1
+
+    let released = false
+    return {
+      query: (text, params) => client.query(text, params),
+      release(destroy) {
+        // The slot comes back exactly once, whatever pg-pool does with the
+        // release: a throw on the first call must not lose it for the life of
+        // the process, and pg-pool throwing on a second call must not return
+        // it twice.
+        try {
+          if (destroy === undefined) client.release()
+          else client.release(destroy)
+        } finally {
+          if (!released) {
+            released = true
+            releaseSlot()
+          }
+        }
+      },
     }
   }
 
@@ -204,8 +279,8 @@ export function getPool(connectionString: string): PostgresPool {
     const pool = new Pool({
       connectionString,
       max: POOL_MAX,
-      // Applies both to waiting for a free slot and to connecting a new
-      // client, so a saturated pool fails the request once the wait runs out.
+      // Caps how long a new connection may take to come up. Waiting for a
+      // free slot happens in the wrapper, never in pg-pool's queue.
       connectionTimeoutMillis: CHECKOUT_TIMEOUT_MS,
     })
     // A backend can die under any pooled connection at any time — pooler

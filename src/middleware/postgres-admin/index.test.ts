@@ -20,13 +20,14 @@ const h = vi.hoisted(() => {
 vi.mock('pg', async () => {
   const { EventEmitter } = await import('node:events')
   // Real pg pools are EventEmitters; getPool attaches 'error' and 'connect'
-  // listeners on construction, so the mock must accept them. The counters are
-  // what the connect-failure backoff reads to decide whether a checkout would
-  // open a new connection.
+  // listeners on construction, so the mock must accept them. `options.max`
+  // sizes the wrapper's checkout slots and `idleCount` is what the
+  // connect-failure backoff reads to decide whether a checkout would open a
+  // new connection.
   class Pool extends EventEmitter {
     connect = h.connect
     idleCount = 0
-    totalCount = 0
+    options = { max: 4 }
     constructor(config: { connectionString: string }) {
       super()
       h.pooled.push(config.connectionString)
