@@ -148,10 +148,6 @@ export function createPostgresPool(
   // attempt the moment one fails, so a queue it owns turns one bad credential
   // into a burst of attempts before any pause can start.
   let admitted = 0
-  // Admitted checkouts whose pool.connect() has not settled. pg-pool serves
-  // them from idle connections first, so each one claims an idle connection
-  // ahead of a checkout arriving after it.
-  let acquiring = 0
   const waiters: Array<() => void> = []
 
   // pg-pool emits 'connect' only for a physically new connection, which is
@@ -192,9 +188,11 @@ export function createPostgresPool(
     await acquireSlot()
 
     const remaining = backoff.remainingMs()
-    // Refuse only a checkout that would open a new connection: one that finds
-    // no idle connection left over after the checkouts already claiming them.
-    if (remaining > 0 && pool.idleCount <= acquiring) {
+    // Refuse only a checkout that would open a new connection. pg-pool hands
+    // idle connections to its pending checkouts first, at the next tick, so an
+    // idle connection is spare for this one only when there are more idle than
+    // pending. A checkout that is opening its own connection is neither.
+    if (remaining > 0 && pool.idleCount <= pool.waitingCount) {
       releaseSlot()
       const cause = backoff.lastError()
       throw new Error(
@@ -203,12 +201,10 @@ export function createPostgresPool(
       )
     }
 
-    acquiring += 1
     let client: pg.PoolClient
     try {
       client = await pool.connect()
     } catch (e) {
-      acquiring -= 1
       releaseSlot()
       const pause = backoff.fail(e)
       if (pause > 0) {
@@ -218,7 +214,6 @@ export function createPostgresPool(
       }
       throw e
     }
-    acquiring -= 1
 
     let released = false
     return {

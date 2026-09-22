@@ -54,10 +54,12 @@ function fakePool(max = 4) {
   const pool = new EventEmitter() as EventEmitter & {
     connect: ReturnType<typeof vi.fn>
     idleCount: number
+    waitingCount: number
     options: { max: number }
   }
   pool.connect = vi.fn()
   pool.idleCount = 0
+  pool.waitingCount = 0
   pool.options = { max }
   return pool
 }
@@ -265,24 +267,6 @@ describe('createPostgresPool', () => {
     expect(pool.connect).toHaveBeenCalledTimes(6)
   })
 
-  it('refuses the second of two same-tick checkouts when one idle connection is spare during a pause', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { pool, wrapper } = wrapped()
-    pool.connect.mockRejectedValueOnce(authFailure())
-    await expect(wrapper.connect()).rejects.toThrow()
-
-    pool.idleCount = 1
-    pool.connect.mockImplementation(async () => fakeClient())
-    const first = wrapper.connect()
-    const second = wrapper.connect()
-
-    await expect(first).resolves.toBeDefined()
-    // pg-pool would serve the first from the idle client and open a new
-    // connection for the second; only the first may go through.
-    await expect(second).rejects.toThrow(/new connections paused/)
-    expect(pool.connect).toHaveBeenCalledTimes(2)
-  })
-
   it('frees the slot when the pool rejects the checkout', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { pool, wrapper, advance } = wrapped()
@@ -406,6 +390,8 @@ describe('createPostgresPool against pg-pool', () => {
       connectionString: 'postgresql://stub@localhost:5432/db',
       max: 4,
       connectionTimeoutMillis,
+      // No idle reaper: nothing leaves a 10s timer behind after a test.
+      idleTimeoutMillis: 0,
       Client,
     } as pg.PoolConfig)
     return createPostgresPool(
@@ -461,6 +447,87 @@ describe('createPostgresPool against pg-pool', () => {
     const second = await burst(wrapper, 20)
     expect(attempts).toBe(4)
     expect(second).toEqual({ refused: 20, failed: 0 })
+  })
+
+  // A client whose connect outcome the test scripts per call. Successful
+  // clients need `_queryable` and ref/unref: pg-pool discards a released
+  // client whose `_queryable` is falsy, and refs the ones it hands out.
+  function scriptedClient() {
+    const state = { mode: 'ok' as 'ok' | 'fail' | 'slow', attempts: 0 }
+    class Client extends EventEmitter {
+      connection = undefined
+      _queryable = true
+      ref() {}
+      unref() {}
+      connect(cb: (err?: Error) => void) {
+        state.attempts += 1
+        const mode = state.mode
+        setTimeout(
+          () =>
+            cb(
+              mode === 'fail'
+                ? new Error('password authentication failed')
+                : undefined,
+            ),
+          mode === 'slow' ? 60 : 5,
+        )
+      }
+      end(cb?: () => void) {
+        cb?.()
+      }
+      isConnected() {
+        return true
+      }
+    }
+    return { Client, state }
+  }
+
+  it('serves a checkout from an idle connection during a pause while another opens a new one', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { Client, state } = scriptedClient()
+    const wrapper = realPool(Client)
+    const first = await wrapper.connect()
+
+    // A sibling is mid-way through opening a second connection when a third
+    // attempt fails and the pause begins.
+    state.mode = 'slow'
+    const opening = wrapper.connect()
+    // connect() takes its slot on a microtask before it reaches pg-pool; let
+    // that happen so the slow connect is really in flight before the switch.
+    await flush()
+    state.mode = 'fail'
+    await expect(wrapper.connect()).rejects.toThrow(
+      'password authentication failed',
+    )
+    expect(state.attempts).toBe(3)
+
+    first.release()
+    // pg-pool has an idle connection and nobody waiting for it; the checkout
+    // in flight is opening its own, not claiming this one.
+    const served = await wrapper.connect()
+    expect(state.attempts).toBe(3)
+
+    served.release()
+    ;(await opening).release()
+  })
+
+  it('refuses the second of two same-tick checkouts when one idle connection is spare during a pause', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { Client, state } = scriptedClient()
+    const wrapper = realPool(Client)
+    const first = await wrapper.connect()
+    state.mode = 'fail'
+    await expect(wrapper.connect()).rejects.toThrow()
+    first.release()
+
+    const a = wrapper.connect()
+    const b = wrapper.connect()
+
+    // pg-pool serves the first from the idle connection at the next tick and
+    // would open a new one for the second; only the first may go through.
+    await expect(a).resolves.toBeDefined()
+    await expect(b).rejects.toThrow(/new connections paused/)
+    expect(state.attempts).toBe(2)
   })
 
   it('treats a connect that hits the pool timeout as a connection failure', async () => {

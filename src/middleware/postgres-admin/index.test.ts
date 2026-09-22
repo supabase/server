@@ -27,6 +27,7 @@ vi.mock('pg', async () => {
   class Pool extends EventEmitter {
     connect = h.connect
     idleCount = 0
+    waitingCount = 0
     options = { max: 4 }
     constructor(config: { connectionString: string }) {
       super()
