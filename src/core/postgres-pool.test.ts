@@ -14,6 +14,7 @@ import {
   CHECKOUT_TIMEOUT_MS,
   createPostgresPool,
   getPool,
+  resolvePoolOptions,
 } from './postgres-pool.js'
 
 // Constructing a pg.Pool opens no connections, so the real Pool class is safe
@@ -50,22 +51,115 @@ describe('getPool', () => {
     expect(pool.options.max).toBe(4)
     expect(pool.options.connectionTimeoutMillis).toBe(10_000)
   })
+
+  it('sizes the pool and its timeouts from the resolved options', () => {
+    const { pool } = getPool(
+      'postgresql://tuned@localhost:5432/db',
+      resolvePoolOptions({ max: 8, checkoutTimeoutMs: 2_500 }),
+    )
+    expect(pool.options.max).toBe(8)
+    expect(pool.options.connectionTimeoutMillis).toBe(2_500)
+  })
+
+  it('shares one pool across unset, empty, and default-valued options', () => {
+    const url = 'postgresql://defaults@localhost:5432/db'
+    const bare = getPool(url)
+    expect(getPool(url, resolvePoolOptions())).toBe(bare)
+    expect(getPool(url, resolvePoolOptions({}))).toBe(bare)
+    expect(
+      getPool(url, resolvePoolOptions({ max: 4, checkoutTimeoutMs: 10_000 })),
+    ).toBe(bare)
+  })
+
+  it('keys the cache on the pool options as well as the connection string', () => {
+    const url = 'postgresql://keyed@localhost:5432/db'
+    const small = getPool(url, resolvePoolOptions({ max: 2 }))
+    const large = getPool(url, resolvePoolOptions({ max: 8 }))
+    expect(small).not.toBe(large)
+    expect(small).not.toBe(getPool(url))
+    expect(getPool(url, resolvePoolOptions({ max: 2 }))).toBe(small)
+  })
+
+  it('names the connection after the package, and the function when the runtime says which', () => {
+    vi.stubEnv('SUPABASE_FUNCTION_SLUG', undefined)
+    expect(
+      getPool('postgresql://named@localhost:5432/db').pool.options
+        .application_name,
+    ).toBe('supabase-server')
+
+    vi.stubEnv('SUPABASE_FUNCTION_SLUG', 'doctor-report')
+    expect(
+      getPool('postgresql://named-slug@localhost:5432/db').pool.options
+        .application_name,
+    ).toBe('supabase-server:doctor-report')
+    vi.unstubAllEnvs()
+  })
+
+  it('lets an application_name in the connection string win', () => {
+    const { pool } = getPool(
+      'postgresql://own-name@localhost:5432/db?application_name=custom-app',
+    )
+    // pg merges the parsed connection string over the config object when a
+    // client is built; constructing one opens no socket.
+    const client = new pg.Client(pool.options) as unknown as {
+      connectionParameters: { application_name: string }
+    }
+    expect(client.connectionParameters.application_name).toBe('custom-app')
+  })
+})
+
+describe('resolvePoolOptions', () => {
+  it('fills in the defaults', () => {
+    expect(resolvePoolOptions()).toEqual({ max: 4, checkoutTimeoutMs: 10_000 })
+    expect(resolvePoolOptions({})).toEqual({
+      max: 4,
+      checkoutTimeoutMs: 10_000,
+    })
+    expect(resolvePoolOptions({ max: 8 })).toEqual({
+      max: 8,
+      checkoutTimeoutMs: 10_000,
+    })
+    expect(resolvePoolOptions({ checkoutTimeoutMs: 500 })).toEqual({
+      max: 4,
+      checkoutTimeoutMs: 500,
+    })
+  })
+
+  it.each([0, -1, 2.5, NaN, Infinity])(
+    'rejects max = %s as not a positive integer',
+    (max) => {
+      expect(() => resolvePoolOptions({ max })).toThrow(RangeError)
+      expect(() => resolvePoolOptions({ max })).toThrow(/pool\.max/)
+    },
+  )
+
+  it.each([0, -5, NaN, Infinity])(
+    'rejects checkoutTimeoutMs = %s as not a positive number of milliseconds',
+    (checkoutTimeoutMs) => {
+      expect(() => resolvePoolOptions({ checkoutTimeoutMs })).toThrow(
+        RangeError,
+      )
+      expect(() => resolvePoolOptions({ checkoutTimeoutMs })).toThrow(
+        /pool\.checkoutTimeoutMs/,
+      )
+    },
+  )
 })
 
 // The wrapper is tested against a stand-in pool: the real one would open a
 // socket on connect(), and every behaviour under test is about what happens
 // around that call, not inside it.
-function fakePool(max = 4) {
+function fakePool(max = 4, connectionTimeoutMillis = CHECKOUT_TIMEOUT_MS) {
   const pool = new EventEmitter() as EventEmitter & {
     connect: ReturnType<typeof vi.fn>
     idleCount: number
     waitingCount: number
-    options: { max: number }
+    options: { max: number; connectionTimeoutMillis: number }
   }
   pool.connect = vi.fn()
   pool.idleCount = 0
   pool.waitingCount = 0
-  pool.options = { max }
+  pool.options = { max, connectionTimeoutMillis }
   return pool
 }
 
@@ -76,9 +170,9 @@ function fakeClient(query: ReturnType<typeof vi.fn> = vi.fn()) {
   }
 }
 
-function wrapped() {
+function wrapped(max = 4, connectionTimeoutMillis = CHECKOUT_TIMEOUT_MS) {
   let now = 0
-  const pool = fakePool()
+  const pool = fakePool(max, connectionTimeoutMillis)
   const backoff = createConnectBackoff({ now: () => now, random: () => 1 })
   const wrapper = createPostgresPool(pool as unknown as Pool, backoff)
   return {
@@ -174,6 +268,21 @@ describe('createPostgresPool', () => {
     pool.connect.mockResolvedValueOnce(fakeClient())
 
     await expect(wrapper.connect()).resolves.toBeDefined()
+  })
+
+  it('waits as long as the pool is configured to, not a fixed ten seconds', async () => {
+    vi.useFakeTimers()
+    const { pool, wrapper } = wrapped(2, 250)
+    pool.connect.mockImplementation(async () => fakeClient())
+    await Promise.all([wrapper.connect(), wrapper.connect()])
+
+    const waiting = wrapper.connect()
+    const rejection = expect(waiting).rejects.toMatchObject({
+      code: PostgresPoolBusyError,
+      details: { max: 2, waitedMs: 250 },
+    })
+    await vi.advanceTimersByTimeAsync(250)
+    await rejection
   })
 
   it('holds a checkout while every connection is out and hands one over on release', async () => {

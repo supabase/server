@@ -19,8 +19,9 @@ export interface BackoffPolicy {
  * A connection attempt that fails takes about one auth round trip, so an
  * unpaced pool of four retries roughly thirty times a second per process —
  * enough to trip the pooler's tenant-wide authentication circuit breaker
- * within seconds. One second, doubling to thirty, keeps a whole fleet of
- * misconfigured isolates to a handful of attempts a minute.
+ * within seconds. Half a second to one second, doubling to between fifteen
+ * and thirty, keeps a whole fleet of misconfigured isolates to a handful of
+ * attempts a minute.
  *
  * @internal
  */
