@@ -72,7 +72,8 @@ The status code and the `x-supabase-server-error` header are unaffected, and `me
 Error
 └── SupabaseServerError    ← catch this for anything from @supabase/server
     ├── EnvError           ← always status 500
-    └── AuthError          ← status 401 or 500
+    ├── AuthError          ← status 401 or 500
+    └── PostgresPoolError  ← always status 503
 ```
 
 ```ts
@@ -272,23 +273,43 @@ Set `SUPABASE_DB_URL`, or pass `connectionString` to the middleware — `details
 
 Generic environment error. The default code when constructing an `EnvError` yourself.
 
+## PostgresPoolError codes
+
+Thrown by `ctx.postgres` and `ctx.postgresAdmin` queries when the pool cannot hand out a connection. Always `status: 503`. The condition is transient, so the request can be retried. The middleware do not turn this error into a response. Catch it in the handler, or let the host's error handler map it.
+
+| Code                                                  | Meaning                                                         |
+| ----------------------------------------------------- | --------------------------------------------------------------- |
+| [`POSTGRES_POOL_BUSY`](#postgres_pool_busy)           | Every pooled connection stayed busy for the whole checkout wait |
+| [`POSTGRES_CONNECT_PAUSED`](#postgres_connect_paused) | A connection attempt failed and new attempts are paused         |
+
+### `POSTGRES_POOL_BUSY`
+
+All pooled connections were in use for the whole 10-second checkout wait. `details.max` is the pool size and `details.waitedMs` the wait. The pool is saturated, not broken. Run fewer statements per request, move multi-statement logic into a database function, route heavy reads through `ctx.supabase`, or add processes. See [Slow under load](postgres.md#slow-under-load).
+
+### `POSTGRES_CONNECT_PAUSED`
+
+A connection attempt failed, and the pool is pausing new attempts so a bad credential cannot storm the pooler. The pause starts at one second, doubles on each failing round up to 30 seconds, and ends on the first successful connection. Only a query that needs a new connection is refused. A query served by an idle connection goes through.
+
+`cause` is the connection failure. `details.retryAfterMs` is the time left in the pause, which fits a `Retry-After` header. Check the connection string and the database password. See [Wrong password](postgres.md#wrong-password).
+
 ## How errors surface in each layer
 
-| Function                       | Pattern       | What happens on error                                                                             |
-| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------- |
-| `withSupabase()`               | Auto-response | Returns the JSON payload above, with CORS and `x-supabase-server-error`                           |
-| `withClaims()`                 | Auto-response | Same payload, short-circuiting the pipeline                                                       |
-| `withRequiredClaims()`         | Auto-response | Same payload, short-circuiting the pipeline                                                       |
-| `withPostgresClient()`         | Auto-response | Same payload, on an unsupported `role` claim or a missing connection string                       |
-| `withPostgresAdminClient()`    | Auto-response | Same payload, on a missing connection string                                                      |
-| `withOAuthProtectedResource()` | Auto-response | Same payload, when a default URL cannot be derived (a configured URL function's throw propagates) |
-| `createSupabaseContext()`      | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
-| `verifyAuth()`                 | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
-| `verifyCredentials()`          | Result tuple  | Returns `{ data: null, error: AuthError }`                                                        |
-| `resolveEnv()`                 | Result tuple  | Returns `{ data: null, error: EnvError }`                                                         |
-| `createContextClient()`        | **Throws**    | Throws `EnvError`                                                                                 |
-| `createAdminClient()`          | **Throws**    | Throws `EnvError`                                                                                 |
-| Hono `withSupabase()`          | HTTPException | Throws `HTTPException` with `cause: AuthError`                                                    |
+| Function                                     | Pattern       | What happens on error                                                                                                   |
+| -------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `withSupabase()`                             | Auto-response | Returns the JSON payload above, with CORS and `x-supabase-server-error`                                                 |
+| `withClaims()`                               | Auto-response | Same payload, short-circuiting the pipeline                                                                             |
+| `withRequiredClaims()`                       | Auto-response | Same payload, short-circuiting the pipeline                                                                             |
+| `withPostgresClient()`                       | Auto-response | Same payload, on an unsupported `role` claim or a missing connection string                                             |
+| `withPostgresAdminClient()`                  | Auto-response | Same payload, on a missing connection string                                                                            |
+| `ctx.postgres` / `ctx.postgresAdmin` queries | **Throws**    | Throws `PostgresPoolError` (503) when the pool cannot hand out a connection. Any other failure is the `pg` error itself |
+| `withOAuthProtectedResource()`               | Auto-response | Same payload, when a default URL cannot be derived (a configured URL function's throw propagates)                       |
+| `createSupabaseContext()`                    | Result tuple  | Returns `{ data: null, error: AuthError }`                                                                              |
+| `verifyAuth()`                               | Result tuple  | Returns `{ data: null, error: AuthError }`                                                                              |
+| `verifyCredentials()`                        | Result tuple  | Returns `{ data: null, error: AuthError }`                                                                              |
+| `resolveEnv()`                               | Result tuple  | Returns `{ data: null, error: EnvError }`                                                                               |
+| `createContextClient()`                      | **Throws**    | Throws `EnvError`                                                                                                       |
+| `createAdminClient()`                        | **Throws**    | Throws `EnvError`                                                                                                       |
+| Hono `withSupabase()`                        | HTTPException | Throws `HTTPException` with `cause: AuthError`                                                                          |
 
 `verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
 
@@ -388,7 +409,12 @@ Errors[MissingSecretKeyError]('mobile', ['default', 'web'])
 ## Checking error types
 
 ```ts
-import { AuthError, EnvError, SupabaseServerError } from '@supabase/server'
+import {
+  AuthError,
+  EnvError,
+  PostgresPoolError,
+  SupabaseServerError,
+} from '@supabase/server'
 
 try {
   // ...
@@ -401,6 +427,9 @@ try {
   }
   if (e instanceof EnvError) {
     // e.status is always 500
+  }
+  if (e instanceof PostgresPoolError) {
+    // e.status is always 503. e.details.retryAfterMs is set while a pause runs
   }
 }
 ```

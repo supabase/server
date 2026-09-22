@@ -9,23 +9,33 @@ import {
   MissingDefaultSecretKeyError,
   MissingSecretKeyError,
   MissingSupabaseURLError,
+  PostgresConnectPausedError,
+  PostgresPoolBusyError,
+  PostgresPoolError,
   SupabaseServerError,
 } from './errors.js'
 
 describe('SupabaseServerError', () => {
-  it('is the common base for both error classes', () => {
+  it('is the common base for every error class', () => {
+    const pool = new PostgresPoolError('nope', PostgresPoolBusyError)
     expect(new AuthError('nope')).toBeInstanceOf(SupabaseServerError)
     expect(new EnvError('nope')).toBeInstanceOf(SupabaseServerError)
+    expect(pool).toBeInstanceOf(SupabaseServerError)
     // Still ordinary Errors, so existing `instanceof Error` checks hold.
     expect(new AuthError('nope')).toBeInstanceOf(Error)
     expect(new EnvError('nope')).toBeInstanceOf(Error)
+    expect(pool).toBeInstanceOf(Error)
   })
 
   it('keeps the subclasses distinguishable', () => {
+    const pool = new PostgresPoolError('nope', PostgresPoolBusyError)
     expect(new AuthError('nope')).not.toBeInstanceOf(EnvError)
     expect(new EnvError('nope')).not.toBeInstanceOf(AuthError)
+    expect(pool).not.toBeInstanceOf(AuthError)
+    expect(pool).not.toBeInstanceOf(EnvError)
     expect(new AuthError('nope').name).toBe('AuthError')
     expect(new EnvError('nope').name).toBe('EnvError')
+    expect(pool.name).toBe('PostgresPoolError')
   })
 
   it('stamps provenance on the message and as a field', () => {
@@ -96,6 +106,14 @@ describe('EnvError', () => {
   })
 })
 
+describe('PostgresPoolError', () => {
+  it('is always a 503', () => {
+    expect(new PostgresPoolError('nope', PostgresPoolBusyError).status).toBe(
+      503,
+    )
+  })
+})
+
 describe('AuthError', () => {
   it('defaults to a 401 with the generic code', () => {
     const error = new AuthError('boom')
@@ -138,5 +156,46 @@ describe('Errors factory map', () => {
     )
     expect(Errors[InvalidCredentialsError]().code).toBe(InvalidCredentialsError)
     expect(Errors[InvalidCredentialsError]().status).toBe(401)
+  })
+
+  it('describes a paused pool with the time left and the failure behind it', () => {
+    const failure = new Error(
+      'password authentication failed for user "postgres"',
+    )
+    const error = Errors[PostgresConnectPausedError]({
+      remainingMs: 1500,
+      cause: failure,
+    })
+    expect(error).toBeInstanceOf(PostgresPoolError)
+    expect(error.code).toBe('POSTGRES_CONNECT_PAUSED')
+    expect(error.status).toBe(503)
+    expect(error.message).toBe(
+      '[@supabase/server] postgres pool: new connections paused for 1500ms after a connection failure: password authentication failed for user "postgres"',
+    )
+    expect(error.cause).toBe(failure)
+    expect(error.details).toEqual({ retryAfterMs: 1500 })
+    expect(error.hint).toMatch(/connection string/)
+    expect(error.docs).toContain('#postgres_connect_paused')
+  })
+
+  it('renders a non-Error cause by its string form', () => {
+    const error = Errors[PostgresConnectPausedError]({
+      remainingMs: 1,
+      cause: 'socket hang up',
+    })
+    expect(error.message).toMatch(/connection failure: socket hang up$/)
+  })
+
+  it('describes a busy pool with its size and the wait', () => {
+    const error = Errors[PostgresPoolBusyError]({ max: 4, waitedMs: 10_000 })
+    expect(error).toBeInstanceOf(PostgresPoolError)
+    expect(error.code).toBe('POSTGRES_POOL_BUSY')
+    expect(error.status).toBe(503)
+    expect(error.message).toBe(
+      '[@supabase/server] postgres pool: all 4 connections stayed busy for 10000ms',
+    )
+    expect(error.details).toEqual({ max: 4, waitedMs: 10_000 })
+    expect(error.hint).toMatch(/ctx\.supabase/)
+    expect(error.docs).toContain('#postgres_pool_busy')
   })
 })

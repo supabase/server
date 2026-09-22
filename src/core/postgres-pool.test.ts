@@ -4,6 +4,11 @@ import pg from 'pg'
 import type { Pool, PoolClient } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import {
+  PostgresConnectPausedError,
+  PostgresPoolBusyError,
+  PostgresPoolError,
+} from '../errors.js'
 import { createConnectBackoff } from './postgres-backoff.js'
 import {
   CHECKOUT_TIMEOUT_MS,
@@ -119,6 +124,13 @@ describe('createPostgresPool', () => {
       /new connections paused for 1000ms after a connection failure: password authentication failed/,
     )
     await expect(refused).rejects.toHaveProperty('cause', failure)
+    // A typed error, so a host can answer 503 and read the pause length.
+    await expect(refused).rejects.toBeInstanceOf(PostgresPoolError)
+    await expect(refused).rejects.toMatchObject({
+      code: PostgresConnectPausedError,
+      status: 503,
+      details: { retryAfterMs: 1000 },
+    })
     // The refusal is what keeps the pooler's circuit breaker from tripping:
     // the pool is never asked to try again inside the pause.
     expect(pool.connect).toHaveBeenCalledTimes(1)
@@ -207,6 +219,12 @@ describe('createPostgresPool', () => {
     )
     await vi.advanceTimersByTimeAsync(CHECKOUT_TIMEOUT_MS)
     await rejection
+    await expect(waiting).rejects.toBeInstanceOf(PostgresPoolError)
+    await expect(waiting).rejects.toMatchObject({
+      code: PostgresPoolBusyError,
+      status: 503,
+      details: { max: 4, waitedMs: 10_000 },
+    })
 
     // A timed-out waiter is gone: the next release wakes nobody and the
     // connection simply goes back to the pool.
@@ -411,7 +429,11 @@ describe('createPostgresPool against pg-pool', () => {
         wrapper.connect().then(
           (client) => client.release(),
           (e: Error) => {
-            if (/new connections paused/.test(e.message)) refused += 1
+            if (
+              e instanceof PostgresPoolError &&
+              e.code === PostgresConnectPausedError
+            )
+              refused += 1
             else failed += 1
           },
         ),
