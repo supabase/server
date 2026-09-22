@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/supabase/server/compare/server-v1.7.1...server-v1.7.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* back off after failed postgres connects and cap checkout waits ([#176](https://github.com/supabase/server/issues/176)) ([2dfa399](https://github.com/supabase/server/commit/2dfa399a912f6f20c338c36cde2bf957e0058868))
+
 ## [1.7.1](https://github.com/supabase/server/compare/server-v1.7.0...server-v1.7.1) (2026-09-21)
 
 
