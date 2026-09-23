@@ -9,6 +9,7 @@ Thank you for your interest in contributing to `@supabase/server`! This document
 - [Development Workflow](#development-workflow)
 - [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
+- [Contributing a middleware](#contributing-a-middleware)
 - [Contributing a framework adapter](#contributing-a-framework-adapter)
 - [Release Process](#release-process)
 
@@ -198,6 +199,18 @@ BREAKING CHANGE: auth configuration now uses a discriminated union
 - Ensure all CI checks pass
 - Rebase on `main` if needed to resolve conflicts
 - Be responsive to review feedback
+
+## Contributing a middleware
+
+`@supabase/server` holds the middleware Supabase maintains: `withSupabase`, `withSupabaseClient`, `withSupabaseAdminClient`, `withClaims`, `withRequiredClaims`, `withPostgresClient`, `withPostgresAdminClient`, and `withOAuthProtectedResource`. Fixes and improvements to these are welcome as PRs.
+
+New middleware starts as an issue, not a PR. Every entry here needs Supabase (keys, environment variables, a database connection, or Supabase API surface) and works with zero configuration on Supabase Edge Functions. Say in the issue how the proposal meets both, and the maintainers decide whether it ships here.
+
+Middleware with no Supabase surface lives in its own package on top of [`@supabase/middleware`](https://github.com/supabase/middleware); the engine's [authoring guide](https://github.com/supabase/middleware/blob/main/docs/authoring-guide.md) walks the full path. The engine itself ships only the composition primitives and two worked examples, so new middleware does not land there either.
+
+**Layout.** A composable entry lives in `src/middleware/<name>/` with an `index.ts` and an `index.test.ts`, and exports from its own subpath, `@supabase/server/middleware/<name>`. Wire the subpath in `package.json#exports`, `tsdown.config.ts#entry`, and `jsr.json#exports`, and add its row to the import table in `README.md`. The existing entries are the template. The two auth gates, `withSupabase` and `withOAuthProtectedResource`, also export from the package root.
+
+**Naming.** The `with` prefix means middleware: composable, chainable, and never the last entry in a chain. A terminal handler resolves the request instead of passing it on; it takes no prefix and lives outside `src/middleware/`. MCP-specific code stays separate from general middleware. When something turns out not to be MCP-specific, rename it and place it by the rules above.
 
 ## Contributing a framework adapter
 
