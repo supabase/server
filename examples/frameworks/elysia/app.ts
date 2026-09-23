@@ -18,6 +18,10 @@ const app = new Elysia()
   })
   .get('/me', (c) => ({ id: c.jwtClaims.sub }))
 
+// `wrapElysia` runs the entries around the whole app, and `supabaseCtx` above
+// hands their contributions to the routes. The two work only as a pair:
+// serving `app` directly, with `app.listen()` or `export default app`, skips
+// the entries and every route throws.
 export default {
   fetch: wrapElysia(entries, (req) => app.handle(req)),
 }

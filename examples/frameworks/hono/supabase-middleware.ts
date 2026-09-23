@@ -1,6 +1,6 @@
 import type { Context, MiddlewareHandler, Next } from 'hono'
 import { createMiddleware } from 'hono/factory'
-import { pipeline, seedContext } from '@supabase/middleware'
+import { bufferRequest, pipeline, seedContext } from '@supabase/middleware'
 import type {
   AnyEntry,
   Contributions,
@@ -36,6 +36,9 @@ interface Handoff {
  * the Hono chain, and returns Hono's real response back up through the
  * entries. That return is what lets response-phase entries such as `withCors`
  * stamp headers on the way out.
+ *
+ * Register the result with `.use()` before the routes it gates. Hono applies
+ * middleware only to routes registered after it.
  */
 export function toHono<const Entries extends readonly AnyEntry[]>(
   entries: Entries,
@@ -50,6 +53,10 @@ export function toHono<const Entries extends readonly AnyEntry[]>(
   })
 
   return createMiddleware(async (c, next) => {
+    // The engine buffers a request body only when it seeds the context
+    // itself. This bridge seeds, so it buffers too, and puts the proxy on
+    // Hono's request so an entry and the route read the same cached body.
+    if (c.req.raw.body) c.req.raw = bufferRequest(c.req.raw)
     // `c.env` holds the platform bindings on Cloudflare Workers, which is how
     // `getEnv` inside the entries reads `SUPABASE_URL` there. On Node it holds
     // the raw request pair and `getEnv` falls back to `process.env`.
