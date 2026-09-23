@@ -10,10 +10,14 @@ import { toNestGuard } from './supabase.guard.js'
 // let anonymous requests through with `jwtClaims: null`.
 const entries = [withRequiredClaims(), withSupabaseClient()] as const
 
+// One guard class for every route. `toNestGuard` folds the pipeline when it
+// is called, so a single call keeps entry state shared across requests.
+const SupabaseGuard = toNestGuard(entries)
+
 @Controller('todos')
 export class TodosController {
   @Get()
-  @UseGuards(toNestGuard(entries))
+  @UseGuards(SupabaseGuard)
   async list(@Req() req: Contributions<typeof entries>) {
     const { data, error } = await req.supabase.from('todos').select()
     if (error) throw error
@@ -21,7 +25,7 @@ export class TodosController {
   }
 
   @Get('me')
-  @UseGuards(toNestGuard(entries))
+  @UseGuards(SupabaseGuard)
   me(@Req() req: Contributions<typeof entries>) {
     return { id: req.jwtClaims.sub }
   }

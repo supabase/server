@@ -12,6 +12,8 @@ Each folder holds two files for one framework:
 | Elysia    | [`elysia/supabase-middleware.ts`](elysia/supabase-middleware.ts) | [`elysia/app.ts`](elysia/app.ts) |
 | NestJS    | [`nestjs/supabase.guard.ts`](nestjs/supabase.guard.ts)           | [`nestjs/app.ts`](nestjs/app.ts) |
 
+The Elysia bridge is two functions that work only as a pair. `wrapElysia` runs the entries around the app, and `supabaseCtx` hands their values to the routes. An app served without `wrapElysia` throws on every route.
+
 The guide that explains the bridges, the auth trap, and how to move off the framework adapters is on supabase.com: [Frameworks](https://supabase.com/docs/reference/server/frameworks).
 
 These files typecheck in CI through `pnpm typecheck:examples`. They are not part of the published package.

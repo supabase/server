@@ -25,12 +25,29 @@ const HANDOFF = new WeakMap<Request, Record<string, unknown>>()
 /**
  * Elysia plugin that exposes the entries' contributions on the route context.
  *
+ * `supabaseCtx` and `wrapElysia` are one unit. The wrapper runs the entries
+ * and stores their contributions for the request; the plugin reads them. When
+ * the wrapper did not run, the entries did not run either, so the plugin
+ * throws instead of handing the route an empty context. An app served with
+ * `app.listen()` or `export default app` therefore fails closed on every
+ * route.
+ *
  * `Entries` is type-only. Pass the type of the same tuple `wrapElysia`
  * receives, so route handlers see the keys that tuple contributes.
  */
 export function supabaseCtx<const Entries extends readonly AnyEntry[]>() {
   return new Elysia()
-    .resolve((c) => (HANDOFF.get(c.request) ?? {}) as Contributions<Entries>)
+    .resolve((c) => {
+      const contributions = HANDOFF.get(c.request)
+      if (!contributions) {
+        throw new Error(
+          'supabaseCtx() ran without wrapElysia(). The entries did not run, ' +
+            'so this request is not gated. Serve the app through ' +
+            '`wrapElysia(entries, (req) => app.handle(req))`.',
+        )
+      }
+      return contributions as Contributions<Entries>
+    })
     .as('scoped')
 }
 
@@ -42,6 +59,8 @@ export function supabaseCtx<const Entries extends readonly AnyEntry[]>() {
  * keeps the response phase for entries such as `withCors`. Because the
  * entries wrap the whole app, they apply app-wide; scope per route with
  * Elysia's own `.group()` and a separately wrapped sub-app.
+ *
+ * Pair it with `supabaseCtx`, which reads what this wrapper stores.
  */
 export function wrapElysia<const Entries extends readonly AnyEntry[]>(
   entries: Entries,

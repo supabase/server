@@ -1,6 +1,6 @@
 import { defineMiddleware, toResponse } from 'h3'
 import type { H3Event, Middleware } from 'h3'
-import { pipeline, seedContext } from '@supabase/middleware'
+import { bufferRequest, pipeline, seedContext } from '@supabase/middleware'
 import type { AnyEntry, ValidateEntries } from '@supabase/middleware'
 
 /**
@@ -46,10 +46,22 @@ export function toH3<const Entries extends readonly AnyEntry[]>(
     return toResponse(await next(), event)
   })
 
-  return defineMiddleware((event, next) =>
-    run(event.req, {
-      ...seedContext(),
+  return defineMiddleware((event, next) => {
+    // The engine buffers a request body only when it seeds the context
+    // itself. This bridge seeds, so it buffers too. `event.req` is readonly in
+    // H3's types and a plain property at runtime; the cast puts the proxy on
+    // the event so an entry and the route read the same cached body.
+    if (event.req.body) {
+      ;(event as { req: H3Event['req'] }).req = bufferRequest(
+        event.req,
+      ) as H3Event['req']
+    }
+    // On Cloudflare Workers the bindings live on the request's runtime info,
+    // which is how `getEnv` inside the entries reads `SUPABASE_URL` there. On
+    // Node the value is undefined and `getEnv` falls back to `process.env`.
+    return run(event.req, {
+      ...seedContext(event.req.runtime?.cloudflare?.env),
       [HANDOFF]: { event, next } satisfies Handoff,
-    }),
-  ) as never
+    })
+  }) as never
 }
