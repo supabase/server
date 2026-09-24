@@ -202,13 +202,15 @@ export function fromSupabaseUrl(supabaseUrl: string): string {
  * Resolves a {@link UrlOption} against a request.
  *
  * A configured value is used as given, whether fixed or returned by the
- * caller's function. Only with none configured does `fallback` run. That is
- * the one place the library derives a URL itself, so an error it throws
- * leaves here marked as an `oauthProtectedResource` construction failure:
- * `withOAuthProtectedResource` answers it as the JSON error response, the
- * escape hatches `resourceMetadataResponse` and `unauthorizedResponse` throw
- * it as-is, and `withSupabase`'s boundary lets it pass. A throw from the
- * caller's function is never marked.
+ * caller's function. An empty string counts as unset, so
+ * `process.env.MCP_URL ?? ''` with the variable missing falls back rather
+ * than advertising an empty resource. Only with none configured does
+ * `fallback` run. That is the one place the library derives a URL itself, so
+ * an error it throws leaves here marked as an `oauthProtectedResource`
+ * construction failure: `withOAuthProtectedResource` answers it as the JSON
+ * error response, the escape hatches `resourceMetadataResponse` and
+ * `unauthorizedResponse` throw it as-is, and `withSupabase`'s boundary lets
+ * it pass. A throw from the caller's function is never marked.
  *
  * @internal
  */
@@ -219,7 +221,7 @@ export function resolveUrlOption(
 ): string {
   const value = typeof option === 'function' ? option(req) : option
   return percentEncodeQuotes(
-    trimTrailingSlash(value ?? deriveDefault(req, fallback)),
+    trimTrailingSlash(value || deriveDefault(req, fallback)),
   )
 }
 

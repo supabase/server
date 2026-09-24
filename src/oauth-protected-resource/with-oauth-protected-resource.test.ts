@@ -286,6 +286,26 @@ describe('withOAuthProtectedResource - resourceServer / authorizationServer', ()
     expect(body.resource).not.toContain('/functions/v1')
   })
 
+  it('treats an empty-string resourceServer as unset and falls back to the default', async () => {
+    const res = await withOAuthProtectedResource(
+      { resourceServer: '' },
+      passthrough,
+    )(req('GET', '/api/mcp/oauth-protected-resource'))
+    expect((await res.json()).resource).toBe(
+      'http://localhost/functions/v1/api/mcp',
+    )
+  })
+
+  it('answers an empty-string resourceServer off Edge Functions as the JSON 500', async () => {
+    offEdgeFunctions()
+    const res = await withOAuthProtectedResource(
+      { resourceServer: () => '', authorizationServer: '' },
+      passthrough,
+    )(req('POST', '/api/mcp'))
+    expect(res.status).toBe(500)
+    expect(res.headers.get(ErrorCodeHeader)).toBe(MissingResourceServerError)
+  })
+
   it('accepts a static string resourceServer', async () => {
     const res = await withOAuthProtectedResource(
       { resourceServer: 'https://api.example.com/mcp', ...{} },
