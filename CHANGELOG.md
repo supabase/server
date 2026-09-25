@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/supabase/server/compare/server-v1.8.0...server-v1.8.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* treat an empty-string OAuth URL option as unset ([#182](https://github.com/supabase/server/issues/182)) ([52ff583](https://github.com/supabase/server/commit/52ff58359f7222beb6763361a054189851af3fa2))
+
 ## [1.8.0](https://github.com/supabase/server/compare/server-v1.7.2...server-v1.8.0) (2026-09-22)
 
 
