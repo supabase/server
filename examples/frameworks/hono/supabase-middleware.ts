@@ -39,6 +39,12 @@ interface Handoff {
  *
  * Register the result with `.use()` before the routes it gates. Hono applies
  * middleware only to routes registered after it.
+ *
+ * Hono carries the contributed keys through the return value of a chained
+ * call, so `app.use(toHono(a))` on one line and `app.get(...)` on the next
+ * typecheck the middleware but leave `c.var` untyped. A second array for other
+ * routes goes in a sub-app mounted with `app.route()`, each sub-app chaining
+ * its own `.use()` into its routes.
  */
 export function toHono<const Entries extends readonly AnyEntry[]>(
   entries: Entries,

@@ -63,8 +63,10 @@ const BODY_FRAMING_HEADERS = new Set([
 
 /**
  * Builds a Web `Request` from Nest's platform request. Headers and method
- * carry across; the body does not, so entries that read it do not work
- * through this bridge.
+ * carry across; the body does not. An entry that reads the body sees an empty
+ * one and runs as if that were the payload, so a signature check or a body
+ * audit placed in this array passes with nothing checked. Those belong in
+ * Nest middleware.
  */
 function toWebRequest(req: NestRequestLike): Request {
   const headers = new Headers()
@@ -99,6 +101,9 @@ interface Capture {
  * CORS, and `Set-Cookie` headers reach the client. The response phase is not
  * available: Nest's interceptors receive the controller's return value, not a
  * `Response`, so there is nothing for a generator entry's `yield` to act on.
+ * `withCors` in this array therefore stamps only short-circuits, and a
+ * preflight never reaches it: guards run after routing, and with no `OPTIONS`
+ * route the preflight 404s first. CORS on Nest is `app.enableCors()`.
  *
  * The pipeline folds once, when `toNestGuard` is called, so entries keep
  * their state across requests. Call it once and reuse the class on every

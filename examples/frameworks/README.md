@@ -14,6 +14,8 @@ Each folder holds two files for one framework:
 
 The Elysia bridge is two functions that work only as a pair. `wrapElysia` runs the entries around the app, and `supabaseCtx` hands their values to the routes. An app served without `wrapElysia` throws on every route.
 
+The NestJS guard file works without a decorator transform, but the controller in `nestjs/app.ts` does not: Nest is built on decorators, so running it needs swc, ts-node, or a build step. Node's built-in type stripping rejects the `@Controller()` line.
+
 The guide that explains the bridges, the auth trap, and how to move off the framework adapters is on supabase.com: [Frameworks](https://supabase.com/docs/reference/server/frameworks).
 
 These files typecheck in CI through `pnpm typecheck:examples`. They are not part of the published package.
