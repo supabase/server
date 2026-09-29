@@ -164,17 +164,12 @@ export function withSupabase<
 ): (req: Request, ctx?: Base) => Promise<Response>
 
 /**
- * **Alpha.** Config-only call: returns an entry for a `pipeline` array, so
+ * Config-only call: returns an entry for a `pipeline` array, so
  * `withSupabase` composes by position with any other middleware. Entries
  * placed before it run ahead of the auth gate and may answer unauthenticated
  * requests; entries placed after it receive the full {@link SupabaseContext}
  * and may declare prerequisites on its keys.
  *
- * The composable surface tracks `@supabase/middleware` 0.x — entry shapes and
- * context keys may change between 0.x releases. The handler-form overload is
- * stable.
- *
- * @alpha
  * @category Middleware
  *
  * @example OAuth discovery ahead of the gate, Postgres behind it

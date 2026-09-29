@@ -32,7 +32,7 @@ One import. One line of config. Auth is validated, clients are ready, CORS is ha
 
 ```bash
 # Deno / Supabase Edge Functions (no install — import directly)
-import { withSupabase } from "npm:@supabase/server";
+import { withSupabase } from "npm:@supabase/server@1";
 
 # npm
 npm install @supabase/server
@@ -279,16 +279,16 @@ withSupabase(
 
 Called with config only, `withSupabase(config)` returns an entry for `pipeline` from `@supabase/middleware`. Entries placed after it in the array receive the Supabase context and contribute their own typed keys; entries placed before it run ahead of the auth gate. The first-party entries live on the `@supabase/server/middleware/*` subpaths; see [Postgres](#postgres-rls-scoped-queries).
 
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
-
 ## Framework Adapters
 
 Adapters wrap `withSupabase` for a specific framework's middleware contract. They ship inside `@supabase/server`, so a single `npm install @supabase/server` covers the framework you're using — no separate package per adapter.
 
-> **Adapters are a community-driven initiative.** They're developed, maintained, and evolved by contributors — including responding to upstream framework changes. See [`src/adapters/README.md`](src/adapters/README.md) for the contribution requirements (tests, types, docs, build wiring) if you'd like to add or help maintain one.
+> [!WARNING]
+> Adapters are deprecated and will be removed on December 1, 2026. Use [middleware](https://github.com/supabase/middleware) to integrate `@supabase/server` with your framework.
+>
+> We're no longer accepting new adapter submissions.
+>
+> For Hono, H3, Elysia, NestJS, or TanStack Start, use the framework bridges in [`examples/frameworks`](./examples/frameworks). Read the [framework integration guide](https://supabase.com/docs/reference/server/frameworks) for setup steps.
 
 | Framework | Import                             | Framework version      | Docs                                               |
 | --------- | ---------------------------------- | ---------------------- | -------------------------------------------------- |
@@ -463,11 +463,6 @@ export default {
 
 ## Postgres (RLS-scoped queries)
 
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
-
 When PostgREST isn't the right tool — joins, CTEs, window functions — `withPostgresClient` puts a direct Postgres connection on `ctx.postgres`, scoped to the caller by RLS:
 
 ```ts
@@ -547,22 +542,22 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 ## Exports
 
-| Export                                        | What's in it                                                                                                                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                                                          |
-| `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv`                                |
-| `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                                                 |
-| `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                                                            |
-| `@supabase/server/adapters/elysia`            | `withSupabase` (Elysia plugin)                                                                                                                   |
-| `@supabase/server/adapters/nestjs`            | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                                                   |
-| `@supabase/server/middleware/client`          | **Alpha.** `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                                               |
-| `@supabase/server/middleware/admin-client`    | **Alpha.** `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                                                         |
-| `@supabase/server/middleware/claims`          | **Alpha.** `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                                          |
-| `@supabase/server/middleware/required-claims` | **Alpha.** `withRequiredClaims` (user-mode auth gate, non-null `ctx.jwtClaims`)                                                                  |
-| `@supabase/server/middleware/postgres`        | **Alpha.** `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                                               |
-| `@supabase/server/middleware/postgres-admin`  | **Alpha.** `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                                         |
-| `@supabase/server/oauth-protected-resource`   | **Alpha.** `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`; see [`docs/mcp.md`](docs/mcp.md) |
-| `@supabase/server/peer/supabase-js`           | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                                                          |
+| Export                                        | What's in it                                                                                                                          |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                                               |
+| `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv`                     |
+| `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                                      |
+| `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                                                 |
+| `@supabase/server/adapters/elysia`            | `withSupabase` (Elysia plugin)                                                                                                        |
+| `@supabase/server/adapters/nestjs`            | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                                        |
+| `@supabase/server/middleware/client`          | `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                                               |
+| `@supabase/server/middleware/admin-client`    | `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                                                         |
+| `@supabase/server/middleware/claims`          | `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                                          |
+| `@supabase/server/middleware/required-claims` | `withRequiredClaims` (user-mode auth gate, non-null `ctx.jwtClaims`)                                                                  |
+| `@supabase/server/middleware/postgres`        | `withPostgresClient` (RLS-scoped `ctx.postgres` client)                                                                               |
+| `@supabase/server/middleware/postgres-admin`  | `withPostgresAdminClient` (`ctx.postgresAdmin`, bypasses RLS)                                                                         |
+| `@supabase/server/oauth-protected-resource`   | `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse`; see [`docs/mcp.md`](docs/mcp.md) |
+| `@supabase/server/peer/supabase-js`           | Re-exported `supabase-js` types (`SupabaseClient`, `PostgrestError`, …)                                                               |
 
 ## Documentation
 

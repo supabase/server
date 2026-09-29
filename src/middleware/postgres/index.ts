@@ -65,17 +65,13 @@ function resolveRole(
 }
 
 /**
- * **Alpha.** Minimal claims shape {@link withPostgresClient} needs on the
+ * Minimal claims shape {@link withPostgresClient} needs on the
  * upstream context.
  *
  * Satisfied both by `withSupabase`'s JWKS-verified `ctx.jwtClaims` and by the
  * standalone `withClaims` middleware — `withPostgresClient` only reads `role`
  * and serializes the whole object into `request.jwt.claims`.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export interface RequestClaims {
@@ -84,12 +80,8 @@ export interface RequestClaims {
 }
 
 /**
- * **Alpha.** Configuration for {@link withPostgresClient}.
+ * Configuration for {@link withPostgresClient}.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export interface WithPostgresClientConfig extends ShortCircuitConfig {
@@ -104,7 +96,7 @@ export interface WithPostgresClientConfig extends ShortCircuitConfig {
 }
 
 /**
- * **Alpha.** Contributes `ctx.postgres` — an RLS-scoped `pg` client, the safe
+ * Contributes `ctx.postgres` — an RLS-scoped `pg` client, the safe
  * version of "authenticate, then query as the user". This is the
  * direct-connection counterpart to `withSupabaseClient`, and its service-role
  * companion is `withPostgresAdminClient`
@@ -153,10 +145,6 @@ export interface WithPostgresClientConfig extends ShortCircuitConfig {
  * > **Runtime note.** `pg` needs raw TCP, so this runs on Node/Deno (including
  * > the Supabase Edge runtime), **not** on Workers-style isolates.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export const withPostgresClient: Middleware<

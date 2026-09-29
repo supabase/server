@@ -22,12 +22,8 @@ import {
 import type { JWTClaims, ShortCircuitConfig } from '../../types.js'
 
 /**
- * **Alpha.** Configuration for {@link withRequiredClaims}.
+ * Configuration for {@link withRequiredClaims}.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export interface WithRequiredClaimsConfig extends ShortCircuitConfig {
@@ -51,7 +47,7 @@ export interface WithRequiredClaimsConfig extends ShortCircuitConfig {
 }
 
 /**
- * **Alpha.** The user-mode auth gate: requires a valid user JWT and
+ * The user-mode auth gate: requires a valid user JWT and
  * contributes **non-null** `ctx.jwtClaims`. Verification runs against the
  * project JWKS, the same core `withSupabase` uses for its `user` auth mode.
  *
@@ -101,10 +97,6 @@ export interface WithRequiredClaimsConfig extends ShortCircuitConfig {
  * }
  * ```
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export const withRequiredClaims: Middleware<

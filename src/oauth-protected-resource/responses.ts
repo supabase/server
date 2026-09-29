@@ -10,7 +10,7 @@ import type {
 } from './types.js'
 
 /**
- * **Alpha.** `401` response with a
+ * `401` response with a
  * `WWW-Authenticate: Bearer resource_metadata="..."` header (RFC 9728).
  * The metadata URL defaults to the Edge Functions derivation and throws off
  * platform; pass `resourceMetadataUrl` to override for custom setups.
@@ -19,7 +19,6 @@ import type {
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Middleware
  */
 export function unauthorizedResponse(
@@ -39,7 +38,7 @@ export function unauthorizedResponse(
 }
 
 /**
- * **Alpha.** RFC 9728 OAuth Protected Resource Metadata response.
+ * RFC 9728 OAuth Protected Resource Metadata response.
  * Advertises the authorization server, resource URI, and bearer methods supported.
  * URLs default to the Edge Functions derivation and throw off platform; pass
  * `resource` / `authorizationServers` to override.
@@ -49,7 +48,6 @@ export function unauthorizedResponse(
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Middleware
  */
 export function resourceMetadataResponse(

@@ -36,14 +36,10 @@ export const CHECKOUT_TIMEOUT_MS = 10_000
 const LOG_PREFIX = '[@supabase/server] postgres pool:'
 
 /**
- * **Alpha.** Pool sizing for `withPostgresClient` and
+ * Pool sizing for `withPostgresClient` and
  * `withPostgresAdminClient`. Two entries on the same connection string share
  * a pool only when their options resolve to the same values.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export interface PostgresPoolOptions {

@@ -10,13 +10,12 @@ import { AUTH_PATH_PREFIX, EDGE_FUNCTIONS_PATH_PREFIX } from './paths.js'
 import { isEdgeFunctions } from './runtime.js'
 
 /**
- * **Alpha.** A configured URL: either a fixed value, or derived per request.
+ * A configured URL: either a fixed value, or derived per request.
  *
  * The OAuth Protected Resource surface is alpha — the config shape, the
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Types
  */
 export type UrlOption = string | ((req: Request) => string)
@@ -163,7 +162,7 @@ export function defaultAuthorizationServer(req: Request): string {
 }
 
 /**
- * **Alpha.** Points `authorizationServer` at a Supabase project's Auth
+ * Points `authorizationServer` at a Supabase project's Auth
  * issuer.
  *
  * Use this off Supabase Edge Functions, where the app's own origin is unrelated
@@ -176,7 +175,6 @@ export function defaultAuthorizationServer(req: Request): string {
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Middleware
  *
  * @example

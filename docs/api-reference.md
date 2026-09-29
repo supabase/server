@@ -49,10 +49,6 @@ pipeline(
 
 Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placing `withOAuthProtectedResource` directly after `withSupabase` with an auth mode that requires credentials is refused when the stack is built; a pre-auth middleware separated from `withSupabase` by another entry is not detected and must be ordered by hand.
 
-> **Alpha.** The entry form and the `@supabase/server/middleware/*` subpaths
-> track `@supabase/middleware` 0.x — entry shapes and context keys may change
-> between 0.x releases. Everything else in `@supabase/server` is stable.
-
 ### createSupabaseContext
 
 ```ts
@@ -203,11 +199,6 @@ Defaults to `auth: 'user'` when config is omitted.
 
 ## @supabase/server/middleware/claims
 
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
-
 ### withClaims
 
 ```ts
@@ -248,11 +239,6 @@ interface WithClaimsConfig {
 ---
 
 ## @supabase/server/middleware/required-claims
-
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
 
 ### withRequiredClaims
 
@@ -315,11 +301,6 @@ interface WithRequiredClaimsConfig {
 ---
 
 ## @supabase/server/middleware/postgres
-
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
 
 ### withPostgresClient
 
@@ -430,11 +411,6 @@ The minimal claims shape `withPostgresClient` requires upstream at `ctx.jwtClaim
 
 ## @supabase/server/middleware/postgres-admin
 
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
-
 ### withPostgresAdminClient
 
 ```ts
@@ -469,9 +445,6 @@ interface WithPostgresAdminClientConfig {
 ---
 
 ## @supabase/server/oauth-protected-resource
-
-> **Alpha.** The config shape, the contributed context key, and the metadata
-> route may change in a minor release.
 
 Also re-exported from `@supabase/server`. See [`docs/mcp.md`](mcp.md) for the MCP server walkthrough.
 
