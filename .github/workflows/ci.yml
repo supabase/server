@@ -25,6 +25,8 @@ jobs:
 
       - run: pnpm typecheck
 
+      - run: pnpm typecheck:examples
+
       - run: pnpm lint
 
       - name: Check every published import is declared (JSR resolvability)

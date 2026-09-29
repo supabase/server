@@ -1,3 +1,5 @@
+packages:
+  - examples
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - '@supabase/*'

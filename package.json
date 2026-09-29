@@ -181,8 +181,8 @@
     "docs": "typedoc",
     "format": "prettier --write .",
     "gen:env": "bash e2e/scripts/gen-env.sh",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint src examples",
+    "lint:fix": "eslint src examples --fix",
     "prepare": "simple-git-hooks",
     "smoke": "node scripts/smoke-load.mjs",
     "smoke:pack": "node scripts/smoke-pack.mjs",
@@ -191,6 +191,7 @@
     "test:watch": "vitest --project unit --project nestjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs",
     "typecheck:e2e": "tsc --noEmit -p e2e",
+    "typecheck:examples": "tsc --noEmit -p examples",
     "vendor:e2e": "bash e2e/scripts/vendor-pack.sh"
   },
   "simple-git-hooks": {
