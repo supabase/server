@@ -4,7 +4,7 @@
 
 ```bash
 # Deno (import directly)
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 
 # npm
 npm install @supabase/server

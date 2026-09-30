@@ -15,12 +15,8 @@ import {
 import type { JWTClaims, ShortCircuitConfig } from '../../types.js'
 
 /**
- * **Alpha.** Configuration for {@link withClaims}.
+ * Configuration for {@link withClaims}.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export interface WithClaimsConfig extends ShortCircuitConfig {
@@ -44,7 +40,7 @@ export interface WithClaimsConfig extends ShortCircuitConfig {
 }
 
 /**
- * **Alpha.** Contributes `ctx.jwtClaims` by verifying the caller's Bearer
+ * Contributes `ctx.jwtClaims` by verifying the caller's Bearer
  * token against the project JWKS — the same verification core `withSupabase`
  * uses for its `user` auth mode.
  *
@@ -85,10 +81,6 @@ export interface WithClaimsConfig extends ShortCircuitConfig {
  * }
  * ```
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export const withClaims: Middleware<

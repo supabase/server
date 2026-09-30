@@ -13,15 +13,11 @@ import type {
 } from '../../types.js'
 
 /**
- * **Alpha.** Configuration for {@link withSupabaseClient} — the same
+ * Configuration for {@link withSupabaseClient} — the same
  * environment and client options `createContextClient` accepts, minus the
  * per-request auth identity (which is read from the request and the upstream
  * context).
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export type WithSupabaseClientConfig = Omit<CreateContextClientOptions, 'auth'>
@@ -70,7 +66,7 @@ const base = defineMiddleware<
 })
 
 /**
- * **Alpha.** Contributes `ctx.supabase` — a Supabase client scoped to the
+ * Contributes `ctx.supabase` — a Supabase client scoped to the
  * caller's identity, so Row-Level Security policies apply. This is the same
  * middleware `withSupabase` composes internally to build its context.
  *
@@ -95,10 +91,6 @@ const base = defineMiddleware<
  * }
  * ```
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export function withSupabaseClient<Database = UntypedDatabase>(

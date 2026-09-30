@@ -20,12 +20,8 @@ export type { PostgresApi, PostgresPoolOptions }
 export { ident }
 
 /**
- * **Alpha.** Configuration for {@link withPostgresAdminClient}.
+ * Configuration for {@link withPostgresAdminClient}.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export interface WithPostgresAdminClientConfig extends ShortCircuitConfig {
@@ -40,7 +36,7 @@ export interface WithPostgresAdminClientConfig extends ShortCircuitConfig {
 }
 
 /**
- * **Alpha.** Contributes `ctx.postgresAdmin` — a `pg` client that **bypasses
+ * Contributes `ctx.postgresAdmin` — a `pg` client that **bypasses
  * RLS**, for full-table access. The direct-connection counterpart to
  * `withSupabaseAdminClient`, and the deliberate opt-out from the guardrails
  * `withPostgresClient` (`@supabase/server/middleware/postgres`) enforces.
@@ -76,10 +72,6 @@ export interface WithPostgresAdminClientConfig extends ShortCircuitConfig {
  * > **Runtime note.** `pg` needs raw TCP, so this runs on Node/Deno (including
  * > the Supabase Edge runtime), **not** on Workers-style isolates.
  *
- * The composable middleware surface tracks `@supabase/middleware` 0.x — entry
- * shapes, context keys, and config options may change between 0.x releases.
- *
- * @alpha
  * @category Middleware
  */
 export const withPostgresAdminClient: Middleware<

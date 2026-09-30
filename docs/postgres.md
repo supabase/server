@@ -1,10 +1,5 @@
 # Postgres (`ctx.postgres`)
 
-> **Alpha.** Composing `withSupabase` as a `pipeline` entry and the
-> `@supabase/server/middleware/*` subpaths track `@supabase/middleware` 0.x —
-> entry shapes and context keys may change between 0.x releases. The
-> `withSupabase(config, handler)` form is stable.
-
 Two middleware give you a direct Postgres connection, mirroring the `ctx.supabase` / `ctx.supabaseAdmin` pair:
 
 | Middleware                | Subpath                       | Contributes         | RLS                            |

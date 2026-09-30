@@ -13,13 +13,12 @@ import { getAuthUrl, getResourceMetadataUrl, getResourceUrl } from './url.js'
 import type { UrlOption } from './url.js'
 
 /**
- * **Alpha.** Shape contributed at `ctx.oauthProtectedResource`.
+ * Shape contributed at `ctx.oauthProtectedResource`.
  *
  * The OAuth Protected Resource surface is alpha — the config shape, the
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  */
 export interface OAuthProtectedResourceContribution {
   /** Absolute URL of this resource's OAuth Protected Resource Metadata document (RFC 9728). */
@@ -27,7 +26,7 @@ export interface OAuthProtectedResourceContribution {
 }
 
 /**
- * **Alpha.** Configuration for {@link withOAuthProtectedResource}.
+ * Configuration for {@link withOAuthProtectedResource}.
  *
  * Both options accept a fixed string or a function of the request. Both default
  * to values derived from the request as it arrives through the Supabase Edge
@@ -37,7 +36,6 @@ export interface OAuthProtectedResourceContribution {
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Types
  */
 export interface OAuthProtectedResourceConfig extends ShortCircuitConfig {
@@ -65,7 +63,7 @@ export interface OAuthProtectedResourceConfig extends ShortCircuitConfig {
 }
 
 /**
- * **Alpha.** Wraps a request handler with OAuth 2.1 Protected Resource
+ * Wraps a request handler with OAuth 2.1 Protected Resource
  * behavior (RFC 9728).
  *
  * - Serves OAuth Protected Resource Metadata at `GET {resource}/oauth-protected-resource`
@@ -101,7 +99,6 @@ export interface OAuthProtectedResourceConfig extends ShortCircuitConfig {
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Middleware
  *
  * @example Supabase Edge Functions — zero config

@@ -34,12 +34,12 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 
 ## Entry points
 
-| Import                                      | Deno / Edge Functions                           | Provides                                                                                                                                                                |
-| ------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                          | `npm:@supabase/server`                          | `withSupabase`, `createSupabaseContext`, types, errors                                                                                                                  |
-| `@supabase/server/core`                     | `npm:@supabase/server/core`                     | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient`                                                       |
-| `@supabase/server/adapters/hono`            | `npm:@supabase/server/adapters/hono`            | `withSupabase` (Hono middleware variant)                                                                                                                                |
-| `@supabase/server/oauth-protected-resource` | `npm:@supabase/server/oauth-protected-resource` | **Alpha.** `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse` — OAuth 2.1 discovery for MCP servers; see `docs/mcp.md` |
+| Import                                      | Deno / Edge Functions                             | Provides                                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@supabase/server`                          | `npm:@supabase/server@1`                          | `withSupabase`, `createSupabaseContext`, types, errors                                                                                                       |
+| `@supabase/server/core`                     | `npm:@supabase/server@1/core`                     | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient`                                            |
+| `@supabase/server/adapters/hono`            | `npm:@supabase/server@1/adapters/hono`            | `withSupabase` (Hono middleware variant)                                                                                                                     |
+| `@supabase/server/oauth-protected-resource` | `npm:@supabase/server@1/oauth-protected-resource` | `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse` — OAuth 2.1 discovery for MCP servers; see `docs/mcp.md` |
 
 ## Quick starts
 
@@ -58,7 +58,7 @@ Environment variables are auto-injected by the platform — zero config. **All i
 
 ```ts
 // withSupabase — high-level wrapper
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 
 export default {
   fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
@@ -70,7 +70,7 @@ export default {
 
 ```ts
 // createSupabaseContext — returns { data, error } for custom response control
-import { createSupabaseContext } from 'npm:@supabase/server'
+import { createSupabaseContext } from 'npm:@supabase/server@1'
 
 export default {
   fetch: async (req: Request) => {
@@ -128,7 +128,7 @@ export default app
 ```ts
 // Deno / Supabase Edge Functions
 import { Hono } from 'npm:hono'
-import { withSupabase } from 'npm:@supabase/server/adapters/hono'
+import { withSupabase } from 'npm:@supabase/server@1/adapters/hono'
 
 const app = new Hono()
 app.use('*', withSupabase({ auth: 'user' }))
@@ -163,7 +163,7 @@ For internal services, cron jobs, or automation calling your Edge Function. The 
 **Edge Function (Deno):**
 
 ```ts
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 
 // Only accept the "automations" named secret key
 export default {
@@ -200,7 +200,7 @@ Bare `auth: 'secret'` matches only the `default` key. Use `auth: 'secret:name'` 
 `audience` and `issuer` check the `aud` and `iss` claims of a `user`-mode token. Each takes a string or an array. A token without the claim, or with a value outside the list, is rejected with `INVALID_JWT`. Set `issuer: fromSupabaseUrl(url)` when one JWKS could be shared across projects or services. Supabase Auth sets `aud` to `authenticated`, so `audience` only matters for tokens from a custom issuer. Both options exist on `withSupabase`, `verifyAuth`, `verifyCredentials`, `withClaims`, and `withRequiredClaims`.
 
 ```ts
-import { fromSupabaseUrl, withSupabase } from 'npm:@supabase/server'
+import { fromSupabaseUrl, withSupabase } from 'npm:@supabase/server@1'
 
 export default {
   fetch: withSupabase(
@@ -244,7 +244,7 @@ verify_jwt = false  # called with secret key, not a user JWT
 **Called function** (`supabase/functions/process-order/index.ts`):
 
 ```ts
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 
 export default {
   fetch: withSupabase({ auth: 'secret' }, async (req, ctx) => {
@@ -263,7 +263,7 @@ export default {
 **Calling function** (`supabase/functions/checkout/index.ts`):
 
 ```ts
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 
 export default {
   fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
@@ -340,7 +340,7 @@ supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
 **Function** (`supabase/functions/stripe-webhook/index.ts`):
 
 ```ts
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 import Stripe from 'npm:stripe'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!)
@@ -413,7 +413,7 @@ Deno.serve(async (req: Request) => {
 Uses the latest API keys, works across runtimes (Deno, Node.js, Cloudflare), and handles auth verification, client creation, and CORS in a single line.
 
 ```ts
-import { withSupabase } from 'npm:@supabase/server'
+import { withSupabase } from 'npm:@supabase/server@1'
 
 export default {
   fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {

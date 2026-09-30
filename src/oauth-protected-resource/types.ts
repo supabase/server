@@ -1,11 +1,10 @@
 /**
- * **Alpha.** Options for {@link unauthorizedResponse}.
+ * Options for {@link unauthorizedResponse}.
  *
  * The OAuth Protected Resource surface is alpha — the config shape, the
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Types
  */
 export interface UnauthorizedResponseOptions {
@@ -14,13 +13,12 @@ export interface UnauthorizedResponseOptions {
 }
 
 /**
- * **Alpha.** Options for {@link resourceMetadataResponse}.
+ * Options for {@link resourceMetadataResponse}.
  *
  * The OAuth Protected Resource surface is alpha — the config shape, the
  * contributed context key, and the metadata route may change in a minor
  * release.
  *
- * @alpha
  * @category Types
  */
 export interface ResourceMetadataOptions {

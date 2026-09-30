@@ -1,11 +1,5 @@
 # MCP servers
 
-> **Alpha.** `withOAuthProtectedResource` and composing `withSupabase` as a
-> `pipeline` entry track `@supabase/middleware` 0.x. The config shape, the
-> contributed context key, and the metadata route may change in a minor
-> release. The nested `withOAuthProtectedResource(withSupabase(config, handler))`
-> form is stable.
-
 An MCP server your app exposes to its users is an HTTP endpoint that MCP clients (Claude, ChatGPT, Cursor, VS Code, Claude Code) call after an OAuth 2.1 flow. `@supabase/server` covers the two Supabase-specific parts: OAuth discovery for the client, and turning the user's token into an RLS-scoped Supabase client for your tools. The MCP transport and the tools come from any MCP library.
 
 ```ts
