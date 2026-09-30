@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/supabase/server/compare/server-v1.8.1...server-v1.9.0) (2026-09-30)
+
+
+### Features
+
+* drop alpha labels, deprecate adapters, pin doc imports to [@1](https://github.com/1) ([#185](https://github.com/supabase/server/issues/185)) ([da3a60a](https://github.com/supabase/server/commit/da3a60a1871fe1a8d829779829e92e68dce35399))
+
 ## [1.8.1](https://github.com/supabase/server/compare/server-v1.8.0...server-v1.8.1) (2026-09-25)
 
 
