@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/supabase/server/compare/server-v1.9.0...server-v1.9.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* align skill with adapter deprecation and drop unshipped doc link ([#189](https://github.com/supabase/server/issues/189)) ([e632e4f](https://github.com/supabase/server/commit/e632e4f85d794b355e6d19d1ffceb00caf08110a))
+
 ## [1.9.0](https://github.com/supabase/server/compare/server-v1.8.1...server-v1.9.0) (2026-09-30)
 
 
