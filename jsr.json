@@ -1,6 +1,6 @@
 {
   "name": "@supabase/server",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "exports": {
     ".": "./src/index.ts",
     "./core": "./src/core/index.ts",
