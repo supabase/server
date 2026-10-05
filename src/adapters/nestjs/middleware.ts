@@ -82,6 +82,8 @@ function toWebRequest(req: NestRequestLike): Request {
  * }
  * ```
  *
+ * @deprecated Removed on December 1, 2026. Use the NestJS guard bridge from
+ *   the framework integration guide instead: https://supabase.com/docs/reference/server/frameworks
  * @category Adapters
  */
 export function withSupabase(

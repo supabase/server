@@ -43,6 +43,8 @@ import type { SupabaseContext, WithSupabaseConfig } from '../../types.js'
  * })
  * ```
  *
+ * @deprecated Removed on December 1, 2026. Use the H3 bridge from the
+ *   framework integration guide instead: https://supabase.com/docs/reference/server/frameworks
  * @category Adapters
  */
 export function withSupabase(

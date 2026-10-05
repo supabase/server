@@ -42,6 +42,8 @@ import type {
  * export default { fetch: app.fetch }
  * ```
  *
+ * @deprecated Removed on December 1, 2026. Use the Hono bridge from the
+ *   framework integration guide instead: https://supabase.com/docs/reference/server/frameworks
  * @category Adapters
  */
 export function withSupabase<Database = UntypedDatabase>(
