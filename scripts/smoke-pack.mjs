@@ -7,6 +7,10 @@
 // allowances below is a hard dependency the package does not declare, and it
 // breaks that consumer on import.
 //
+// Also checks that every doc path the shipped skill names exists in the
+// installed package, since the skill points agents at node_modules, not at
+// the repository.
+//
 // Run after `pnpm build`: `pnpm smoke:pack`.
 
 import { execFileSync } from 'node:child_process'
@@ -113,6 +117,28 @@ try {
     process.exit(1)
   }
 
+  const installed = join(consumer, 'node_modules', pkg.name)
+  const skill = readFileSync(
+    join(installed, 'skills/supabase-server/SKILL.md'),
+    'utf8',
+  )
+  const docPaths = [
+    ...new Set(
+      [...skill.matchAll(/`([A-Za-z0-9_./-]+\.md)`/g)].map((m) => m[1]),
+    ),
+  ]
+  const missingDocs = docPaths.filter((p) => !existsSync(join(installed, p)))
+  if (missingDocs.length > 0) {
+    failed = true
+    for (const p of missingDocs) {
+      console.error(`FAIL skill references ${p}, which is not in the package.`)
+    }
+  } else {
+    console.log(
+      `ok   ${docPaths.length} doc paths named in the skill exist in the package`,
+    )
+  }
+
   const loader = `
 import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
@@ -166,7 +192,7 @@ console.log(JSON.stringify(results))
 }
 
 if (failed) {
-  console.error('\nPacked entrypoints failed to load without optional peers.')
+  console.error('\nThe packed tarball failed the smoke checks above.')
   process.exit(1)
 }
 

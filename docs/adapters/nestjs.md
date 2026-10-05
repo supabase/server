@@ -1,5 +1,10 @@
 # NestJS Adapter
 
+> [!WARNING]
+> Adapters are deprecated and will be removed on December 1, 2026. We're no longer accepting new adapter submissions.
+>
+> New NestJS code uses the guard in [`examples/frameworks/nestjs`](https://github.com/supabase/server/tree/main/examples/frameworks/nestjs). The [framework integration guide](https://supabase.com/docs/reference/server/frameworks) covers setup and the steps to move off the adapter.
+
 ## Setup
 
 Install NestJS as a peer dependency:
