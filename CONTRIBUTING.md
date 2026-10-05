@@ -10,7 +10,7 @@ Thank you for your interest in contributing to `@supabase/server`! This document
 - [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
 - [Contributing a middleware](#contributing-a-middleware)
-- [Contributing a framework adapter](#contributing-a-framework-adapter)
+- [Framework adapters](#framework-adapters)
 - [Release Process](#release-process)
 
 ## Getting Started
@@ -212,11 +212,11 @@ Middleware with no Supabase surface lives in its own package on top of [`@supaba
 
 **Naming.** The `with` prefix means middleware: composable, chainable, and never the last entry in a chain. A terminal handler resolves the request instead of passing it on; it takes no prefix and lives outside `src/middleware/`. MCP-specific code stays separate from general middleware. When something turns out not to be MCP-specific, rename it and place it by the rules above.
 
-## Contributing a framework adapter
+## Framework adapters
 
-Framework adapters (Hono, H3, …) are community-maintained and live in this repo under `src/adapters/`. They have **additional requirements** on top of the general PR guidelines above — tests covering every auth mode, no new runtime deps beyond a peer-dep, matching the existing adapter shape, and updating both adapter tables (in `README.md` and `src/adapters/README.md`).
+The adapters under `src/adapters/` (Hono, H3, Elysia, NestJS) are deprecated and will be removed on December 1, 2026. New adapters are not accepted. Framework integration goes through the bridges in [`examples/frameworks`](examples/frameworks) and the [framework integration guide](https://supabase.com/docs/reference/server/frameworks).
 
-See [`src/adapters/README.md`](src/adapters/README.md) for the full checklist before opening an adapter PR.
+Bug fixes and framework-version bumps for the existing adapters are welcome until removal. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance rules.
 
 ## Release Process
 

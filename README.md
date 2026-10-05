@@ -5,7 +5,7 @@
 [![pkg.pr.new](https://pkg.pr.new/badge/supabase/server)](https://pkg.pr.new/~/supabase/server)
 [![Docs](https://img.shields.io/badge/docs-supabase.github.io-3ECF8E?logo=readthedocs&logoColor=white)](https://supabase.github.io/server/)
 
-> **v1.X — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
+> **v1.X — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect ergonomic improvements and features to land frequently in minor releases. Found a rough edge? [Open an issue](https://github.com/supabase/server/issues) or [submit a PR](https://github.com/supabase/server/blob/main/CONTRIBUTING.md).
 
 > **Coming from a `0.x` release?** See [MIGRATION.md](MIGRATION.md) for the v0 → v1 rename map (`allow` → `auth`, `'public'` → `'publishable'`, `authType` → `authMode`, `claims` → `jwtClaims`, …).
 
@@ -565,7 +565,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | How do I create a basic endpoint?                                                          | [`docs/getting-started.md`](docs/getting-started.md)                              |
 | What auth modes are available? Array syntax? Named keys?                                   | [`docs/auth-modes.md`](docs/auth-modes.md)                                        |
-| Which framework adapters exist? How do I contribute one?                                   | [`src/adapters/README.md`](src/adapters/README.md)                                |
+| Which framework adapters exist, and what replaces them?                                    | [Framework Adapters](#framework-adapters)                                         |
 | How do I use this with Hono?                                                               | [`docs/adapters/hono.md`](docs/adapters/hono.md)                                  |
 | How do I use this with H3 / Nuxt?                                                          | [`docs/adapters/h3.md`](docs/adapters/h3.md)                                      |
 | How do I use this with Elysia?                                                             | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)                              |

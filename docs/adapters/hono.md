@@ -1,5 +1,10 @@
 # Hono Adapter
 
+> [!WARNING]
+> Adapters are deprecated and will be removed on December 1, 2026. We're no longer accepting new adapter submissions.
+>
+> New Hono code uses the bridge in [`examples/frameworks/hono`](https://github.com/supabase/server/tree/main/examples/frameworks/hono). The [framework integration guide](https://supabase.com/docs/reference/server/frameworks) covers setup and the steps to move off the adapter.
+
 ## Setup
 
 Install Hono as a peer dependency:

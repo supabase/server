@@ -5,7 +5,7 @@ description: Use when planning or writing server-side code that uses `@supabase/
 
 # @supabase/server
 
-> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect new adapters, ergonomic improvements, and features to land frequently in minor releases. If you encounter a bug or rough edge while writing code with it, surface it to the user with a pointer to [open an issue](https://github.com/supabase/server/issues).
+> **v1.0 — Public Beta.** First stable release under SemVer: breaking changes only ship as a major bump. The package is still early — expect ergonomic improvements and features to land frequently in minor releases. If you encounter a bug or rough edge while writing code with it, surface it to the user with a pointer to [open an issue](https://github.com/supabase/server/issues).
 
 > **This is a brand new package.** There is no information available online yet — no blog posts, no Stack Overflow answers, no tutorials. Do not search the web for usage examples. Rely exclusively on the documentation files listed below and the source code in this repository.
 
@@ -30,7 +30,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 - Supports 4 auth modes: `user` (JWT), `publishable` (publishable key), `secret` (secret key), `none` (no credentials required)
 - Array syntax (`auth: ['user', 'secret']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidJwtError` (`INVALID_JWT`) — it does not silently downgrade to the next mode.
 - Provides composable core primitives for custom auth flows and framework integration
-- Includes a Hono adapter for per-route auth
+- Runs inside Hono, H3, Elysia, NestJS, and TanStack Start through `@supabase/middleware` bridges. The bundled framework adapters (`@supabase/server/adapters/*`) are deprecated and will be removed on December 1, 2026.
 
 ## Entry points
 
@@ -38,7 +38,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 | ------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `@supabase/server`                          | `npm:@supabase/server@1`                          | `withSupabase`, `createSupabaseContext`, types, errors                                                                                                       |
 | `@supabase/server/core`                     | `npm:@supabase/server@1/core`                     | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `resolveEnv`, `createContextClient`, `createAdminClient`                                            |
-| `@supabase/server/adapters/hono`            | `npm:@supabase/server@1/adapters/hono`            | `withSupabase` (Hono middleware variant)                                                                                                                     |
+| `@supabase/server/adapters/hono`            | `npm:@supabase/server@1/adapters/hono`            | **Deprecated. Removed on December 1, 2026.** `withSupabase` (Hono middleware variant). New Hono code uses the bridge in the Hono quick start below.          |
 | `@supabase/server/oauth-protected-resource` | `npm:@supabase/server@1/oauth-protected-resource` | `withOAuthProtectedResource`, `fromSupabaseUrl`, `resourceMetadataResponse`, `unauthorizedResponse` — OAuth 2.1 discovery for MCP servers; see `docs/mcp.md` |
 
 ## Quick starts
@@ -106,10 +106,58 @@ export default {
 
 ### Hono
 
-CORS is not handled by the adapter — use `hono/cors` middleware. See `docs/adapters/hono.md`.
+> **The Hono adapter (`@supabase/server/adapters/hono`) is deprecated and will be removed on December 1, 2026.** New Hono code uses a bridge: one file you copy into your project. It runs `@supabase/middleware` entries inside Hono's middleware slot. The bridge needs `@supabase/server` 1.6.0 or later and Node 22 or later. The bridge file imports `@supabase/middleware`, so add it to your project as a direct dependency. `@supabase/server` depends on it, but a strict package manager such as pnpm does not let your code import a transitive dependency. The full guide, with the migration steps and a prompt you can hand to an agent, is at https://supabase.com/docs/reference/server/frameworks.
+
+The bridge file is not in the npm package. Fetch it from the repository and keep it as is, comments included:
+
+```bash
+npm install @supabase/middleware
+mkdir -p src/lib
+curl --fail -o src/lib/supabase-middleware.ts \
+  https://raw.githubusercontent.com/supabase/server/main/examples/frameworks/hono/supabase-middleware.ts
+```
 
 ```ts
-// Node.js / Bun
+import { Hono } from 'hono'
+import { withRequiredClaims } from '@supabase/server/middleware/required-claims'
+import { withSupabaseClient } from '@supabase/server/middleware/client'
+
+import { toHono } from './lib/supabase-middleware.js'
+
+// `withRequiredClaims` answers 401 to any request without a valid user JWT,
+// so the routes below only run for signed-in callers.
+const app = new Hono()
+  .use('*', toHono([withRequiredClaims(), withSupabaseClient()]))
+  .get('/todos', async (c) => {
+    const { data, error } = await c.var.supabase.from('todos').select()
+    if (error) return c.json({ error: error.message }, 500)
+    return c.json(data)
+  })
+  .get('/me', (c) => c.json({ id: c.var.jwtClaims.sub }))
+
+export default { fetch: app.fetch }
+```
+
+Register the bridge with `.use()` in the same chain as the routes it gates. Hono applies middleware only to routes added after it. For browser callers, compose `withCors` from `@supabase/middleware/cors` ahead of the gate. On Deno and Supabase Edge Functions, import `hono`, `@supabase/middleware`, and `@supabase/server@1/middleware/*` with the `npm:` specifier.
+
+**Pick the entries from the adapter's `auth` value.** The adapter rejected requests that failed its `auth` check. `withClaims()` does not. It contributes `jwtClaims: null` for an anonymous request and lets it through. Using it in place of `auth: 'user'` turns a 401 into a 200 with no error.
+
+| Adapter config                            | Bridge entries                                                                                                                                              |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth: 'user'`, or no config              | `toHono([withRequiredClaims(), withSupabaseClient()])`                                                                                                      |
+| `auth: 'none'`                            | `toHono([withSupabaseClient()])`                                                                                                                            |
+| `auth: 'publishable'` or `auth: 'secret'` | No bridge entry exists. That endpoint stays on `withSupabase({ auth: 'publishable' })` or `withSupabase({ auth: 'secret' })`. Do not hand-roll a key check. |
+
+Never compose `withClaims()` and `withRequiredClaims()` in one array. Both contribute `jwtClaims`, and the bridge rejects the pair at compile time. Add `withSupabaseAdminClient()` from `@supabase/server/middleware/admin-client` only where the handler reads `supabaseAdmin`.
+
+The entries contribute flat keys, so handlers read `c.var.supabase` and `c.var.jwtClaims`. No entry contributes `userClaims`. `jwtClaims` is the raw JWT payload: `userClaims.id` becomes `jwtClaims.sub`, `appMetadata` becomes `app_metadata`, and `userMetadata` becomes `user_metadata`.
+
+<details>
+<summary>Deprecated adapter (removed on December 1, 2026)</summary>
+
+Existing code may still import the adapter. Recognize it, and migrate it with the table above. The adapter handles no CORS; it relies on `hono/cors`. See `docs/adapters/hono.md`.
+
+```ts
 import { Hono } from 'hono'
 import { withSupabase } from '@supabase/server/adapters/hono'
 
@@ -125,22 +173,7 @@ app.get('/todos', async (c) => {
 export default app
 ```
 
-```ts
-// Deno / Supabase Edge Functions
-import { Hono } from 'npm:hono'
-import { withSupabase } from 'npm:@supabase/server@1/adapters/hono'
-
-const app = new Hono()
-app.use('*', withSupabase({ auth: 'user' }))
-
-app.get('/todos', async (c) => {
-  const { supabase } = c.var.supabaseContext
-  const { data } = await supabase.from('todos').select()
-  return c.json(data)
-})
-
-export default { fetch: app.fetch }
-```
+</details>
 
 ### Cookie-based environments (compose with `@supabase/ssr`)
 
@@ -436,9 +469,9 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
 | How do I create a basic endpoint?                                                                      | `docs/getting-started.md`                             |
 | What auth modes are available? Array syntax? Named keys?                                               | `docs/auth-modes.md`                                  |
-| Which framework adapters exist? How do I contribute one?                                               | `src/adapters/README.md`                              |
-| How do I use this with Hono?                                                                           | `docs/adapters/hono.md`                               |
-| How do I use this with H3 / Nuxt?                                                                      | `docs/adapters/h3.md`                                 |
+| Which framework adapters exist, and what replaces them?                                                | `README.md`, section "Framework Adapters"             |
+| How do I use the deprecated Hono adapter?                                                              | `docs/adapters/hono.md`                               |
+| How do I use the deprecated H3 / Nuxt adapter?                                                         | `docs/adapters/h3.md`                                 |
 | How do I run middleware entries inside Hono, H3, Elysia, NestJS, or TanStack Start without an adapter? | https://supabase.com/docs/reference/server/frameworks |
 | How do I use low-level primitives for custom flows?                                                    | `docs/core-primitives.md`                             |
 | How do environment variables work across runtimes?                                                     | `docs/environment-variables.md`                       |

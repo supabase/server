@@ -14,6 +14,9 @@ import type {
  * Discriminate in `onError` via `code === 'SupabaseError'`. The original
  * `AuthError` is available as the typed `.cause`.
  *
+ * @deprecated Removed with the Elysia adapter on December 1, 2026. The Elysia
+ *   bridge from the framework integration guide answers auth failures with
+ *   a `Response` instead: https://supabase.com/docs/reference/server/frameworks
  * @category Adapters
  */
 export class SupabaseError extends Error {
@@ -68,6 +71,8 @@ export class SupabaseError extends Error {
  * app.listen(3000)
  * ```
  *
+ * @deprecated Removed on December 1, 2026. Use the Elysia bridge from the
+ *   framework integration guide instead: https://supabase.com/docs/reference/server/frameworks
  * @category Adapters
  */
 // The explicit return type below mirrors Elysia's own generic defaults, which use

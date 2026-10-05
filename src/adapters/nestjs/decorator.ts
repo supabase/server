@@ -33,6 +33,9 @@ import type { SupabaseContext } from '../../types.js'
  * }
  * ```
  *
+ * @deprecated Removed with the NestJS adapter on December 1, 2026. The NestJS
+ *   guard bridge from the framework integration guide puts the contributed
+ *   keys on the request instead: https://supabase.com/docs/reference/server/frameworks
  * @category Adapters
  */
 export const SupabaseCtx: (
