@@ -106,11 +106,12 @@ export default {
 
 ### Hono
 
-> **The Hono adapter (`@supabase/server/adapters/hono`) is deprecated and will be removed on December 1, 2026.** New Hono code uses a bridge: one file you copy into your project. It runs `@supabase/middleware` entries inside Hono's middleware slot. The bridge needs `@supabase/server` 1.6.0 or later and Node 22 or later. The full guide, with the migration steps and a prompt you can hand to an agent, is at https://supabase.com/docs/reference/server/frameworks.
+> **The Hono adapter (`@supabase/server/adapters/hono`) is deprecated and will be removed on December 1, 2026.** New Hono code uses a bridge: one file you copy into your project. It runs `@supabase/middleware` entries inside Hono's middleware slot. The bridge needs `@supabase/server` 1.6.0 or later and Node 22 or later. The bridge file imports `@supabase/middleware`, so add it to your project as a direct dependency. `@supabase/server` depends on it, but a strict package manager such as pnpm does not let your code import a transitive dependency. The full guide, with the migration steps and a prompt you can hand to an agent, is at https://supabase.com/docs/reference/server/frameworks.
 
 The bridge file is not in the npm package. Fetch it from the repository and keep it as is, comments included:
 
 ```bash
+npm install @supabase/middleware
 mkdir -p src/lib
 curl --fail -o src/lib/supabase-middleware.ts \
   https://raw.githubusercontent.com/supabase/server/main/examples/frameworks/hono/supabase-middleware.ts
