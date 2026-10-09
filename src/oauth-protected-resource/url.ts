@@ -12,10 +12,6 @@ import { isEdgeFunctions } from './runtime.js'
 /**
  * A configured URL: either a fixed value, or derived per request.
  *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
- *
  * @category Types
  */
 export type UrlOption = string | ((req: Request) => string)
@@ -170,10 +166,6 @@ export function defaultAuthorizationServer(req: Request): string {
  *
  * @param supabaseUrl - The project URL, e.g. `https://<ref>.supabase.co` (the
  * same value passed to `createClient()`).
- *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
  *
  * @category Middleware
  *

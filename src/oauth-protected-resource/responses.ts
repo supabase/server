@@ -15,10 +15,6 @@ import type {
  * The metadata URL defaults to the Edge Functions derivation and throws off
  * platform; pass `resourceMetadataUrl` to override for custom setups.
  *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
- *
  * @category Middleware
  */
 export function unauthorizedResponse(
@@ -42,11 +38,6 @@ export function unauthorizedResponse(
  * Advertises the authorization server, resource URI, and bearer methods supported.
  * URLs default to the Edge Functions derivation and throw off platform; pass
  * `resource` / `authorizationServers` to override.
- *
- *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
  *
  * @category Middleware
  */
