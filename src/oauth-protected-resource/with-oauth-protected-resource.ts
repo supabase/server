@@ -14,11 +14,6 @@ import type { UrlOption } from './url.js'
 
 /**
  * Shape contributed at `ctx.oauthProtectedResource`.
- *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
- *
  */
 export interface OAuthProtectedResourceContribution {
   /** Absolute URL of this resource's OAuth Protected Resource Metadata document (RFC 9728). */
@@ -31,10 +26,6 @@ export interface OAuthProtectedResourceContribution {
  * Both options accept a fixed string or a function of the request. Both default
  * to values derived from the request as it arrives through the Supabase Edge
  * Functions proxy, so no configuration is needed there.
- *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
  *
  * @category Types
  */
@@ -94,10 +85,6 @@ export interface OAuthProtectedResourceConfig extends ShortCircuitConfig {
  * after `withSupabase` with an auth mode that requires credentials, the
  * composition is refused when the stack is built, since the gate would
  * answer discovery and preflight before this middleware runs.
- *
- * The OAuth Protected Resource surface is alpha — the config shape, the
- * contributed context key, and the metadata route may change in a minor
- * release.
  *
  * @category Middleware
  *
