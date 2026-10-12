@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.2](https://github.com/supabase/server/compare/server-v1.9.1...server-v1.9.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* remove public beta and alpha designations ([#192](https://github.com/supabase/server/issues/192)) ([b5797a1](https://github.com/supabase/server/commit/b5797a182c521ebd71ceb89c5b58a5b5fcb83195))
+
 ## [1.9.1](https://github.com/supabase/server/compare/server-v1.9.0...server-v1.9.1) (2026-10-05)
 
 
