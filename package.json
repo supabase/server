@@ -172,7 +172,7 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.1.2+sha512.415a1cc25974731e75455c1468371be74c5aa5fb7621b50d4056d222451609f11412f23fd602e6169f1e060466641f798597e1be961a10688836a67b16569499",
+  "packageManager": "pnpm@11.28.11+sha512.740184d10f81f5d5b165be88560ee7ba62406c4134896abc27a580109eec2f47c1e41d91251c944c2cababcb1c22461799ebb72de2ec625af2030b0e36c735a3",
   "scripts": {
     "build": "tsdown",
     "check-deps": "node scripts/check-declared-deps.mjs",
