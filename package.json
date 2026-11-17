@@ -179,6 +179,8 @@
     "check-exports": "attw --pack .",
     "dev": "tsdown --watch",
     "docs": "typedoc",
+    "docs:check": "node scripts/check-reference-beta.mjs",
+    "docs:reference-beta": "typedoc && node scripts/generate-reference-beta.mjs && pnpm run docs:check",
     "format": "prettier --write .",
     "gen:env": "bash e2e/scripts/gen-env.sh",
     "lint": "eslint src examples",
@@ -237,6 +239,7 @@
     "@types/node": "^26.0.1",
     "@types/pg": "^8.11.0",
     "@types/supertest": "^7.2.0",
+    "ajv": "^8.20.0",
     "elysia": "^1.4.0",
     "eslint": "^10.0.2",
     "h3": "2.0.1-rc.20",
@@ -254,7 +257,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
     "unplugin-swc": "^1.5.9",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "yaml": "^2.8.3"
   },
   "dependencies": {
     "@supabase/middleware": "^1.0.0",
