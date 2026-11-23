@@ -2,6 +2,10 @@ import { defineMiddleware } from '@supabase/middleware'
 import type { Entry } from '@supabase/middleware'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import {
+  detectMiddlewareTags,
+  withMiddlewareTags,
+} from '../../core/client-info.js'
 import { createContextClient } from '../../core/create-context-client.js'
 import { extractCredentials } from '../../core/extract-credentials.js'
 import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
@@ -51,7 +55,10 @@ const base = defineMiddleware<
       supabase = createContextClient({
         auth: { token, keyName },
         env: config?.env,
-        supabaseOptions: config?.supabaseOptions,
+        supabaseOptions: withMiddlewareTags(
+          config?.supabaseOptions,
+          detectMiddlewareTags(ctx),
+        ),
       })
     } catch (e) {
       throw markConstructionFailure(
