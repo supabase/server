@@ -1,7 +1,7 @@
 import { afterAll, beforeAll } from 'vitest'
 
 import { start } from './apps/elysia/app.ts'
-import { runAdapterScenarios } from './scenarios.ts'
+import { runAppScenarios } from './scenarios.ts'
 
 const PORT = 8793
 
@@ -13,4 +13,4 @@ beforeAll(async () => {
 
 afterAll(() => close())
 
-runAdapterScenarios('elysia', `http://localhost:${PORT}`)
+runAppScenarios('elysia', `http://localhost:${PORT}`)

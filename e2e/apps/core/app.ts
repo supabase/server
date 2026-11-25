@@ -1,5 +1,5 @@
 // Minimal app on the CORE withSupabase(config, handler) fetch wrapper — no
-// framework adapter. This is the exact programming model Supabase Edge
+// framework bridge. This is the exact programming model Supabase Edge
 // Functions use (`Deno.serve(withSupabase(...))`); here the same handler runs
 // behind node:http. The same surface runs on the real Deno edge runtime in
 // e2e/supabase/functions/server-e2e/ — keep the two in sync.

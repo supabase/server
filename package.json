@@ -49,46 +49,6 @@
         "default": "./dist/peer/supabase-js/index.cjs"
       }
     },
-    "./adapters/hono": {
-      "import": {
-        "types": "./dist/adapters/hono/index.d.mts",
-        "default": "./dist/adapters/hono/index.mjs"
-      },
-      "require": {
-        "types": "./dist/adapters/hono/index.d.cts",
-        "default": "./dist/adapters/hono/index.cjs"
-      }
-    },
-    "./adapters/h3": {
-      "import": {
-        "types": "./dist/adapters/h3/index.d.mts",
-        "default": "./dist/adapters/h3/index.mjs"
-      },
-      "require": {
-        "types": "./dist/adapters/h3/index.d.cts",
-        "default": "./dist/adapters/h3/index.cjs"
-      }
-    },
-    "./adapters/elysia": {
-      "import": {
-        "types": "./dist/adapters/elysia/index.d.mts",
-        "default": "./dist/adapters/elysia/index.mjs"
-      },
-      "require": {
-        "types": "./dist/adapters/elysia/index.d.cts",
-        "default": "./dist/adapters/elysia/index.cjs"
-      }
-    },
-    "./adapters/nestjs": {
-      "import": {
-        "types": "./dist/adapters/nestjs/index.d.mts",
-        "default": "./dist/adapters/nestjs/index.mjs"
-      },
-      "require": {
-        "types": "./dist/adapters/nestjs/index.d.cts",
-        "default": "./dist/adapters/nestjs/index.cjs"
-      }
-    },
     "./middleware/client": {
       "import": {
         "types": "./dist/middleware/client/index.d.mts",
@@ -186,10 +146,10 @@
     "prepare": "simple-git-hooks",
     "smoke": "node scripts/smoke-load.mjs",
     "smoke:pack": "node scripts/smoke-pack.mjs",
-    "test": "vitest run --project unit --project nestjs",
+    "test": "vitest run --project unit",
     "test:e2e": "vitest run --project e2e",
-    "test:watch": "vitest --project unit --project nestjs",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/adapters/nestjs",
+    "test:watch": "vitest --project unit",
+    "typecheck": "tsc --noEmit",
     "typecheck:e2e": "tsc --noEmit -p e2e",
     "typecheck:examples": "tsc --noEmit -p examples",
     "vendor:e2e": "bash e2e/scripts/vendor-pack.sh"
@@ -199,26 +159,10 @@
     "commit-msg": "pnpm commitlint --edit \"$1\""
   },
   "peerDependencies": {
-    "@nestjs/common": "^10.0.0 || ^11.0.0",
     "@supabase/supabase-js": "^2.0.0",
-    "elysia": "^1.4.0",
-    "h3": "^2.0.0",
-    "hono": "^4.0.0",
     "pg": "^8.0.0"
   },
   "peerDependenciesMeta": {
-    "@nestjs/common": {
-      "optional": true
-    },
-    "h3": {
-      "optional": true
-    },
-    "hono": {
-      "optional": true
-    },
-    "elysia": {
-      "optional": true
-    },
     "pg": {
       "optional": true
     }
@@ -231,12 +175,10 @@
     "@nestjs/core": "^11.1.19",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/platform-fastify": "^11.1.19",
-    "@nestjs/testing": "^11.1.19",
     "@supabase/supabase-js": "^2.114.0",
     "@swc/core": "^1.15.33",
     "@types/node": "^26.0.1",
     "@types/pg": "^8.11.0",
-    "@types/supertest": "^7.2.0",
     "elysia": "^1.4.0",
     "eslint": "^10.0.2",
     "h3": "2.0.1-rc.20",
@@ -248,7 +190,6 @@
     "rxjs": "^7.8.2",
     "simple-git-hooks": "^2.13.1",
     "srvx": "^0.11.18",
-    "supertest": "^7.2.2",
     "tsdown": "^0.22.14",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3",

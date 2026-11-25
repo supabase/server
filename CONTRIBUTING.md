@@ -10,7 +10,7 @@ Thank you for your interest in contributing to `@supabase/server`! This document
 - [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
 - [Contributing a middleware](#contributing-a-middleware)
-- [Framework adapters](#framework-adapters)
+- [Framework bridges](#framework-bridges)
 - [Release Process](#release-process)
 
 ## Getting Started
@@ -80,8 +80,9 @@ pnpm test
 ### End-to-end tests
 
 The E2E suite (`e2e/`) runs real JWT issuance, real JWKS validation, and real
-Supabase client operations against a local Supabase stack, across all four
-adapters. It imports the library from `dist/`, so build first:
+Supabase client operations against a local Supabase stack, across the four
+framework bridges plus the core fetch wrapper and the Deno edge runtime. It
+imports the library from `dist/`, so build first:
 
 ```bash
 pnpm build
@@ -212,11 +213,13 @@ Middleware with no Supabase surface lives in its own package on top of [`@supaba
 
 **Naming.** The `with` prefix means middleware: composable, chainable, and never the last entry in a chain. A terminal handler resolves the request instead of passing it on; it takes no prefix and lives outside `src/middleware/`. MCP-specific code stays separate from general middleware. When something turns out not to be MCP-specific, rename it and place it by the rules above.
 
-## Framework adapters
+## Framework bridges
 
-The adapters under `src/adapters/` (Hono, H3, Elysia, NestJS) are deprecated and will be removed on December 1, 2026. New adapters are not accepted. Framework integration goes through the bridges in [`examples/frameworks`](examples/frameworks) and the [framework integration guide](https://supabase.com/docs/reference/server/frameworks).
+Framework integration lives in [`examples/frameworks`](examples/frameworks): one bridge file per framework that consumers copy into their own projects, explained by the [framework integration guide](https://supabase.com/docs/reference/server/frameworks). The package publishes no per-framework entry point, and PRs adding one are not accepted. A bridge belongs in the consumer's project, where it does not have to track their framework's major versions.
 
-Bug fixes and framework-version bumps for the existing adapters are welcome until removal. See [`src/adapters/README.md`](src/adapters/README.md) for the maintenance rules.
+The bridges are not dead examples. `e2e/apps/<framework>/app.ts` imports each one directly, so the e2e suite exercises the exact files the guide tells people to copy. A change to a bridge has to keep `pnpm test:e2e` green.
+
+The adapters that used to live under `src/adapters/` were removed in 2.0.0, the removal announced for December 1, 2026 when they were deprecated in 1.9.0.
 
 ## Release Process
 

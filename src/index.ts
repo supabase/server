@@ -34,16 +34,14 @@
  * withSupabase({ auth: ['user', 'secret'] }, handler)
  * ```
  *
- * ## Framework adapters
+ * ## Framework integration
  *
- * Adapters for Hono, H3 / Nuxt, Elysia, and NestJS ship inside this package:
- *
- * ```ts
- * import { withSupabase } from '@supabase/server/adapters/hono'
- * import { withSupabase } from '@supabase/server/adapters/h3'
- * import { withSupabase } from '@supabase/server/adapters/elysia'
- * import { withSupabase, SupabaseCtx } from '@supabase/server/adapters/nestjs'
- * ```
+ * To run this package's middleware entries inside Hono, H3 / Nuxt, Elysia,
+ * NestJS, or TanStack Start, you need a bridge: one file in your project that
+ * runs an entry array in the framework's own middleware slot. Copy the one for
+ * your framework from `examples/frameworks/` in the repository. The
+ * {@link https://supabase.com/docs/reference/server/frameworks | Frameworks guide}
+ * explains how to write and compose one.
  *
  * ## Composable primitives
  *

@@ -1,10 +1,15 @@
 # E2E tests
 
 End-to-end coverage for `@supabase/server`: real GoTrue-issued JWTs, real JWKS
-validation over HTTP, real Supabase client operations — across all four
-adapters (Hono, H3, Elysia, NestJS) plus the core `withSupabase` fetch
-wrapper on Node and on the real Deno edge runtime, the programming model
+validation over HTTP, real Supabase client operations — across the four
+framework bridges (Hono, H3, Elysia, NestJS) plus the core `withSupabase`
+fetch wrapper on Node and on the real Deno edge runtime, the programming model
 Supabase Edge Functions use.
+
+The framework apps import their bridge straight from `examples/frameworks/`,
+so this suite covers the exact files the [frameworks
+guide](https://supabase.com/docs/reference/server/frameworks) tells consumers
+to copy into their own projects.
 
 Unlike the unit/integration tests (mocked env, `jwks: null`), this suite:
 
@@ -16,7 +21,7 @@ Unlike the unit/integration tests (mocked env, `jwks: null`), this suite:
 - covers both context clients: `supabaseAdmin` (app-layer scoping) and the
   user-scoped `supabase` client, where the caller's JWT travels to PostgREST
   and a Postgres RLS policy scopes the rows
-- runs each adapter app on a real HTTP server and asserts over `fetch`
+- runs each app on a real HTTP server and asserts over `fetch`
 
 ## Running locally
 
@@ -28,19 +33,22 @@ cd .. && pnpm gen:env       # writes e2e/.env from `supabase status`
 pnpm test:e2e
 ```
 
-Run a single adapter with `pnpm test:e2e h3`.
+Run a single app with `pnpm test:e2e h3`.
 
 ## Layout
 
 - `supabase/` — local stack config + `notes` table migration
-- `apps/<adapter>/app.ts` — minimal app per adapter, identical route surface:
-  `GET /health` (public), `GET /me` (user), `GET /me-optional` (user or none),
-  `GET|POST /notes` (user, admin client scoped by `userClaims.id`),
+- `apps/<framework>/app.ts` — minimal app per framework, built on that
+  framework's bridge from `examples/frameworks/`, identical route surface:
+  `GET /health` (public, no entries), `GET /me` (`withRequiredClaims`),
+  `GET /me-optional` (`withClaims`, anonymous allowed through with
+  `jwtClaims: null`),
+  `GET|POST /notes` (gated, admin client scoped by `jwtClaims.sub`),
   `GET /my-notes` (user, RLS-scoped client — no WHERE clause),
   `GET /all-notes` (user, admin client with no filter — proves the admin
   client is not scoped to the caller)
 - `apps/core/app.ts` — same surface on the core `withSupabase(config, handler)`
-  fetch wrapper (no adapter) — what an Edge Function deploys, running on Node.
+  fetch wrapper (no bridge) — what an Edge Function deploys, running on Node.
   Plus `GET /my-notes-pg` (user, `pipeline([withSupabase({ auth: 'user' }), withPostgresClient()], …)` — a real `pg`
   connection, same unfiltered query, rows scoped by RLS alone). Only the core
   and edge apps carry this route: `pg` needs raw TCP, which is precisely the
@@ -55,9 +63,12 @@ Run a single adapter with `pnpm test:e2e h3`.
   older local edge runtimes don't inject the new-key env
   (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS` / `SUPABASE_JWKS`)
   the library reads.
-- `scenarios.ts` — the single scenario set run against every adapter
-  (`runAdapterScenarios`), plus `runPostgresScenarios` for the `ctx.postgres`
+- `scenarios.ts` — the single scenario set run against every app
+  (`runAppScenarios`), plus `runPostgresScenarios` for the `ctx.postgres`
   route, run only by `core.e2e.ts` and `edge.e2e.ts`
+- `apps/claims.ts` — rebuilds the `{ id, email, role }` identity view the
+  scenarios assert on from the raw `jwtClaims` the entries contribute
+  (`sub` carries what `id` carried)
 - `setup/global-setup.ts` — checks the stack is up, signs in two test users,
   provides their tokens to the tests
 - `scripts/gen-env.sh` — writes `.env` (gitignored) from the running stack

@@ -339,8 +339,8 @@ export interface WithSupabaseConfig extends ShortCircuitConfig {
    * deprecated but still accepted for backward compatibility.
    *
    * @remarks Only applies to the top-level {@link withSupabase} wrapper.
-   * The adapters (Hono, H3, Elysia, NestJS) handle CORS separately via each
-   * framework's own middleware.
+   * A framework bridge composes `withCors` from `@supabase/middleware/cors`,
+   * or leaves CORS to the framework's own middleware.
    *
    * @defaultValue `'default'`
    */
@@ -374,7 +374,7 @@ export interface WithSupabaseConfig extends ShortCircuitConfig {
    *
    * @remarks Applies to the responses {@link withSupabase} produces. The error
    * object itself is always fully populated, so {@link createSupabaseContext}
-   * and the framework adapters still see everything.
+   * and middleware entries still see everything.
    *
    * @see {@link ErrorResponseConfig}
    */
@@ -498,7 +498,7 @@ export type UntypedDatabase = any
  * The Supabase context created for each authenticated request.
  *
  * Contains pre-configured Supabase clients and the caller's identity.
- * Identical regardless of which layer or adapter produced it.
+ * Identical regardless of which layer produced it.
  * @category Types
  */
 export interface SupabaseContext<Database = UntypedDatabase> {

@@ -76,71 +76,60 @@ const { data: todos } = await supabase.from('todos').select()
 const { data: users } = await supabaseAdmin.from('profiles').select()
 ```
 
-## Using with the Hono adapter
+## Using with a framework bridge
 
-Pass an app environment type to `Hono<Env>()` so Hono knows the `supabaseContext` variable includes your generated database types:
+Thread `Database` through the entry's generic. `withSupabaseClient<Database>()`
+contributes a fully typed `SupabaseClient<Database>`, and the bridge carries
+that type onto wherever your framework keeps per-request state.
 
-```ts
-import { Hono } from 'hono'
-import { withSupabase } from '@supabase/server/adapters/hono'
-import type { SupabaseContext } from '@supabase/server'
-import type { Database } from './database.types.ts'
-
-type Env = {
-  Variables: {
-    supabaseContext: SupabaseContext<Database>
-  }
-}
-
-const app = new Hono<Env>()
-
-app.use('*', withSupabase({ auth: 'user' }))
-
-app.get('/todos', async (c) => {
-  const { supabase } = c.var.supabaseContext
-  const { data } = await supabase.from('todos').select('id, title')
-  return c.json(data)
-})
-```
-
-Alternatively, skip the `Env` type and thread `Database` through the `withSupabase<Database>()` generic when using chained declarations. Hono infers the `supabaseContext` variable type from the middleware, so `c.var.supabaseContext.supabase` is still a fully typed `SupabaseClient<Database>`. This plays a little nicer with hono [sub-application routes](https://hono.dev/docs/helpers/route#working-with-sub-applications).
+In Hono the keys type through to `c.var` with no `Env` declaration of your own,
+as long as you keep the calls chained. `app.use(...)` on one line and
+`app.get(...)` on the next typechecks the middleware but leaves `c.var`
+untyped.
 
 ```ts
 import { Hono } from 'hono'
-import { withSupabase } from '@supabase/server/adapters/hono'
+import { withRequiredClaims } from '@supabase/server/middleware/required-claims'
+import { withSupabaseClient } from '@supabase/server/middleware/client'
 import type { Database } from './database.types.ts'
+
+import { toHono } from './lib/supabase-middleware.js'
 
 const app = new Hono()
-
-const todosApp = new Hono()
-  .use(withSupabase<Database>({ auth: 'user' }))
-  .get('/', async (c) => {
-    const { supabase } = c.var.supabaseContext
-    const { data } = await supabase.from('todos').select('id, title')
+  .use('*', toHono([withRequiredClaims(), withSupabaseClient<Database>()]))
+  .get('/todos', async (c) => {
+    const { data } = await c.var.supabase.from('todos').select('id, title')
     return c.json(data)
   })
-
-app.route('/todos', todosApp)
 ```
 
-The elysia adapter works the same way: thread `Database` through the `withSupabase<Database>()` generic and elysia infers the `supabaseContext` type, so `supabaseContext.supabase` is a fully typed `SupabaseClient<Database>` in every handler.
+Elysia works the same way through its own bridge pair. Pass the same tuple
+type to `supabaseCtx` that `wrapElysia` receives, and `c.supabase` is a fully
+typed `SupabaseClient<Database>` in every handler.
 
 ```ts
 import { Elysia } from 'elysia'
-import { withSupabase } from '@supabase/server/adapters/elysia'
+import { withRequiredClaims } from '@supabase/server/middleware/required-claims'
+import { withSupabaseClient } from '@supabase/server/middleware/client'
 import type { Database } from './database.types.ts'
 
+import { supabaseCtx, wrapElysia } from './lib/supabase-middleware.js'
+
+const entries = [withRequiredClaims(), withSupabaseClient<Database>()] as const
+
 const app = new Elysia()
-  .use(withSupabase<Database>({ auth: 'user' }))
-  .get('/todos', async ({ supabaseContext }) => {
-    const { data } = await supabaseContext.supabase
-      .from('todos')
-      .select('id, title')
+  .use(supabaseCtx<typeof entries>())
+  .get('/todos', async (c) => {
+    const { data } = await c.supabase.from('todos').select('id, title')
     return data
   })
 
-app.listen(3000)
+export default { fetch: wrapElysia(entries, (req) => app.handle(req)) }
 ```
+
+Frameworks whose per-request store is not generic, such as H3 and NestJS, read
+the contributions through `Contributions<typeof entries>` instead. See the
+[frameworks guide](https://supabase.com/docs/reference/server/frameworks).
 
 ## Custom schema
 

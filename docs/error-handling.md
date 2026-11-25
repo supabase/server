@@ -62,7 +62,7 @@ x-supabase-server-error: MISSING_CREDENTIALS
 }
 ```
 
-The status code and the `x-supabase-server-error` header are unaffected, and `message` keeps its `[@supabase/server]` prefix — so the error stays traceable without the `source` field. The **error object itself is untouched**: `createSupabaseContext` callers and the framework adapters still see `hint`, `docs`, and `details` in full.
+The status code and the `x-supabase-server-error` header are unaffected, and `message` keeps its `[@supabase/server]` prefix — so the error stays traceable without the `source` field. The **error object itself is untouched**: `createSupabaseContext` callers and middleware entries still see `hint`, `docs`, and `details` in full.
 
 > This is a verbosity control, not a security boundary. `code` and `message` still describe the failure specifically. To disclose nothing, format the response yourself with `createSupabaseContext` (see [Custom error formatting](#custom-error-formatting)).
 
@@ -309,7 +309,8 @@ A connection attempt failed, and the pool is pausing new attempts so a bad crede
 | `resolveEnv()`                               | Result tuple  | Returns `{ data: null, error: EnvError }`                                                                               |
 | `createContextClient()`                      | **Throws**    | Throws `EnvError`                                                                                                       |
 | `createAdminClient()`                        | **Throws**    | Throws `EnvError`                                                                                                       |
-| Hono `withSupabase()`                        | HTTPException | Throws `HTTPException` with `cause: AuthError`                                                                          |
+| A framework bridge short-circuit             | Auto-response | The entry's `Response` reaches the client unchanged on Hono, H3, and TanStack Start server routes                       |
+| `toNestGuard()` short-circuit                | HttpException | Throws `HttpException` with the entry's status and `{ message, code }` body                                             |
 
 `verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
 
@@ -341,18 +342,37 @@ export default {
 }
 ```
 
-## Handling errors in Hono
+## Handling errors in a framework bridge
 
-The Hono adapter throws an `HTTPException` when auth fails. Access the original `AuthError` via `.cause`:
+On Hono, H3, and TanStack Start server routes, a short-circuit from
+`withRequiredClaims()` is an ordinary `Response` carrying the standard payload,
+so the 401 reaches the client with its `code` intact and no error handler is
+involved. The Nest guard throws an `HttpException` with the entry's status and
+`{ message, code }` body. On a TanStack Start server function the bridge
+rethrows the short-circuit as an error carrying `status` and `code`, because
+Start's fetcher would otherwise resolve the caller's promise with the 401 body.
+
+What does need mapping is `EnvError`. `withSupabaseClient()` and
+`withSupabaseAdminClient()` throw it when configuration is missing, and the
+bridges do not catch it. The two fail at different moments:
+`withSupabaseClient()` throws from the entry chain before your handler runs,
+while `withSupabaseAdminClient()` builds lazily and throws on the first
+`supabaseAdmin` property access, inside your handler. Map both in your
+framework's error boundary. In Hono:
 
 ```ts
+import { EnvError } from '@supabase/server'
+
 app.onError((err, c) => {
-  if (err instanceof HTTPException && err.cause instanceof AuthError) {
-    return c.json(err.cause.toJSON(), err.status)
+  if (err instanceof EnvError) {
+    return c.json({ message: 'Server misconfigured' }, 500)
   }
   return c.json({ message: 'Internal error' }, 500)
 })
 ```
+
+See the [frameworks guide](https://supabase.com/docs/reference/server/frameworks)
+for the full error-shape comparison.
 
 ## Handling errors in core primitives
 
