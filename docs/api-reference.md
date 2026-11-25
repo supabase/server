@@ -518,7 +518,7 @@ interface WithSupabaseConfig {
   audience?: string | string[]
   issuer?: string | string[]
   env?: Partial<SupabaseEnv>
-  cors?: boolean | Record<string, string> // default: true
+  cors?: 'default' | 'disabled' | { headers: Record<string, string> } // default: 'default'
   supabaseOptions?: SupabaseClientOptions<string>
   errors?: ErrorResponseConfig
 }

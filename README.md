@@ -345,7 +345,7 @@ const { data: result, error } = await verifyCredentials(credentials, {
 ### createContextClient / createAdminClient
 
 ```ts
-const userScopedClient = createContextClient(auth.token) // RLS applies as this user
+const userScopedClient = createContextClient({ auth: { token: auth.token } }) // RLS applies as this user
 const anonClient = createContextClient() // RLS applies as anon role
 const adminClient = createAdminClient() // bypasses RLS entirely
 ```
@@ -393,7 +393,9 @@ export default {
           { status: error.status },
         )
 
-      const userScopedClient = createContextClient(result.token)
+      const userScopedClient = createContextClient({
+        auth: { token: result.token, keyName: result.keyName },
+      })
       const { data: myGames } = await userScopedClient
         .from('favorite_games')
         .select()
