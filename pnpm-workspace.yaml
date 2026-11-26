@@ -7,7 +7,9 @@ minimumReleaseAgeExclude:
   # Remove once 0.28.x is past the age gate or vite ships it natively.
   - esbuild
   - '@esbuild/*'
-blockExoticSubdeps: true
+# Preview-only (do not merge to main): the supabase-js PR #2887 preview pulls
+# its sub-packages from pkg.pr.new URLs, which this guard refuses.
+blockExoticSubdeps: false
 allowBuilds:
   '@supabase/middleware': true
   '@nestjs/core': false
