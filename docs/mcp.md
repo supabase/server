@@ -50,7 +50,7 @@ Pass the `Database` generic (from `supabase gen types typescript`) when tools wr
 
 Order matters.
 
-`withOAuthProtectedResource()` runs **before** the auth gate, so it sees unauthenticated requests. It does two things:
+`withOAuthProtectedResource()` runs **before** the auth gate, so it sees unauthenticated requests. The order is checked: placed after `withSupabase` in the array, the stack fails to compile and throws when it is built. It does two things:
 
 | Request                                       | Response                                                                                               |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |

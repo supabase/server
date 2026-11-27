@@ -5,7 +5,6 @@ import {
   constructionFailureResponse,
   isConstructionFailure,
 } from '../core/parts/construction-failure.js'
-import { tagPreAuth } from '../core/pre-auth.js'
 import { ErrorCodeHeader } from '../errors.js'
 import type { ShortCircuitConfig } from '../types.js'
 import { resourceMetadataResponse } from './responses.js'
@@ -81,10 +80,13 @@ export interface OAuthProtectedResourceConfig extends ShortCircuitConfig {
  * Contributes `ctx.oauthProtectedResource` (the resolved metadata URL) to the
  * downstream context. Nested under `withSupabase`, the key is typed on the
  * handler's `ctx` when the outermost call is anchored with
- * `satisfies FetchHandler` — see `withSupabase`'s type note. Placed directly
- * after `withSupabase` with an auth mode that requires credentials, the
- * composition is refused when the stack is built, since the gate would
- * answer discovery and preflight before this middleware runs.
+ * `satisfies FetchHandler` — see `withSupabase`'s type note.
+ *
+ * Declares `before: ['authMode']`, so it must run outside anything that
+ * contributes `authMode`, as `withSupabase` does: behind its gate, discovery
+ * and preflight are answered before this middleware runs. Placed after
+ * `withSupabase`, whatever its auth modes, the stack fails to compile in a
+ * `pipeline` or nested directly inside it, and throws when it is built.
  *
  * @category Middleware
  *
@@ -133,114 +135,112 @@ export const withOAuthProtectedResource: Middleware<
   'oauthProtectedResource',
   OAuthProtectedResourceConfig | undefined,
   Record<never, never>,
-  OAuthProtectedResourceContribution
-> = tagPreAuth(
-  defineMiddleware<
-    'oauthProtectedResource',
-    OAuthProtectedResourceConfig | undefined,
-    Record<never, never>,
-    OAuthProtectedResourceContribution
-  >({
-    key: 'oauthProtectedResource',
-    run: (config) =>
-      async function* (req) {
-        const url = new URL(req.url)
-        // The metadata document lives at `{resource}/oauth-protected-resource`.
-        // Matching on the suffix keeps this working wherever the endpoint is
-        // mounted, without assuming the Edge Functions path convention.
-        const isMetadataRoute = url.pathname.endsWith(
-          '/oauth-protected-resource',
-        )
+  OAuthProtectedResourceContribution,
+  'authMode'
+> = defineMiddleware<
+  'oauthProtectedResource',
+  OAuthProtectedResourceConfig | undefined,
+  Record<never, never>,
+  OAuthProtectedResourceContribution,
+  'authMode'
+>({
+  key: 'oauthProtectedResource',
+  before: ['authMode'],
+  run: (config) =>
+    async function* (req) {
+      const url = new URL(req.url)
+      // The metadata document lives at `{resource}/oauth-protected-resource`.
+      // Matching on the suffix keeps this working wherever the endpoint is
+      // mounted, without assuming the Edge Functions path convention.
+      const isMetadataRoute = url.pathname.endsWith('/oauth-protected-resource')
 
-        // CORS preflight for the metadata route — browser-based clients fetch the
-        // discovery document cross-origin.
-        if (isMetadataRoute && req.method === 'OPTIONS') {
-          return new Response(null, {
-            status: 204,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, OPTIONS',
-              'Access-Control-Allow-Headers':
-                'content-type, mcp-protocol-version',
-            },
+      // CORS preflight for the metadata route — browser-based clients fetch the
+      // discovery document cross-origin.
+      if (isMetadataRoute && req.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers':
+              'content-type, mcp-protocol-version',
+          },
+        })
+      }
+
+      // Every advertised URL is resolved here, ahead of the yield. A default
+      // the library cannot derive is a deployment misconfiguration and is
+      // answered as the JSON error response, the same mapping `withSupabase`'s
+      // construction boundary applies. A throw from a configured
+      // `resourceServer` / `authorizationServer` function carries no
+      // construction mark and propagates as the caller's own.
+      let resourceMetadataUrl: string
+      try {
+        // RFC 9728 — OAuth Protected Resource Metadata
+        if (isMetadataRoute && req.method === 'GET') {
+          return resourceMetadataResponse(req, {
+            resource: getResourceUrl(req, config?.resourceServer),
+            authorizationServers: [
+              getAuthUrl(req, config?.authorizationServer),
+            ],
           })
         }
-
-        // Every advertised URL is resolved here, ahead of the yield. A default
-        // the library cannot derive is a deployment misconfiguration and is
-        // answered as the JSON error response, the same mapping `withSupabase`'s
-        // construction boundary applies. A throw from a configured
-        // `resourceServer` / `authorizationServer` function carries no
-        // construction mark and propagates as the caller's own.
-        let resourceMetadataUrl: string
-        try {
-          // RFC 9728 — OAuth Protected Resource Metadata
-          if (isMetadataRoute && req.method === 'GET') {
-            return resourceMetadataResponse(req, {
-              resource: getResourceUrl(req, config?.resourceServer),
-              authorizationServers: [
-                getAuthUrl(req, config?.authorizationServer),
-              ],
-            })
-          }
-          resourceMetadataUrl = getResourceMetadataUrl(
-            req,
-            config?.resourceServer,
-          )
-        } catch (error) {
-          if (isConstructionFailure(error, 'oauthProtectedResource')) {
-            const response = constructionFailureResponse(error, config?.errors)
-            // The metadata document is public discovery data that browsers
-            // fetch cross-origin, and its 200 and 204 carry `*`. Its 500 does
-            // too, so a browser reads the failure the same way it reads the
-            // document. Every other route keeps the host's own CORS policy.
-            if (isMetadataRoute) {
-              response.headers.set('Access-Control-Allow-Origin', '*')
-              response.headers.set(
-                'Access-Control-Expose-Headers',
-                ErrorCodeHeader,
-              )
-            }
-            return response
-          }
-          throw error
-        }
-
-        const response = yield {
-          oauthProtectedResource: { resourceMetadataUrl },
-        }
-
-        // Enrich a 401 with WWW-Authenticate so clients can discover the auth
-        // server — unless the handler already set one (its value wins, e.g. an
-        // RFC 6750 error or a custom resource_metadata override).
-        if (
-          response.status === 401 &&
-          !response.headers.has('WWW-Authenticate')
-        ) {
-          const challenge = `Bearer resource_metadata="${resourceMetadataUrl}"`
-          try {
-            response.headers.set('WWW-Authenticate', challenge)
-            return response
-          } catch {
-            // Headers on a fetch()-proxied response carry the immutable guard,
-            // so enrichment falls back to a copy. A copy cannot carry `.url` or
-            // `.redirected` and cannot reuse a consumed body stream, which is
-            // why in-place mutation is the primary path.
-            const headers = new Headers(response.headers)
-            headers.set('WWW-Authenticate', challenge)
-            return new Response(
-              response.bodyUsed || response.body?.locked ? null : response.body,
-              {
-                status: response.status,
-                statusText: response.statusText,
-                headers,
-              },
+        resourceMetadataUrl = getResourceMetadataUrl(
+          req,
+          config?.resourceServer,
+        )
+      } catch (error) {
+        if (isConstructionFailure(error, 'oauthProtectedResource')) {
+          const response = constructionFailureResponse(error, config?.errors)
+          // The metadata document is public discovery data that browsers
+          // fetch cross-origin, and its 200 and 204 carry `*`. Its 500 does
+          // too, so a browser reads the failure the same way it reads the
+          // document. Every other route keeps the host's own CORS policy.
+          if (isMetadataRoute) {
+            response.headers.set('Access-Control-Allow-Origin', '*')
+            response.headers.set(
+              'Access-Control-Expose-Headers',
+              ErrorCodeHeader,
             )
           }
+          return response
         }
+        throw error
+      }
 
-        return response
-      },
-  }),
-  'withOAuthProtectedResource',
-)
+      const response = yield {
+        oauthProtectedResource: { resourceMetadataUrl },
+      }
+
+      // Enrich a 401 with WWW-Authenticate so clients can discover the auth
+      // server — unless the handler already set one (its value wins, e.g. an
+      // RFC 6750 error or a custom resource_metadata override).
+      if (
+        response.status === 401 &&
+        !response.headers.has('WWW-Authenticate')
+      ) {
+        const challenge = `Bearer resource_metadata="${resourceMetadataUrl}"`
+        try {
+          response.headers.set('WWW-Authenticate', challenge)
+          return response
+        } catch {
+          // Headers on a fetch()-proxied response carry the immutable guard,
+          // so enrichment falls back to a copy. A copy cannot carry `.url` or
+          // `.redirected` and cannot reuse a consumed body stream, which is
+          // why in-place mutation is the primary path.
+          const headers = new Headers(response.headers)
+          headers.set('WWW-Authenticate', challenge)
+          return new Response(
+            response.bodyUsed || response.body?.locked ? null : response.body,
+            {
+              status: response.status,
+              statusText: response.statusText,
+              headers,
+            },
+          )
+        }
+      }
+
+      return response
+    },
+})

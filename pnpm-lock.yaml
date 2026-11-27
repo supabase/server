@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@supabase/middleware':
-        specifier: ^1.0.0
-        version: 1.0.0(typescript@5.9.3)
+        specifier: https://pkg.pr.new/@supabase/middleware@59
+        version: https://pkg.pr.new/@supabase/middleware@59(typescript@5.9.3)
       jose:
         specifier: ^6.2.0
         version: 6.2.0
@@ -928,8 +928,9 @@ packages:
     resolution: {integrity: sha512-N3hzlq2xr6IYkkgj0tC4j0U3LWVshr5U/DAvmD5Bu8bW1ne2XOwxOx3ps6Y3NbptBAlzDrezmeJevlZR4AqsLA==}
     engines: {node: '>=22.0.0'}
 
-  '@supabase/middleware@1.0.0':
-    resolution: {integrity: sha512-ecA+z/o5E9sB+quuupGt8d7QjrnD4BBwZr+Qthm0uj6CtL/+yvAUTDlknhGuTbUidvx5CxBHJ1R3H96UjDpgyg==}
+  '@supabase/middleware@https://pkg.pr.new/@supabase/middleware@59':
+    resolution: {integrity: sha512-xPKLT0/j+I8qzzPgo7+b2ks4h7ELSDK+cuI86C5VVIW/y+XNtpv04TLfKQoYSc2WD8FFOIgfMWXRn+vGsAmANg==, tarball: https://pkg.pr.new/@supabase/middleware@59}
+    version: 1.0.0
     engines: {node: '>=22'}
     peerDependencies:
       typescript: '>=5.4'
@@ -4097,7 +4098,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@supabase/middleware@1.0.0(typescript@5.9.3)':
+  '@supabase/middleware@https://pkg.pr.new/@supabase/middleware@59(typescript@5.9.3)':
     dependencies:
       std-env: 4.2.0
     optionalDependencies:

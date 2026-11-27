@@ -766,76 +766,111 @@ describe('withSupabase key mirroring', () => {
   })
 })
 
-describe('pre-auth middleware placement', () => {
+describe('withOAuthProtectedResource placement', () => {
   const oauthCfg = {
     resourceServer: 'http://localhost/functions/v1/mcp',
     authorizationServer: 'https://test.supabase.co/auth/v1',
   }
+  const metadataRoute =
+    'http://localhost/functions/v1/mcp/oauth-protected-resource'
   const ok = async () => new Response('ok')
+  const outOfOrder =
+    /middleware-order: 'oauthProtectedResource' must run before anything that contributes 'authMode'/
+  const withRequestId = defineMiddleware({
+    key: 'requestId',
+    run: (config: { header: string } | undefined) => async (req) => ({
+      requestId: req.headers.get(config?.header ?? 'x-request-id') ?? 'none',
+    }),
+  })
+  /** The same call without its types, as a JavaScript caller makes it. */
+  const untyped = (fn: unknown) => fn as (...args: unknown[]) => unknown
 
-  it('refuses a pipeline that places withOAuthProtectedResource after a credentialed gate', () => {
+  // Each wrong order below also throws when the stack is built, so these pin
+  // both halves of the check.
+  it('refuses a pipeline that places it after withSupabase, adjacent or further on', () => {
     expect(() =>
       pipeline(
         [
           withSupabase({ auth: 'user', env: baseEnv }),
           withOAuthProtectedResource(oauthCfg),
         ],
+        // @ts-expect-error — middleware-order: 'oauthProtectedResource' must run before anything that contributes 'authMode'
         ok,
       ),
-    ).toThrow(/withOAuthProtectedResource is placed after withSupabase/)
+    ).toThrow(outOfOrder)
+    expect(() =>
+      pipeline(
+        [
+          withSupabase({ auth: 'user', env: baseEnv }),
+          withRequestId(),
+          withOAuthProtectedResource(oauthCfg),
+        ],
+        // @ts-expect-error — middleware-order: 'oauthProtectedResource' must run before anything that contributes 'authMode'
+        ok,
+      ),
+    ).toThrow(outOfOrder)
   })
 
-  it('refuses the nested form as well', () => {
+  it('refuses the nested form, adjacent or further in', () => {
     expect(() =>
       withSupabase(
         { auth: 'user', env: baseEnv },
+        // @ts-expect-error — the produced ctx marks 'authMode' with the middleware-order sentinel
         withOAuthProtectedResource(oauthCfg, ok),
       ),
-    ).toThrow(/placed after withSupabase/)
+    ).toThrow(outOfOrder)
+    expect(() =>
+      untyped(withSupabase)(
+        { auth: 'user', env: baseEnv },
+        withRequestId(withOAuthProtectedResource(oauthCfg, ok)),
+      ),
+    ).toThrow(outOfOrder)
   })
 
-  it("accepts the placement when the gate admits anonymous requests (auth: 'none')", async () => {
-    const handler = pipeline(
-      [
-        withSupabase({ auth: 'none', env: baseEnv }),
-        withOAuthProtectedResource(oauthCfg),
-      ],
-      ok,
-    )
-    const res = await handler(
-      new Request('http://localhost/functions/v1/mcp/oauth-protected-resource'),
-    )
-    expect(res.status).toBe(200)
-  })
-
-  it("accepts the placement when 'none' is one of several modes", () => {
+  it("refuses it after a gate that admits anonymous requests too (auth: 'none')", () => {
+    expect(() =>
+      pipeline(
+        [
+          withSupabase({ auth: 'none', env: baseEnv }),
+          withOAuthProtectedResource(oauthCfg),
+        ],
+        // @ts-expect-error — middleware-order: 'oauthProtectedResource' must run before anything that contributes 'authMode'
+        ok,
+      ),
+    ).toThrow(outOfOrder)
     expect(() =>
       pipeline(
         [
           withSupabase({ auth: ['user', 'none'], env: baseEnv }),
           withOAuthProtectedResource(oauthCfg),
         ],
+        // @ts-expect-error — middleware-order: 'oauthProtectedResource' must run before anything that contributes 'authMode'
         ok,
       ),
-    ).not.toThrow()
+    ).toThrow(outOfOrder)
   })
 
-  it('accepts the correct order and the wrap form', () => {
-    expect(() =>
-      pipeline(
-        [
-          withOAuthProtectedResource(oauthCfg),
-          withSupabase({ auth: 'user', env: baseEnv }),
-        ],
-        ok,
-      ),
-    ).not.toThrow()
-    expect(() =>
-      withOAuthProtectedResource(
-        oauthCfg,
-        withSupabase({ auth: 'user', env: baseEnv }, ok),
-      ),
-    ).not.toThrow()
+  it('accepts it first in both forms, with or without a middleware between, and serves discovery', async () => {
+    const flat = pipeline(
+      [
+        withOAuthProtectedResource(oauthCfg),
+        withRequestId(),
+        withSupabase({ auth: 'user', env: baseEnv }),
+      ],
+      ok,
+    )
+    const nested = withOAuthProtectedResource(
+      oauthCfg,
+      withRequestId(withSupabase({ auth: 'user', env: baseEnv }, ok)),
+    )
+    const adjacent = withOAuthProtectedResource(
+      oauthCfg,
+      withSupabase({ auth: 'user', env: baseEnv }, ok),
+    )
+    for (const handler of [flat, nested, adjacent]) {
+      const res = await handler(new Request(metadataRoute))
+      expect(res.status).toBe(200)
+    }
   })
 })
 

@@ -47,7 +47,7 @@ pipeline(
 )
 ```
 
-Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placing `withOAuthProtectedResource` directly after `withSupabase` with an auth mode that requires credentials is refused when the stack is built; a pre-auth middleware separated from `withSupabase` by another entry is not detected and must be ordered by hand.
+Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. `withOAuthProtectedResource` declares `before: ['authMode']`, a key `withSupabase` contributes, so placing it after `withSupabase` is refused at any distance and with any auth modes: a `pipeline` fails to compile, as does nesting it directly inside `withSupabase`, and every such stack throws when it is built.
 
 ### createSupabaseContext
 
@@ -453,7 +453,11 @@ Also re-exported from `@supabase/server`. See [`docs/mcp.md`](mcp.md) for the MC
 ```ts
 function withOAuthProtectedResource(
   config?: OAuthProtectedResourceConfig,
-): Entry<{ oauthProtectedResource: OAuthProtectedResourceContribution }>
+): Entry<
+  { oauthProtectedResource: OAuthProtectedResourceContribution },
+  Record<never, never>,
+  'authMode'
+>
 function withOAuthProtectedResource(handler: FetchHandler): FetchHandler
 function withOAuthProtectedResource(
   config: OAuthProtectedResourceConfig,
@@ -461,7 +465,7 @@ function withOAuthProtectedResource(
 ): FetchHandler
 ```
 
-OAuth 2.1 Protected Resource behavior (RFC 9728) for the wrapped handler. Answers `GET` and `OPTIONS` on any path ending in `/oauth-protected-resource` with the metadata document and a permissive CORS preflight; adds `WWW-Authenticate: Bearer resource_metadata="…"` to a `401` from below unless the handler already set that header; passes everything else through. Runs before the `withSupabase` gate; placing it directly after `withSupabase` with a credentialed auth mode is refused when the stack is built. A default URL it cannot derive is answered with the library's JSON error response (500 and `x-supabase-server-error`, see [Error handling](error-handling.md#enverror-codes)); a throw from a configured `resourceServer` or `authorizationServer` function propagates.
+OAuth 2.1 Protected Resource behavior (RFC 9728) for the wrapped handler. Answers `GET` and `OPTIONS` on any path ending in `/oauth-protected-resource` with the metadata document and a permissive CORS preflight; adds `WWW-Authenticate: Bearer resource_metadata="…"` to a `401` from below unless the handler already set that header; passes everything else through. Runs before the `withSupabase` gate: it declares `before: ['authMode']`, so placed after `withSupabase`, at any distance and whatever its auth modes, the stack fails to compile in a `pipeline` (and nested directly inside `withSupabase`) and throws when it is built. A default URL it cannot derive is answered with the library's JSON error response (500 and `x-supabase-server-error`, see [Error handling](error-handling.md#enverror-codes)); a throw from a configured `resourceServer` or `authorizationServer` function propagates.
 
 Contributes `ctx.oauthProtectedResource.resourceMetadataUrl`, the resolved absolute URL of the metadata document.
 
