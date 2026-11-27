@@ -1,9 +1,8 @@
 name: Deploy Documentation
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Deploy for a manual run, or for a real release (no pre-releases)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
