@@ -207,8 +207,9 @@ describe('withSupabase', () => {
       })
 
       it('leaves the error object itself fully populated', async () => {
-        // The trim is response-only — createSupabaseContext callers and the
-        // adapters read the error directly and must still see everything.
+        // The trim is response-only — createSupabaseContext callers and
+        // middleware entries read the error directly and must still see
+        // everything.
         const { error } = await createSupabaseContext(
           new Request('http://localhost'),
           { auth: 'user', env: baseEnv, errors: { detailed: false } },

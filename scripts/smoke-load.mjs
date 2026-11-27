@@ -4,7 +4,7 @@
 // because it re-transpiles imported modules through swc/esbuild.
 //
 // Entrypoints are derived from package.json `exports` so this stays in sync as
-// adapters are added. Run after `pnpm build`: `pnpm smoke`.
+// entrypoints are added. Run after `pnpm build`: `pnpm smoke`.
 
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'

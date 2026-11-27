@@ -1,7 +1,7 @@
 import { afterAll, beforeAll } from 'vitest'
 
 import { start } from './apps/nestjs/app.ts'
-import { runAdapterScenarios } from './scenarios.ts'
+import { runAppScenarios } from './scenarios.ts'
 
 const PORT = 8794
 
@@ -13,4 +13,4 @@ beforeAll(async () => {
 
 afterAll(() => close())
 
-runAdapterScenarios('nestjs', `http://localhost:${PORT}`)
+runAppScenarios('nestjs', `http://localhost:${PORT}`)

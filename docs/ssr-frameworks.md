@@ -65,9 +65,9 @@ export const config = {
 
 If you skip this middleware, the cookie's access token will eventually expire and `verifyCredentials` will reject the request.
 
-## Step 2 — composed adapter
+## Step 2 — composed helper
 
-The adapter reads the (middleware-refreshed) cookie via `@supabase/ssr`, then hands the access token to `@supabase/server`'s primitives. The return shape matches the high-level `createSupabaseContext`, so callers see a familiar `{ supabase, supabaseAdmin, userClaims, jwtClaims, authMode }` bundle.
+The helper reads the (middleware-refreshed) cookie via `@supabase/ssr`, then hands the access token to `@supabase/server`'s primitives. The return shape matches the high-level `createSupabaseContext`, so callers see a familiar `{ supabase, supabaseAdmin, userClaims, jwtClaims, authMode }` bundle.
 
 ```ts
 // lib/supabase/context.ts
@@ -297,7 +297,7 @@ const { data: ctx } = await createSupabaseContext({ auth: ['user', 'none'] })
 
 ## Adapting for other frameworks
 
-The adapter above is Next.js-specific only in how it wires `@supabase/ssr`'s cookie adapter. To adapt for another framework, swap the cookie adapter you pass to `createServerClient` from `@supabase/ssr` — see `@supabase/ssr`'s framework guides for the canonical patterns:
+The composed helper in Step 2 is Next.js-specific only in how it wires `@supabase/ssr`'s cookie adapter. For another framework, swap the cookie adapter you pass to `createServerClient` from `@supabase/ssr` — see `@supabase/ssr`'s framework guides for the canonical patterns:
 
 - **SvelteKit:** `event.cookies.getAll()` / `event.cookies.set(name, value, options)` in `+page.server.ts` or `+server.ts`.
 - **Remix:** parse cookies from `request.headers.get('cookie')` and emit them via `Set-Cookie` in the response.

@@ -30,7 +30,7 @@ One import. One line of config. Auth is validated, clients are ready, CORS is ha
 
 ```bash
 # Deno / Supabase Edge Functions (no install — import directly)
-import { withSupabase } from "npm:@supabase/server@1";
+import { withSupabase } from "npm:@supabase/server@2";
 
 # npm
 npm install @supabase/server
@@ -277,88 +277,34 @@ withSupabase(
 
 Called with config only, `withSupabase(config)` returns an entry for `pipeline` from `@supabase/middleware`. Entries placed after it in the array receive the Supabase context and contribute their own typed keys; entries placed before it run ahead of the auth gate. The first-party entries live on the `@supabase/server/middleware/*` subpaths; see [Postgres](#postgres-rls-scoped-queries).
 
-## Framework Adapters
+## Frameworks
 
-Adapters wrap `withSupabase` for a specific framework's middleware contract. They ship inside `@supabase/server`, so a single `npm install @supabase/server` covers the framework you're using — no separate package per adapter.
+To run `@supabase/server`'s middleware entries inside Hono, H3 / Nuxt, Elysia, NestJS, or TanStack Start, copy the bridge for your framework from [`examples/frameworks/`](https://github.com/supabase/server/tree/main/examples/frameworks) into your project. A bridge is one file you own, and it runs a `@supabase/middleware` entry array in your framework's own middleware slot.
+
+```ts
+import { Hono } from 'hono'
+import { withRequiredClaims } from '@supabase/server/middleware/required-claims'
+import { withSupabaseClient } from '@supabase/server/middleware/client'
+
+import { toHono } from './lib/supabase-middleware.js'
+
+const app = new Hono()
+  .use('*', toHono([withRequiredClaims(), withSupabaseClient()]))
+  .get('/games', async (c) => {
+    const { data, error } = await c.var.supabase.from('favorite_games').select()
+    if (error) return c.json({ error: error.message }, 500)
+    return c.json(data)
+  })
+```
+
+`.use('*', ...)` gates every route registered after it in the same chain, a health check included. A public route goes in its own sub-app, mounted with `app.route()`.
+
+The [Frameworks guide](https://supabase.com/docs/reference/server/frameworks) covers each bridge, which frameworks keep the response phase, and how to scope one entry array to a group of routes.
 
 > [!WARNING]
-> Adapters are deprecated and will be removed on December 1, 2026. Use [middleware](https://github.com/supabase/middleware) to integrate `@supabase/server` with your framework.
+> The framework adapters (`@supabase/server/adapters/*`) were deprecated in 1.9.0 and removed in 2.0.0.
 >
-> We're no longer accepting new adapter submissions.
->
-> For Hono, H3, Elysia, NestJS, or TanStack Start, use the framework bridges in [`examples/frameworks`](./examples/frameworks). Read the [framework integration guide](https://supabase.com/docs/reference/server/frameworks) for setup steps.
-
-| Framework | Import                             | Framework version      | Docs                                               |
-| --------- | ---------------------------------- | ---------------------- | -------------------------------------------------- |
-| Hono      | `@supabase/server/adapters/hono`   | `^4.0.0`               | [docs/adapters/hono.md](docs/adapters/hono.md)     |
-| H3 / Nuxt | `@supabase/server/adapters/h3`     | `^2.0.0`               | [docs/adapters/h3.md](docs/adapters/h3.md)         |
-| Elysia    | `@supabase/server/adapters/elysia` | `^1.4.0`               | [docs/adapters/elysia.md](docs/adapters/elysia.md) |
-| NestJS    | `@supabase/server/adapters/nestjs` | `^10.0.0 \|\| ^11.0.0` | [docs/adapters/nestjs.md](docs/adapters/nestjs.md) |
-
-See the per-adapter docs above for setup, per-route auth, CORS, error handling, and other patterns.
-
-To run `@supabase/middleware` entries inside Hono, H3, Elysia, NestJS, or TanStack Start without an adapter, copy the bridge for your framework from [`examples/frameworks/`](examples/frameworks/). The [Frameworks guide](https://supabase.com/docs/reference/server/frameworks) explains the bridges and how to move off the adapters.
-
-### Elysia
-
-```ts
-import { Elysia } from 'elysia'
-import { withSupabase } from '@supabase/server/adapters/elysia'
-
-const app = new Elysia()
-  // Protected — plugin resolves supabaseContext before handlers run
-  .use(withSupabase({ auth: 'user' }))
-  .get('/games', async ({ supabaseContext }) => {
-    const { data: myGames } = await supabaseContext.supabase
-      .from('favorite_games')
-      .select()
-    return myGames
-  })
-  // Public — no plugin means no auth
-  .get('/health', () => ({ status: 'ok' }))
-
-app.listen(3000)
-```
-
-For per-route auth, use scoped groups:
-
-```ts
-import { Elysia } from 'elysia'
-import { withSupabase } from '@supabase/server/adapters/elysia'
-
-const app = new Elysia()
-  .get('/health', () => ({ status: 'ok' }))
-  .group('/api', (app) =>
-    app
-      .use(withSupabase({ auth: 'user' }))
-      .get('/profile', async ({ supabaseContext }) => {
-        return supabaseContext.userClaims
-      }),
-  )
-
-app.listen(3000)
-```
-
-The adapter does not handle CORS — use `@elysiajs/cors` for that.
-
-### NestJS
-
-```ts
-import { Controller, Get, UseGuards } from '@nestjs/common'
-import { withSupabase, SupabaseCtx } from '@supabase/server/adapters/nestjs'
-import type { SupabaseContext } from '@supabase/server'
-
-@Controller('games')
-@UseGuards(withSupabase({ auth: 'user' }))
-export class GamesController {
-  @Get()
-  list(@SupabaseCtx() ctx: SupabaseContext) {
-    return ctx.supabase.from('favorite_games').select()
-  }
-}
-```
-
-See [docs/adapters/nestjs.md](docs/adapters/nestjs.md) for per-route auth, exception filters, CORS, and more.
+> [Moving off the adapters](https://supabase.com/docs/reference/server/frameworks#moving-off-the-adapters) has the migration. One step to get right first: `withRequiredClaims()` replaces `auth: 'user'`. `withClaims()` looks like the replacement but lets anonymous requests through, turning a 401 into a silent 200.
 
 ## Primitives
 
@@ -399,7 +345,7 @@ const { data: result, error } = await verifyCredentials(credentials, {
 ### createContextClient / createAdminClient
 
 ```ts
-const userScopedClient = createContextClient(auth.token) // RLS applies as this user
+const userScopedClient = createContextClient({ auth: { token: auth.token } }) // RLS applies as this user
 const anonClient = createContextClient() // RLS applies as anon role
 const adminClient = createAdminClient() // bypasses RLS entirely
 ```
@@ -447,7 +393,9 @@ export default {
           { status: error.status },
         )
 
-      const userScopedClient = createContextClient(result.token)
+      const userScopedClient = createContextClient({
+        auth: { token: result.token, keyName: result.keyName },
+      })
       const { data: myGames } = await userScopedClient
         .from('favorite_games')
         .select()
@@ -524,15 +472,15 @@ For other environments, pass overrides via the `env` config option or `resolveEn
 
 `@supabase/server` runs anywhere standard Web `fetch` does — pick the row that matches your deployment target.
 
-| Target                      | Notes                                                                                                                                     |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Supabase Edge Functions** | Zero config — environment variables are auto-injected.                                                                                    |
-| **Vercel Functions**        | Edge runtime: `export default { fetch }`. Node runtime: use a [framework adapter](#framework-adapters) or [core primitives](#primitives). |
-| **Cloudflare Workers**      | Enable `nodejs_compat` in `wrangler.toml`, or pass overrides via the `env` config option.                                                 |
-| **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                                      |
-| **Node.js**                 | Use a [framework adapter](#framework-adapters) or [core primitives](#primitives) with your framework of choice.                           |
+| Target                      | Notes                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase Edge Functions** | Zero config — environment variables are auto-injected.                                                                           |
+| **Vercel Functions**        | Edge runtime: `export default { fetch }`. Node runtime: use a [framework bridge](#frameworks) or [core primitives](#primitives). |
+| **Cloudflare Workers**      | Enable `nodejs_compat` in `wrangler.toml`, or pass overrides via the `env` config option.                                        |
+| **Deno / Bun**              | Works out of the box via `export default { fetch }`.                                                                             |
+| **Node.js**                 | Use a [framework bridge](#frameworks) or [core primitives](#primitives) with your framework of choice.                           |
 
-Using a framework? See [Framework Adapters](#framework-adapters) for Hono, H3 / Nuxt, and Elysia, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
+Using a framework? See [Frameworks](#frameworks) for Hono, H3 / Nuxt, Elysia, NestJS, and TanStack Start, or [`docs/ssr-frameworks.md`](docs/ssr-frameworks.md) for Next.js / SvelteKit / Remix (compose with [`@supabase/ssr`](https://github.com/supabase/ssr)).
 
 ### Does this replace `@supabase/ssr`?
 
@@ -544,10 +492,6 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                                               |
 | `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv`                     |
-| `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                                      |
-| `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                                                 |
-| `@supabase/server/adapters/elysia`            | `withSupabase` (Elysia plugin)                                                                                                        |
-| `@supabase/server/adapters/nestjs`            | `withSupabase` (NestJS guard), `SupabaseCtx` (param decorator)                                                                        |
 | `@supabase/server/middleware/client`          | `withSupabaseClient` (RLS-scoped `ctx.supabase` client)                                                                               |
 | `@supabase/server/middleware/admin-client`    | `withSupabaseAdminClient` (`ctx.supabaseAdmin`, bypasses RLS)                                                                         |
 | `@supabase/server/middleware/claims`          | `withClaims` (JWKS-verified `ctx.jwtClaims`)                                                                                          |
@@ -563,11 +507,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | How do I create a basic endpoint?                                                          | [`docs/getting-started.md`](docs/getting-started.md)                              |
 | What auth modes are available? Array syntax? Named keys?                                   | [`docs/auth-modes.md`](docs/auth-modes.md)                                        |
-| Which framework adapters exist, and what replaces them?                                    | [Framework Adapters](#framework-adapters)                                         |
-| How do I use this with Hono?                                                               | [`docs/adapters/hono.md`](docs/adapters/hono.md)                                  |
-| How do I use this with H3 / Nuxt?                                                          | [`docs/adapters/h3.md`](docs/adapters/h3.md)                                      |
-| How do I use this with Elysia?                                                             | [`docs/adapters/elysia.md`](docs/adapters/elysia.md)                              |
-| How do I use this with NestJS?                                                             | [`docs/adapters/nestjs.md`](docs/adapters/nestjs.md)                              |
+| How do I run this inside Hono, H3 / Nuxt, Elysia, NestJS, or TanStack Start?               | [Frameworks](#frameworks)                                                         |
 | How do I use low-level primitives for custom flows?                                        | [`docs/core-primitives.md`](docs/core-primitives.md)                              |
 | How do environment variables work across runtimes?                                         | [`docs/environment-variables.md`](docs/environment-variables.md)                  |
 | How do I handle errors? What codes exist?                                                  | [`docs/error-handling.md`](docs/error-handling.md)                                |

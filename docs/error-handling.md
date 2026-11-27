@@ -62,7 +62,7 @@ x-supabase-server-error: MISSING_CREDENTIALS
 }
 ```
 
-The status code and the `x-supabase-server-error` header are unaffected, and `message` keeps its `[@supabase/server]` prefix — so the error stays traceable without the `source` field. The **error object itself is untouched**: `createSupabaseContext` callers and the framework adapters still see `hint`, `docs`, and `details` in full.
+The status code and the `x-supabase-server-error` header are unaffected, and `message` keeps its `[@supabase/server]` prefix — so the error stays traceable without the `source` field. The **error object itself is untouched**: `createSupabaseContext` callers and middleware entries still see `hint`, `docs`, and `details` in full.
 
 > This is a verbosity control, not a security boundary. `code` and `message` still describe the failure specifically. To disclose nothing, format the response yourself with `createSupabaseContext` (see [Custom error formatting](#custom-error-formatting)).
 
@@ -309,9 +309,12 @@ A connection attempt failed, and the pool is pausing new attempts so a bad crede
 | `resolveEnv()`                               | Result tuple  | Returns `{ data: null, error: EnvError }`                                                                               |
 | `createContextClient()`                      | **Throws**    | Throws `EnvError`                                                                                                       |
 | `createAdminClient()`                        | **Throws**    | Throws `EnvError`                                                                                                       |
-| Hono `withSupabase()`                        | HTTPException | Throws `HTTPException` with `cause: AuthError`                                                                          |
 
 `verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
+
+Bridges are not in the table. A bridge is a file in your project, not an export
+of this package, so what it does with a short-circuit is covered separately in
+[Map a bridge error to a response](#map-a-bridge-error-to-a-response).
 
 ## Custom error formatting
 
@@ -341,18 +344,46 @@ export default {
 }
 ```
 
-## Handling errors in Hono
+## Map a bridge error to a response
 
-The Hono adapter throws an `HTTPException` when auth fails. Access the original `AuthError` via `.cause`:
+A [framework bridge](https://supabase.com/docs/reference/server/frameworks) is
+one file you copy into your project, so a short-circuit from
+`withRequiredClaims()` surfaces however that bridge chose to surface it. The
+bridges in [`examples/frameworks/`](https://github.com/supabase/server/tree/main/examples/frameworks)
+do this:
+
+| Bridge                          | A short-circuit arrives as                                         |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Hono, H3, TanStack Start routes | The entry's `Response`, unchanged. No error handler runs           |
+| NestJS, through `toNestGuard`   | An `HttpException` with the entry's status and `{ message, code }` |
+| TanStack Start server functions | An error carrying `status` and `code`, rethrown by the bridge      |
+
+Each one reaches the caller as the standard payload with its `code` intact, so
+a short-circuit needs no mapping of its own. The server-function bridge rethrows
+because Start's fetcher would otherwise resolve the caller's promise with the
+401 body.
+
+`EnvError` does need mapping. `withSupabaseClient()` and
+`withSupabaseAdminClient()` throw it when configuration is missing, and the
+bridges do not catch it. The two fail at different moments.
+`withSupabaseClient()` throws from the entry chain before your handler runs.
+`withSupabaseAdminClient()` builds lazily and throws inside your handler, on
+the first `supabaseAdmin` property access. Map both in your framework's error
+boundary. In Hono:
 
 ```ts
+import { EnvError } from '@supabase/server'
+
 app.onError((err, c) => {
-  if (err instanceof HTTPException && err.cause instanceof AuthError) {
-    return c.json(err.cause.toJSON(), err.status)
+  if (err instanceof EnvError) {
+    return c.json({ message: 'Server misconfigured' }, 500)
   }
   return c.json({ message: 'Internal error' }, 500)
 })
 ```
+
+For how this differs from the shape each removed adapter rejected with, see
+[The auth trap](https://supabase.com/docs/reference/server/frameworks#the-auth-trap).
 
 ## Handling errors in core primitives
 

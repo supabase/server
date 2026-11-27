@@ -147,56 +147,6 @@ Creates an admin Supabase client that bypasses RLS. **Throws `EnvError`** if URL
 
 ---
 
-## @supabase/server/adapters/hono
-
-### withSupabase (Hono)
-
-```ts
-function withSupabase(
-  config?: Omit<WithSupabaseConfig, 'cors'>,
-): MiddlewareHandler
-```
-
-Hono middleware. Sets `c.var.supabaseContext` on the Hono context. Throws `HTTPException` on auth failure with `cause: AuthError`.
-
-Skips if `c.var.supabaseContext` is already set (enables route-level overrides).
-
-Defaults to `auth: 'user'` when config is omitted.
-
----
-
-## @supabase/server/adapters/h3
-
-### withSupabase (H3)
-
-```ts
-function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Middleware
-```
-
-H3 middleware. Sets `event.context.supabaseContext` on the H3 event. Throws `HTTPError` on auth failure with `cause: AuthError`.
-
-Skips if `event.context.supabaseContext` is already set (enables chained middleware).
-
-Defaults to `auth: 'user'` when config is omitted.
-
----
-
-## @supabase/server/adapters/elysia
-
-### withSupabase (Elysia)
-
-```ts
-function withSupabase(config?: Omit<WithSupabaseConfig, 'cors'>): Elysia
-```
-
-Elysia plugin that resolves `supabaseContext` into the request context. Throws an error on auth failure with `cause: AuthError`.
-
-Skips if `supabaseContext` is already resolved by a prior plugin.
-
-Defaults to `auth: 'user'` when config is omitted.
-
----
-
 ## @supabase/server/middleware/claims
 
 ### withClaims
@@ -568,7 +518,7 @@ interface WithSupabaseConfig {
   audience?: string | string[]
   issuer?: string | string[]
   env?: Partial<SupabaseEnv>
-  cors?: boolean | Record<string, string> // default: true
+  cors?: 'default' | 'disabled' | { headers: Record<string, string> } // default: 'default'
   supabaseOptions?: SupabaseClientOptions<string>
   errors?: ErrorResponseConfig
 }

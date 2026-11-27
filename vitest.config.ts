@@ -8,21 +8,6 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['src/**/*.test.ts'],
-          exclude: ['src/adapters/nestjs/**'],
-        },
-      },
-      {
-        plugins: [
-          swc.vite({
-            jsc: {
-              parser: { syntax: 'typescript', decorators: true },
-              transform: { decoratorMetadata: true, legacyDecorator: true },
-            },
-          }),
-        ],
-        test: {
-          name: 'nestjs',
-          include: ['src/adapters/nestjs/**/*.test.ts'],
         },
       },
       {

@@ -1,6 +1,7 @@
-// The one scenario set that runs against all four adapters. Every request
-// here travels over real HTTP to a live server; every JWT is a real
-// GoTrue-issued token verified against the local stack's live JWKS endpoint.
+// The one scenario set that runs against every app — the four framework
+// bridges, the core fetch handler, and the edge function. Every request here
+// travels over real HTTP to a live server; every JWT is a real GoTrue-issued
+// token verified against the local stack's live JWKS endpoint.
 import { describe, expect, inject, it } from 'vitest'
 
 import type { NoteRow } from './apps/notes.ts'
@@ -14,11 +15,11 @@ function bearer(user: TestUser): Record<string, string> {
   return { Authorization: `Bearer ${user.token}` }
 }
 
-export function runAdapterScenarios(adapter: string, baseUrl: string): void {
+export function runAppScenarios(app: string, baseUrl: string): void {
   const { user1, user2 } = inject('e2eUsers')
   const forgedToken = inject('forgedToken')
 
-  describe(`${adapter}: auth`, () => {
+  describe(`${app}: auth`, () => {
     it('GET /health is public', async () => {
       const res = await fetch(`${baseUrl}/health`)
       expect(res.status).toBe(200)
@@ -63,8 +64,9 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
     })
 
     it('GET /me-optional with an invalid token → 401, not anonymous', async () => {
-      // A present-but-invalid token must be rejected, never silently
-      // downgraded to the 'none' mode.
+      // `withClaims()` lets a request with no credentials through with
+      // `jwtClaims: null`, but a present-but-invalid token is an error to it
+      // and must be rejected, never downgraded to the anonymous path.
       const res = await fetch(`${baseUrl}/me-optional`, {
         headers: { Authorization: 'Bearer not-a-real-jwt' },
       })
@@ -81,9 +83,9 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
     })
   })
 
-  describe(`${adapter}: data access`, () => {
-    // Unique per adapter and run — all adapters share one notes table.
-    const noteBody = `e2e note from ${adapter} ${crypto.randomUUID()}`
+  describe(`${app}: data access`, () => {
+    // Unique per app and run — every app shares one notes table.
+    const noteBody = `e2e note from ${app} ${crypto.randomUUID()}`
     let created: NoteRow
 
     it('POST /notes inserts a row scoped to the caller', async () => {
@@ -156,7 +158,7 @@ export function runAdapterScenarios(adapter: string, baseUrl: string): void {
  * Postgres, RLS-scoped by the caller's claims.
  *
  * Run only against the apps that expose `/my-notes-pg` (core on Node, and the
- * edge function on the real Deno runtime), not the four framework adapters:
+ * edge function on the real Deno runtime), not the four framework apps:
  * `pg` needs raw TCP, so this is the middleware's runtime claim under test.
  *
  * The route runs `select ... from notes` with no WHERE clause, so the same

@@ -34,15 +34,11 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 // absent from this map must load with nothing installed beyond the package's
 // own dependencies and its required peers.
 const ALLOWED_OPTIONAL_PEERS = {
-  './adapters/hono': ['hono'],
-  './adapters/h3': ['h3'],
-  './adapters/elysia': ['elysia'],
-  './adapters/nestjs': ['@nestjs/common'],
   './middleware/postgres': ['pg'],
   './middleware/postgres-admin': ['pg'],
 }
 
-// A missing subpath export reports as `hono/factory`; the allowance is `hono`.
+// A missing subpath export reports as `pg/lib/defaults`; the allowance is `pg`.
 const packageName = (specifier) =>
   specifier.startsWith('@')
     ? specifier.split('/').slice(0, 2).join('/')

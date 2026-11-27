@@ -7,6 +7,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
-  "exclude": ["src/adapters/nestjs"]
+  "include": ["src"]
 }
