@@ -131,7 +131,7 @@ export default { fetch: wrapElysia(entries, (req) => app.handle(req)) }
 Frameworks whose per-request store is not generic, such as H3 and NestJS, read
 the contributions through `Contributions<typeof entries>` instead. The patterns
 are in the frameworks guide, under
-[H3 / Nuxt](https://supabase.com/docs/reference/server/frameworks#h3--nuxt) and
+[H3](https://supabase.com/docs/reference/server/frameworks#h3) and
 [NestJS](https://supabase.com/docs/reference/server/frameworks#nestjs).
 
 ## Custom schema
