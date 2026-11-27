@@ -46,6 +46,18 @@ export default {
 
 Pass the `Database` generic (from `supabase gen types typescript`) when tools write. Without it the client is `SupabaseClient<unknown>` and `insert({ title })` fails type-checking with the argument resolved to `never[]`; reads compile either way.
 
+### Telemetry
+
+Clients created by `@supabase/server` append `via=supabase-server/<version>` to `X-Client-Info`. Placing `withOAuthProtectedResource()` before the client middleware also adds `middleware=oauth-protected-resource`:
+
+```
+X-Client-Info: supabase-js/<v>; runtime=deno; ...; via=supabase-server/<v>; middleware=oauth-protected-resource
+```
+
+Set `supabaseOptions.global.clientInfo` to override `via` or supply middleware tokens. Caller tokens are merged with detected tags and deduplicated.
+
+Tags describe configured middleware. Only outgoing Supabase API requests are recorded. Older v2 SDKs without `global.clientInfo` continue to work but omit these tags.
+
 ## The two entries
 
 Order matters.

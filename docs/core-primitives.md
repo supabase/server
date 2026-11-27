@@ -150,6 +150,7 @@ The client is configured with:
 - The publishable key as the `apikey` header
 - The user's JWT as the `Authorization: Bearer` header (if token is provided)
 - Server-safe auth settings: `persistSession: false`, `autoRefreshToken: false`, `detectSessionInUrl: false`
+- `via=supabase-server/<version>` appended to the `X-Client-Info` header (see [Telemetry](mcp.md#telemetry))
 
 **Which key is used.** With `auth.keyName` set, that named key from `SUPABASE_PUBLISHABLE_KEYS` is used (and it throws if the key doesn't exist). With `keyName` omitted, the `default` key is used, falling back to the first key in the set when no `default` exists. Note this differs from the `'publishable'` auth mode, which matches the `default` key only and never falls back.
 
@@ -174,7 +175,7 @@ const supabaseAdminInternal = createAdminClient({
 
 **Which key is used.** With `auth.keyName` set, that named key from `SUPABASE_SECRET_KEYS` is used (and it throws if the key doesn't exist). With `keyName` omitted, the `default` key is used, falling back to the first key in the set when no `default` exists. Note this differs from the `'secret'` auth mode, which matches the `default` key only and never falls back.
 
-Same server-safe settings as `createContextClient`. Throws `EnvError` if the secret key is missing.
+Same server-safe settings and client metadata as `createContextClient`. Throws `EnvError` if the secret key is missing.
 
 ## Full example: custom multi-route handler
 

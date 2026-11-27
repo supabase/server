@@ -2,6 +2,10 @@ import { defineMiddleware } from '@supabase/middleware'
 import type { Entry } from '@supabase/middleware'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import {
+  detectMiddlewareTags,
+  withMiddlewareTags,
+} from '../../core/client-info.js'
 import { createAdminClient } from '../../core/create-admin-client.js'
 import { lazyClient } from '../../core/lazy-client.js'
 import { readUpstreamAuth } from '../../core/read-upstream-auth.js'
@@ -34,6 +38,9 @@ const base = defineMiddleware<
     const keyName =
       upstream.authMode === 'secret' ? upstream.authKeyName : undefined
 
+    // Capture upstream tags before downstream middleware changes ctx.
+    const tags = detectMiddlewareTags(ctx)
+
     // Constructed on the first property access and memoized for the request —
     // a handler that never touches ctx.supabaseAdmin never resolves the
     // secret key.
@@ -42,7 +49,7 @@ const base = defineMiddleware<
         return createAdminClient({
           auth: { keyName },
           env: config?.env,
-          supabaseOptions: config?.supabaseOptions,
+          supabaseOptions: withMiddlewareTags(config?.supabaseOptions, tags),
         })
       } catch (e) {
         throw e instanceof EnvError

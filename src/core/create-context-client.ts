@@ -6,6 +6,7 @@ import {
   MissingPublishableKeyError,
 } from '../errors.js'
 import type { CreateContextClientOptions, UntypedDatabase } from '../types.js'
+import { buildClientInfo } from './client-info.js'
 import { resolveEnv } from './resolve-env.js'
 
 /**
@@ -70,6 +71,7 @@ export function createContextClient<Database = UntypedDatabase>(
     accessToken: undefined,
     global: {
       ...supabaseOptions?.global,
+      clientInfo: buildClientInfo(supabaseOptions),
       headers: {
         ...safeHeaders,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

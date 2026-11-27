@@ -6,6 +6,7 @@ import {
   MissingSecretKeyError,
 } from '../errors.js'
 import type { CreateAdminClientOptions, UntypedDatabase } from '../types.js'
+import { buildClientInfo } from './client-info.js'
 import { resolveEnv } from './resolve-env.js'
 
 /**
@@ -71,6 +72,7 @@ export function createAdminClient<Database = UntypedDatabase>(
     accessToken: undefined,
     global: {
       ...supabaseOptions?.global,
+      clientInfo: buildClientInfo(supabaseOptions),
       headers: safeHeaders,
     },
     auth: {
