@@ -17,9 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # release.yml publishes a GitHub pre-release for every rc, and that fires
-    # `release: published` too. Only a real release should move the reference.
-    if: ${{ github.event_name != 'release' || github.event.release.prerelease == false }}
+    # Deploy for a manual run, or for a real release (no pre-releases)
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
