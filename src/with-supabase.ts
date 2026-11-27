@@ -1,7 +1,6 @@
 import { defineComposite } from '@supabase/middleware'
 import type { BaseContext, Entry } from '@supabase/middleware'
 
-import { preAuthName } from './core/pre-auth.js'
 import { withConstructionBoundary } from './core/parts/boundary.js'
 import { withSupabaseCors } from './core/parts/cors.js'
 import { withAuthGate } from './core/parts/gate.js'
@@ -14,7 +13,6 @@ import {
 import { withSupabaseAdminClient } from './middleware/admin-client/index.js'
 import { withSupabaseClient } from './middleware/client/index.js'
 import type {
-  AuthModeWithKey,
   SupabaseContext,
   UntypedDatabase,
   WithSupabaseConfig,
@@ -67,35 +65,6 @@ type EntryIsSound =
 const entryIsSound: EntryIsSound = true
 void entryIsSound
 
-/** Whether every configured auth mode requires credentials, so an unauthenticated request never passes the gate. */
-function requiresCredentials(config: WithSupabaseConfig): boolean {
-  const modes = config.auth ?? config.allow ?? 'user'
-  // `auth` keeps `'none'` out of every position but the last; the deprecated
-  // `allow` still admits it anywhere, so this reads the widened element type
-  // and scans the whole list.
-  const list: readonly AuthModeWithKey[] = Array.isArray(modes)
-    ? modes
-    : [modes]
-  return !list.includes('none')
-}
-
-/**
- * A pre-auth middleware behind a credentialed gate never sees the requests
- * it exists to answer. Refusing the stack at composition time is the only
- * place that failure is observable: at request time the gate has already
- * answered.
- */
-function rejectPreAuthBehindGate(
-  config: WithSupabaseConfig,
-  handler: unknown,
-): void {
-  const name = preAuthName(handler)
-  if (name === undefined || !requiresCredentials(config)) return
-  throw new Error(
-    `${name} is placed after withSupabase, whose auth gate answers unauthenticated requests before it runs, so OAuth discovery and preflight cannot be served. Place it first: pipeline([${name}(config), withSupabase(config)], handler) or ${name}(config, withSupabase(config, handler)).`,
-  )
-}
-
 /** `withSupabase` composes through `pipeline` or nesting; a `middleware` key on the config has no effect and is refused so it cannot be mistaken for one. */
 function rejectMiddlewareOption(config: WithSupabaseConfig): void {
   if ('middleware' in config) {
@@ -134,6 +103,11 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
  * included; in that case annotate both (`withSupabase<Db, UpstreamCtx>(...)`)
  * or read the upstream key through a cast.
  *
+ * **Order.** `withSupabase` contributes `authMode`, so a middleware declaring
+ * `before: ['authMode']`, such as `withOAuthProtectedResource`, must run outside
+ * it. Nested directly inside it, that middleware fails to compile, and at any
+ * distance the stack throws when it is built.
+ *
  * @category Middleware
  *
  * @example Basic usage
@@ -168,7 +142,9 @@ export function withSupabase<
  * `withSupabase` composes by position with any other middleware. Entries
  * placed before it run ahead of the auth gate and may answer unauthenticated
  * requests; entries placed after it receive the full {@link SupabaseContext}
- * and may declare prerequisites on its keys.
+ * and may declare prerequisites on its keys. An entry declaring
+ * `before: ['authMode']`, such as `withOAuthProtectedResource`, placed after it
+ * at any distance fails to compile and throws when the stack is built.
  *
  * @category Middleware
  *
@@ -198,12 +174,6 @@ export function withSupabase(
   handler?: AnyHandler,
 ): unknown {
   rejectMiddlewareOption(config)
-  if (handler === undefined) {
-    return (next: AnyHandler) => {
-      rejectPreAuthBehindGate(config, next)
-      return composite(config, next)
-    }
-  }
-  rejectPreAuthBehindGate(config, handler)
+  if (handler === undefined) return composite(config)
   return composite(config, handler)
 }
