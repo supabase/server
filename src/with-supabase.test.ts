@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { defineMiddleware, getEnv, pipeline } from '@supabase/middleware'
 import type { FetchHandler } from '@supabase/middleware'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 
 import { _resetAllowDeprecationWarned } from './core/utils/deprecation.js'
@@ -16,13 +17,28 @@ import type { JWTClaims, SupabaseContext, WithSupabaseConfig } from './types.js'
 import { withClaims } from './middleware/claims/index.js'
 import { withPostgresClient } from './middleware/postgres/index.js'
 import { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'
-import { withSupabase } from './with-supabase.js'
+import { createWithSupabase, withSupabase } from './with-supabase.js'
 
 const baseEnv = {
   url: 'https://test.supabase.co',
   publishableKeys: { default: 'sb_publishable_xyz' },
   secretKeys: { default: 'sb_secret_xyz' },
   jwks: null,
+}
+
+type Database = {
+  public: {
+    Tables: {
+      notes: {
+        Row: { id: number; body: string }
+        Insert: { id?: number; body: string }
+        Update: { id?: number; body?: string }
+        Relationships: []
+      }
+    }
+    Views: Record<never, never>
+    Functions: Record<never, never>
+  }
 }
 
 describe('withSupabase', () => {
@@ -570,6 +586,104 @@ describe('type guarantees (tsc-verified)', () => {
   })
 })
 
+describe('createWithSupabase type guarantees (tsc-verified)', () => {
+  const withTypedSupabase = createWithSupabase<Database>()
+  const config = { auth: 'user', env: baseEnv } as const
+
+  it('types ctx.supabase and ctx.supabaseAdmin for the chosen Database', () => {
+    const _handler = withTypedSupabase(config, async (_req, ctx) => {
+      expectTypeOf(ctx.supabase).toEqualTypeOf<SupabaseClient<Database>>()
+      expectTypeOf(ctx.supabaseAdmin).toEqualTypeOf<SupabaseClient<Database>>()
+      await ctx.supabase.from('notes').insert({ body: 'typed' })
+      // @ts-expect-error — no such table in Database
+      await ctx.supabaseAdmin.from('missing').select()
+      return Response.json({ ok: true })
+    }) satisfies FetchHandler
+    void _handler
+  })
+
+  it('as a pipeline entry, passes its keys and the chosen Database on', () => {
+    const _handler = pipeline(
+      [withTypedSupabase(config), withPostgresClient()],
+      async (_req, ctx) => {
+        expectTypeOf(ctx.postgres).not.toBeAny()
+        expectTypeOf(ctx.supabase).toEqualTypeOf<SupabaseClient<Database>>()
+        expectTypeOf(ctx.supabaseAdmin).toEqualTypeOf<
+          SupabaseClient<Database>
+        >()
+        return Response.json({ ok: true })
+      },
+    )
+    void _handler
+  })
+
+  it('nested: a middleware with a prerequisite composes as the handler', () => {
+    const _handler = withTypedSupabase(
+      config,
+      withPostgresClient(async (_req, ctx) => {
+        expectTypeOf(ctx.postgres).not.toBeAny()
+        expectTypeOf(ctx.supabase).toEqualTypeOf<SupabaseClient<Database>>()
+        expectTypeOf(ctx.supabaseAdmin).toEqualTypeOf<
+          SupabaseClient<Database>
+        >()
+        return Response.json({ ok: true })
+      }),
+    ) satisfies FetchHandler
+    void _handler
+  })
+
+  it('nested: Base flows in from an outer middleware alongside Database', () => {
+    const _composed = withOAuthProtectedResource(
+      withTypedSupabase(config, async (_req, ctx) => {
+        expectTypeOf(
+          ctx.oauthProtectedResource.resourceMetadataUrl,
+        ).toEqualTypeOf<string>()
+        expectTypeOf(ctx.supabase).toEqualTypeOf<SupabaseClient<Database>>()
+        return Response.json({ ok: true })
+      }),
+    ) satisfies FetchHandler
+    void _composed
+  })
+
+  it('accepts a handler annotated with SupabaseContext<Database>', () => {
+    async function handle(
+      _req: Request,
+      ctx: SupabaseContext<Database>,
+    ): Promise<Response> {
+      return Response.json({ id: ctx.userClaims?.id ?? null })
+    }
+    const _handler = withTypedSupabase(config, handle) satisfies FetchHandler
+    void _handler
+  })
+
+  it('as a pipeline entry, a later entry contributing one of its keys fails to compile', () => {
+    const _handler = pipeline(
+      [withTypedSupabase(config), withClaims()],
+      // @ts-expect-error — middleware-conflict: it already contributes jwtClaims
+      async () => Response.json({ ok: true }),
+    )
+    void _handler
+  })
+
+  it('nested: a middleware contributing one of its keys fails to compile', () => {
+    const _handler = withTypedSupabase(
+      config,
+      // @ts-expect-error — middleware-conflict: it already contributes jwtClaims
+      withClaims(async () => Response.json({ ok: true })),
+    ) satisfies FetchHandler
+    void _handler
+  })
+
+  it('nested: a second withSupabase inside it fails to compile', () => {
+    const _handler = withTypedSupabase(
+      config,
+      // @ts-expect-error — middleware-conflict: its keys are already on the context
+      withTypedSupabase(config, async () => Response.json({ ok: true })),
+    ) satisfies FetchHandler
+    void _handler
+  })
+})
+
 describe('withSupabase as a pipeline entry', () => {
   const oauthCfg = {
     resourceServer: 'http://localhost/functions/v1/mcp',
@@ -847,6 +961,73 @@ describe('withSupabase config without a middleware option', () => {
       middleware: [],
     } as unknown as WithSupabaseConfig
     expect(() => withSupabase(config, async () => new Response('ok'))).toThrow(
+      /has no `middleware` option/,
+    )
+  })
+})
+
+describe('createWithSupabase at runtime', () => {
+  const withTypedSupabase = createWithSupabase<Database>()
+  const oauthCfg = {
+    resourceServer: 'http://localhost/functions/v1/mcp',
+    authorizationServer: 'https://test.supabase.co/auth/v1',
+  }
+  const ok = async () => new Response('ok')
+
+  it('exposes the same context keys as withSupabase', async () => {
+    const handler = withTypedSupabase(
+      { auth: 'none', env: baseEnv },
+      async (_req, ctx) => Response.json({ keys: Object.keys(ctx).sort() }),
+    )
+    const body = await (await handler(new Request('http://localhost'))).json()
+    expect(body.keys).toEqual([
+      'authKeyName',
+      'authMode',
+      'jwtClaims',
+      'supabase',
+      'supabaseAdmin',
+      'userClaims',
+    ])
+  })
+
+  it('answers a request without credentials with the gate 401', async () => {
+    const handler = pipeline(
+      [withTypedSupabase({ auth: 'user', env: baseEnv })],
+      ok,
+    )
+    const res = await handler(new Request('http://localhost'))
+    expect(res.status).toBe(401)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+  })
+
+  it('refuses withOAuthProtectedResource behind its credentialed gate, in both forms', () => {
+    expect(() =>
+      pipeline(
+        [
+          withTypedSupabase({ auth: 'user', env: baseEnv }),
+          withOAuthProtectedResource(oauthCfg),
+        ],
+        ok,
+      ),
+    ).toThrow(/withOAuthProtectedResource is placed after withSupabase/)
+    expect(() =>
+      withTypedSupabase(
+        { auth: 'user', env: baseEnv },
+        withOAuthProtectedResource(oauthCfg, ok),
+      ),
+    ).toThrow(/placed after withSupabase/)
+  })
+
+  it('refuses a config carrying a middleware key', () => {
+    const config = {
+      auth: 'none',
+      env: baseEnv,
+      middleware: [],
+    } as unknown as WithSupabaseConfig
+    expect(() => withTypedSupabase(config, ok)).toThrow(
+      /has no `middleware` option/,
+    )
+    expect(() => withTypedSupabase(config)).toThrow(
       /has no `middleware` option/,
     )
   })

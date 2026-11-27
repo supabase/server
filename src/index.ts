@@ -84,7 +84,7 @@
  * @packageDocumentation
  */
 
-export { withSupabase } from './with-supabase.js'
+export { createWithSupabase, withSupabase } from './with-supabase.js'
 export { createSupabaseContext } from './create-supabase-context.js'
 
 export { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'

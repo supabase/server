@@ -1,5 +1,10 @@
 import { defineComposite } from '@supabase/middleware'
-import type { BaseContext, Entry } from '@supabase/middleware'
+import type {
+  BaseContext,
+  Composite,
+  Contributions,
+  Entry,
+} from '@supabase/middleware'
 
 import { preAuthName } from './core/pre-auth.js'
 import { withConstructionBoundary } from './core/parts/boundary.js'
@@ -24,10 +29,10 @@ import type {
 type AnyHandler = (req: Request, ctx: any) => Promise<Response>
 
 /**
- * The parts `withSupabase` is made of, outermost first. Each contributes one
- * key; the composite derives its contributions from them and keeps
- * `supabaseCors`, `supabaseBoundary` and `supabaseAuth` internal, so the
- * handler sees exactly {@link SupabaseContext}.
+ * The parts `withSupabase` is made of, outermost first, with both clients
+ * typed for `Database`. Each contributes one key; the composite derives its
+ * contributions from them and keeps `supabaseCors`, `supabaseBoundary` and
+ * `supabaseAuth` internal, so the handler sees exactly {@link SupabaseContext}.
  *
  * Order is load-bearing: the CORS part must see every response on the way
  * out, the boundary must sit above the client parts whose construction
@@ -35,37 +40,45 @@ type AnyHandler = (req: Request, ctx: any) => Promise<Response>
  * result, and the projections must run before the client parts, which read
  * the flat `authMode` / `authKeyName` keys to mirror the matched credential.
  */
-const composite = defineComposite({
-  build: (config: WithSupabaseConfig) =>
-    [
-      withSupabaseCors(config),
-      withConstructionBoundary(config),
-      withAuthGate(config),
-      withUserClaims(),
-      withJwtClaims(),
-      withAuthMode(),
-      withAuthKeyName(),
-      withSupabaseClient({
-        env: config.env,
-        supabaseOptions: config.supabaseOptions,
-      }),
-      withSupabaseAdminClient({
-        env: config.env,
-        supabaseOptions: config.supabaseOptions,
-      }),
-    ] as const,
-  internal: ['supabaseCors', 'supabaseBoundary', 'supabaseAuth'],
-})
+function supabaseComposite<Database>() {
+  return defineComposite({
+    build: (config: WithSupabaseConfig) =>
+      [
+        withSupabaseCors(config),
+        withConstructionBoundary(config),
+        withAuthGate(config),
+        withUserClaims(),
+        withJwtClaims(),
+        withAuthMode(),
+        withAuthKeyName(),
+        withSupabaseClient<Database>({
+          env: config.env,
+          supabaseOptions: config.supabaseOptions,
+        }),
+        withSupabaseAdminClient<Database>({
+          env: config.env,
+          supabaseOptions: config.supabaseOptions,
+        }),
+      ] as const,
+    internal: ['supabaseCors', 'supabaseBoundary', 'supabaseAuth'],
+  })
+}
 
 /**
- * The config-only overload declares `Entry<SupabaseContext<Database>>`; this
- * holds only while every public key the parts contribute is in
- * `SupabaseContext` and no public key is listed under `internal`.
+ * `createWithSupabase`'s return statement checks that every key its declared
+ * type names is one the parts contribute, with the same type. This checks the
+ * reverse: a public key the parts contribute but the declaration leaves out
+ * would escape the collision checks.
  */
-type EntryIsSound =
-  ReturnType<typeof composite> extends Entry<SupabaseContext> ? true : false
-const entryIsSound: EntryIsSound = true
-void entryIsSound
+type Contributed = Contributions<
+  [ReturnType<ReturnType<typeof supabaseComposite>>]
+>
+const everyKeyDeclared: [
+  Exclude<keyof Contributed, keyof SupabaseContext>,
+] extends [never]
+  ? true
+  : false = true
+void everyKeyDeclared
 
 /** Whether every configured auth mode requires credentials, so an unauthenticated request never passes the gate. */
 function requiresCredentials(config: WithSupabaseConfig): boolean {
@@ -106,6 +119,75 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
 }
 
 /**
+ * Runs the two construction-time checks before the composite builds: on the
+ * config at the call, and on the downstream handler once it is known, which
+ * for a `pipeline` entry is when the array folds. The composite's type passes
+ * through unchanged.
+ */
+function withChecks<C>(composite: C): C {
+  const build = composite as unknown as (
+    config: WithSupabaseConfig,
+    handler: AnyHandler,
+  ) => AnyHandler
+  const checked = (config: WithSupabaseConfig, handler?: AnyHandler) => {
+    rejectMiddlewareOption(config)
+    if (handler === undefined) {
+      return (next: AnyHandler) => {
+        rejectPreAuthBehindGate(config, next)
+        return build(config, next)
+      }
+    }
+    rejectPreAuthBehindGate(config, handler)
+    return build(config, handler)
+  }
+  return checked as unknown as C
+}
+
+/**
+ * Creates a {@link withSupabase} whose clients are typed for your `Database`,
+ * like `createClient<Database>()` in `@supabase/supabase-js`. Call it once at
+ * module scope, then use the result wherever you use `withSupabase`: nested
+ * around a handler or another middleware, or as a `pipeline` entry.
+ *
+ * The result is a `Composite` from `@supabase/middleware`, built from the same
+ * parts as `withSupabase` and with the same runtime behavior. Being the
+ * engine's own type, it gets the engine's checks: a middleware that
+ * contributes one of its keys again below it fails to compile, in a `pipeline`
+ * and in a nested stack anchored with `satisfies FetchHandler`.
+ *
+ * @typeParam Database - Your generated database types, from
+ * `supabase gen types typescript`. `ctx.supabase` and `ctx.supabaseAdmin` are
+ * typed `SupabaseClient<Database>`.
+ *
+ * @category Middleware
+ *
+ * @example
+ * ```ts
+ * import { createWithSupabase } from '@supabase/server'
+ * import type { Database } from './database.types.ts'
+ *
+ * const withSupabase = createWithSupabase<Database>()
+ *
+ * export default {
+ *   fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
+ *     // ctx.supabase is SupabaseClient<Database>
+ *     const { data } = await ctx.supabase.from('todos').select('id, title')
+ *     return Response.json(data)
+ *   }),
+ * }
+ * ```
+ */
+export function createWithSupabase<Database = UntypedDatabase>(): Composite<
+  SupabaseContext<Database>,
+  WithSupabaseConfig,
+  Record<never, never>
+> {
+  return withChecks(supabaseComposite<Database>())
+}
+
+const untypedWithSupabase = createWithSupabase()
+
+/**
  * Wraps a request handler with Supabase auth, client creation, and CORS handling.
  *
  * Built for the Web API `Request`/`Response` standard that all modern runtimes
@@ -129,10 +211,12 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
  * the engine already asks of nested stacks (it also gates collision detection
  * there): `Base` flows from the contextual return type, and without the anchor
  * the outer call resolves before it can push, so `Base` stays the empty
- * upstream and upstream keys are absent from `ctx`. Supplying `Database` explicitly
- * (`withSupabase<Db>(...)`) also defaults every later type parameter, `Base`
- * included; in that case annotate both (`withSupabase<Db, UpstreamCtx>(...)`)
- * or read the upstream key through a cast.
+ * upstream and upstream keys are absent from `ctx`.
+ *
+ * @typeParam Database - Deprecated: choose it once with
+ * {@link createWithSupabase} instead. Supplied here (`withSupabase<Db>(...)`),
+ * it also defaults every later type parameter, `Base` included, so upstream
+ * keys are absent from `ctx`.
  *
  * @category Middleware
  *
@@ -170,6 +254,9 @@ export function withSupabase<
  * requests; entries placed after it receive the full {@link SupabaseContext}
  * and may declare prerequisites on its keys.
  *
+ * @typeParam Database - Deprecated: choose it once with
+ * {@link createWithSupabase} instead.
+ *
  * @category Middleware
  *
  * @example OAuth discovery ahead of the gate, Postgres behind it
@@ -197,13 +284,7 @@ export function withSupabase(
   config: WithSupabaseConfig,
   handler?: AnyHandler,
 ): unknown {
-  rejectMiddlewareOption(config)
-  if (handler === undefined) {
-    return (next: AnyHandler) => {
-      rejectPreAuthBehindGate(config, next)
-      return composite(config, next)
-    }
-  }
-  rejectPreAuthBehindGate(config, handler)
-  return composite(config, handler)
+  return handler === undefined
+    ? untypedWithSupabase(config)
+    : untypedWithSupabase(config, handler)
 }
