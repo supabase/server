@@ -24,6 +24,8 @@ Wraps a fetch handler with auth, CORS, and client creation. Returns a `(req: Req
 - Buffers the request body at the entry point, so composed middleware and the handler can each read it
 - Reading the raw `req.body` stream bypasses the buffer, so a handler that forwards the request with `fetch()` after another layer has read the body rebuilds it from `await req.arrayBuffer()`.
 
+Passing `Database` explicitly (`withSupabase<Database>(...)`) is deprecated in both forms. Choose it once with [`createWithSupabase`](#createwithsupabase) instead.
+
 ```ts
 function withSupabase<Database = UntypedDatabase>(
   config: WithSupabaseConfig,
@@ -48,6 +50,34 @@ pipeline(
 ```
 
 Entries before `withSupabase` see every request, including unauthenticated ones, and observe its `401` responses on the way out. Entries after it receive the full `SupabaseContext` and may declare prerequisites on its keys; an entry contributing one of those keys is a compile-time conflict. Nesting works the same way: `withOAuthProtectedResource(withSupabase(config, handler))` places the OAuth middleware ahead of the gate, `withSupabase(config, withPostgresClient(handler))` places Postgres behind it. Placing `withOAuthProtectedResource` directly after `withSupabase` with an auth mode that requires credentials is refused when the stack is built; a pre-auth middleware separated from `withSupabase` by another entry is not detected and must be ordered by hand.
+
+### createWithSupabase
+
+```ts
+function createWithSupabase<Database = UntypedDatabase>(): Composite<
+  SupabaseContext<Database>,
+  WithSupabaseConfig,
+  Record<never, never>
+>
+```
+
+Returns a `withSupabase` whose `ctx.supabase` and `ctx.supabaseAdmin` are `SupabaseClient<Database>`. Call it once at module scope and use the result in both forms, `withSupabase(config, handler)` and `withSupabase(config)` as a `pipeline` entry. It is built from the same parts as `withSupabase` and behaves the same at runtime.
+
+```ts
+import { createWithSupabase } from '@supabase/server'
+import type { Database } from './database.types.ts'
+
+const withSupabase = createWithSupabase<Database>()
+
+export default {
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
+    const { data } = await ctx.supabase.from('todos').select('id, title')
+    return Response.json(data)
+  }),
+}
+```
+
+The return type is `Composite` from `@supabase/middleware`, so the engine's composite checks apply: a middleware placed below it that contributes one of its keys fails to compile, in a `pipeline` and in a nested stack anchored with `satisfies FetchHandler`.
 
 ### createSupabaseContext
 

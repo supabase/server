@@ -18,13 +18,17 @@ This produces a `Database` type that describes your schema.
 
 ## Using with withSupabase
 
+Choose `Database` once with `createWithSupabase`, at module scope, and use the result wherever you'd use `withSupabase`:
+
 ```ts
-import { withSupabase } from '@supabase/server'
+import { createWithSupabase } from '@supabase/server'
 import type { Database } from './database.types.ts'
 
+const withSupabase = createWithSupabase<Database>()
+
 export default {
-  fetch: withSupabase<Database>({ auth: 'user' }, async (_req, ctx) => {
-    // ctx.supabase is SupabaseClient<Database>
+  fetch: withSupabase({ auth: 'user' }, async (_req, ctx) => {
+    // ctx.supabase and ctx.supabaseAdmin are SupabaseClient<Database>
     // Fully typed: column names, return type, etc.
     const { data } = await ctx.supabase
       .from('todos')
@@ -34,6 +38,28 @@ export default {
   }),
 }
 ```
+
+The result composes the same way `withSupabase` does: nested around a handler or another middleware, or as a `pipeline` entry, where the entries after it see the typed clients.
+
+```ts
+import { pipeline } from '@supabase/middleware'
+import { withPostgresClient } from '@supabase/server/middleware/postgres'
+
+export default {
+  fetch: pipeline(
+    [withSupabase({ auth: 'user' }), withPostgresClient()],
+    async (_req, ctx) => {
+      // ctx.supabase is SupabaseClient<Database>; ctx.postgres is RLS-scoped too
+      const { data } = await ctx.supabase.from('todos').select('id, title')
+      return Response.json(data)
+    },
+  ),
+}
+```
+
+`createWithSupabase` returns a `Composite` from `@supabase/middleware`, so the engine checks it like any composite. A middleware below it that contributes one of its keys fails to compile: `withClaims()` contributes `jwtClaims`, which it already provides. In a nested stack, the check needs `satisfies FetchHandler` on the outermost call.
+
+Passing `Database` to `withSupabase` itself (`withSupabase<Database>(config, handler)`) is deprecated. It also fixes `withSupabase`'s second type parameter to its default, so keys from a middleware wrapped around it are missing from `ctx`.
 
 ## Using with createSupabaseContext
 
@@ -147,11 +173,13 @@ app.listen(3000)
 If your tables are in a schema other than `public`, pass it via `supabaseOptions`:
 
 ```ts
-import { withSupabase } from '@supabase/server'
+import { createWithSupabase } from '@supabase/server'
 import type { Database } from './database.types.ts'
 
+const withSupabase = createWithSupabase<Database>()
+
 export default {
-  fetch: withSupabase<Database>(
+  fetch: withSupabase(
     {
       auth: 'user',
       supabaseOptions: { db: { schema: 'api' } },
@@ -173,7 +201,7 @@ export default {
 - Auth settings (`persistSession`, `autoRefreshToken`, `detectSessionInUrl`) are force-set to server-safe values
 
 ```ts
-withSupabase<Database>(
+withSupabase(
   {
     auth: 'user',
     supabaseOptions: {

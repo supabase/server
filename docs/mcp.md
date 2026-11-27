@@ -4,14 +4,19 @@ An MCP server your app exposes to its users is an HTTP endpoint that MCP clients
 
 ```ts
 import { pipeline } from '@supabase/middleware'
-import { withOAuthProtectedResource, withSupabase } from '@supabase/server'
+import {
+  createWithSupabase,
+  withOAuthProtectedResource,
+} from '@supabase/server'
 import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod/v4'
 import type { Database } from './database.types'
 
+const withSupabase = createWithSupabase<Database>()
+
 export default {
   fetch: pipeline(
-    [withOAuthProtectedResource(), withSupabase<Database>({ auth: 'user' })],
+    [withOAuthProtectedResource(), withSupabase({ auth: 'user' })],
     async (req, { supabase }) => {
       const handler = createMcpHandler(
         () => {
@@ -44,7 +49,7 @@ export default {
 }
 ```
 
-Pass the `Database` generic (from `supabase gen types typescript`) when tools write. Without it the client is `SupabaseClient<unknown>` and `insert({ title })` fails type-checking with the argument resolved to `never[]`; reads compile either way.
+Choose `Database` (from `supabase gen types typescript`) with `createWithSupabase` when tools write. Without it the client is `SupabaseClient<unknown>` and `insert({ title })` fails type-checking with the argument resolved to `never[]`; reads compile either way.
 
 ## The two entries
 

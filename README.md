@@ -542,7 +542,7 @@ No. `@supabase/ssr` handles cookie-based session management for frameworks like 
 
 | Export                                        | What's in it                                                                                                                          |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `@supabase/server`                            | `withSupabase`, `createSupabaseContext`                                                                                               |
+| `@supabase/server`                            | `withSupabase`, `createWithSupabase`, `createSupabaseContext`                                                                         |
 | `@supabase/server/core`                       | `verifyAuth`, `verifyCredentials`, `extractCredentials`, `createContextClient`, `createAdminClient`, `resolveEnv`                     |
 | `@supabase/server/adapters/hono`              | `withSupabase` (Hono middleware)                                                                                                      |
 | `@supabase/server/adapters/h3`                | `withSupabase` (H3 / Nuxt middleware)                                                                                                 |
