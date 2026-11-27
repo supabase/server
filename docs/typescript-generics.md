@@ -78,14 +78,15 @@ const { data: users } = await supabaseAdmin.from('profiles').select()
 
 ## Using with a framework bridge
 
-Thread `Database` through the entry's generic. `withSupabaseClient<Database>()`
-contributes a fully typed `SupabaseClient<Database>`, and the bridge carries
-that type onto wherever your framework keeps per-request state.
+A [framework bridge](https://supabase.com/docs/reference/server/frameworks) is
+one file you copy into your project, and it keeps whatever types the entries
+give it. Pass `Database` to `withSupabaseClient<Database>()` and the `supabase`
+your handler reads is a `SupabaseClient<Database>`.
 
-In Hono the keys type through to `c.var` with no `Env` declaration of your own,
-as long as you keep the calls chained. `app.use(...)` on one line and
-`app.get(...)` on the next typechecks the middleware but leaves `c.var`
-untyped.
+In Hono, keep the calls chained and `c.var` types itself, with no `Env`
+declaration of your own. Split them — `app.use(...)` on one line and
+`app.get(...)` on the next — and the middleware still typechecks, but `c.var`
+goes untyped.
 
 ```ts
 import { Hono } from 'hono'
@@ -128,8 +129,10 @@ export default { fetch: wrapElysia(entries, (req) => app.handle(req)) }
 ```
 
 Frameworks whose per-request store is not generic, such as H3 and NestJS, read
-the contributions through `Contributions<typeof entries>` instead. See the
-[frameworks guide](https://supabase.com/docs/reference/server/frameworks).
+the contributions through `Contributions<typeof entries>` instead. The patterns
+are in the frameworks guide, under
+[H3 / Nuxt](https://supabase.com/docs/reference/server/frameworks#h3--nuxt) and
+[NestJS](https://supabase.com/docs/reference/server/frameworks#nestjs).
 
 ## Custom schema
 

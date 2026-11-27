@@ -80,8 +80,8 @@ pnpm test
 ### End-to-end tests
 
 The E2E suite (`e2e/`) runs real JWT issuance, real JWKS validation, and real
-Supabase client operations against a local Supabase stack, across the four
-framework bridges plus the core fetch wrapper and the Deno edge runtime. It
+Supabase client operations against a local Supabase stack. Coverage spans the
+four framework bridges, the core fetch wrapper, and the Deno edge runtime. It
 imports the library from `dist/`, so build first:
 
 ```bash
@@ -217,9 +217,9 @@ Middleware with no Supabase surface lives in its own package on top of [`@supaba
 
 Framework integration lives in [`examples/frameworks`](examples/frameworks): one bridge file per framework that consumers copy into their own projects, explained by the [framework integration guide](https://supabase.com/docs/reference/server/frameworks). The package publishes no per-framework entry point, and PRs adding one are not accepted. A bridge belongs in the consumer's project, where it does not have to track their framework's major versions.
 
-The bridges are not dead examples. `e2e/apps/<framework>/app.ts` imports each one directly, so the e2e suite exercises the exact files the guide tells people to copy. A change to a bridge has to keep `pnpm test:e2e` green.
+`e2e/apps/<framework>/app.ts` imports each bridge directly, so the e2e suite exercises the exact files the guide tells people to copy. A change to a bridge has to keep `pnpm test:e2e` green.
 
-The adapters that used to live under `src/adapters/` were removed in 2.0.0, the removal announced for December 1, 2026 when they were deprecated in 1.9.0.
+The adapters that used to live under `src/adapters/` were deprecated in 1.9.0 and removed in 2.0.0.
 
 ## Release Process
 

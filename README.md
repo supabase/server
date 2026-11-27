@@ -279,7 +279,7 @@ Called with config only, `withSupabase(config)` returns an entry for `pipeline` 
 
 ## Frameworks
 
-To run `@supabase/server`'s middleware entries inside Hono, H3 / Nuxt, Elysia, NestJS, or TanStack Start, copy the bridge for your framework from [`examples/frameworks/`](https://github.com/supabase/server/tree/main/examples/frameworks) into your project. A bridge is one file you own, and it runs a `@supabase/middleware` entry array in your framework's own middleware slot. Nothing here tracks your framework's major versions.
+To run `@supabase/server`'s middleware entries inside Hono, H3 / Nuxt, Elysia, NestJS, or TanStack Start, copy the bridge for your framework from [`examples/frameworks/`](https://github.com/supabase/server/tree/main/examples/frameworks) into your project. A bridge is one file you own, and it runs a `@supabase/middleware` entry array in your framework's own middleware slot.
 
 ```ts
 import { Hono } from 'hono'
@@ -302,9 +302,9 @@ const app = new Hono()
 The [Frameworks guide](https://supabase.com/docs/reference/server/frameworks) covers each bridge, which frameworks keep the response phase, and how to scope one entry array to a group of routes.
 
 > [!WARNING]
-> The framework adapters (`@supabase/server/adapters/*`) were removed in 2.0.0, the removal announced for December 1, 2026 when they were deprecated in 1.9.0.
+> The framework adapters (`@supabase/server/adapters/*`) were deprecated in 1.9.0 and removed in 2.0.0.
 >
-> [Moving off the adapters](https://supabase.com/docs/reference/server/frameworks#moving-off-the-adapters) has the migration. Read it before changing any code: `withClaims()` is not the replacement for `auth: 'user'`. It lets an anonymous request through with `jwtClaims: null`, turning a 401 into a silent 200. `withRequiredClaims()` is the gate the adapters applied.
+> [Moving off the adapters](https://supabase.com/docs/reference/server/frameworks#moving-off-the-adapters) has the migration. One step to get right first: `withRequiredClaims()` replaces `auth: 'user'`. `withClaims()` looks like the replacement but lets anonymous requests through, turning a 401 into a silent 200.
 
 ## Primitives
 

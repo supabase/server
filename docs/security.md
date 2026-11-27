@@ -81,7 +81,7 @@ If no JWKS source resolves (no inline key set, no URL, and no project URL that p
 
 CORS defaults come from `@supabase/supabase-js/cors`. You can pass custom headers with `cors: { headers }` or turn it off with `cors: 'disabled'`.
 
-A framework bridge does not handle CORS on its own. Compose `withCors` from `@supabase/middleware/cors` into the entry array on Hono, H3, Elysia, and TanStack Start. On NestJS the guard has no response phase and never sees a preflight, so CORS there is `app.enableCors()`. A route that composes no entries has no CORS.
+A [framework bridge](https://supabase.com/docs/reference/server/frameworks) is one file you copy into your project, and it does not handle CORS on its own. Compose `withCors` from `@supabase/middleware/cors` into the entry array on Hono, H3, Elysia, and TanStack Start. On NestJS the guard has no response phase and never sees a preflight, so enable CORS with `app.enableCors()` instead. A route that composes no entries has no CORS.
 
 ## Credential extraction
 

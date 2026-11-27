@@ -309,10 +309,12 @@ A connection attempt failed, and the pool is pausing new attempts so a bad crede
 | `resolveEnv()`                               | Result tuple  | Returns `{ data: null, error: EnvError }`                                                                               |
 | `createContextClient()`                      | **Throws**    | Throws `EnvError`                                                                                                       |
 | `createAdminClient()`                        | **Throws**    | Throws `EnvError`                                                                                                       |
-| A framework bridge short-circuit             | Auto-response | The entry's `Response` reaches the client unchanged on Hono, H3, and TanStack Start server routes                       |
-| `toNestGuard()` short-circuit                | HttpException | Throws `HttpException` with the entry's status and `{ message, code }` body                                             |
 
 `verifyAuth()` also has the raw request in hand, so it adds diagnostics `verifyCredentials()` can't see — most usefully, an `Authorization` header that was present but unusable.
+
+Bridges are not in the table. A bridge is a file in your project, not an export
+of this package, so what it does with a short-circuit is covered separately in
+[Map a bridge error to a response](#map-a-bridge-error-to-a-response).
 
 ## Custom error formatting
 
@@ -342,23 +344,32 @@ export default {
 }
 ```
 
-## Handling errors in a framework bridge
+## Map a bridge error to a response
 
-On Hono, H3, and TanStack Start server routes, a short-circuit from
-`withRequiredClaims()` is an ordinary `Response` carrying the standard payload,
-so the 401 reaches the client with its `code` intact and no error handler is
-involved. The Nest guard throws an `HttpException` with the entry's status and
-`{ message, code }` body. On a TanStack Start server function the bridge
-rethrows the short-circuit as an error carrying `status` and `code`, because
-Start's fetcher would otherwise resolve the caller's promise with the 401 body.
+A [framework bridge](https://supabase.com/docs/reference/server/frameworks) is
+one file you copy into your project, so a short-circuit from
+`withRequiredClaims()` surfaces however that bridge chose to surface it. The
+bridges in [`examples/frameworks/`](https://github.com/supabase/server/tree/main/examples/frameworks)
+do this:
 
-What does need mapping is `EnvError`. `withSupabaseClient()` and
+| Bridge                          | A short-circuit arrives as                                         |
+| ------------------------------- | ------------------------------------------------------------------ |
+| Hono, H3, TanStack Start routes | The entry's `Response`, unchanged. No error handler runs           |
+| NestJS, through `toNestGuard`   | An `HttpException` with the entry's status and `{ message, code }` |
+| TanStack Start server functions | An error carrying `status` and `code`, rethrown by the bridge      |
+
+Each one reaches the caller as the standard payload with its `code` intact, so
+a short-circuit needs no mapping of its own. The server-function bridge rethrows
+because Start's fetcher would otherwise resolve the caller's promise with the
+401 body.
+
+`EnvError` does need mapping. `withSupabaseClient()` and
 `withSupabaseAdminClient()` throw it when configuration is missing, and the
-bridges do not catch it. The two fail at different moments:
-`withSupabaseClient()` throws from the entry chain before your handler runs,
-while `withSupabaseAdminClient()` builds lazily and throws on the first
-`supabaseAdmin` property access, inside your handler. Map both in your
-framework's error boundary. In Hono:
+bridges do not catch it. The two fail at different moments.
+`withSupabaseClient()` throws from the entry chain before your handler runs.
+`withSupabaseAdminClient()` builds lazily and throws inside your handler, on
+the first `supabaseAdmin` property access. Map both in your framework's error
+boundary. In Hono:
 
 ```ts
 import { EnvError } from '@supabase/server'
@@ -371,8 +382,8 @@ app.onError((err, c) => {
 })
 ```
 
-See the [frameworks guide](https://supabase.com/docs/reference/server/frameworks)
-for the full error-shape comparison.
+For how this differs from the shape each removed adapter rejected with, see
+[The auth trap](https://supabase.com/docs/reference/server/frameworks#the-auth-trap).
 
 ## Handling errors in core primitives
 

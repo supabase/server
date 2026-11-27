@@ -28,7 +28,7 @@ Server-side utilities for Supabase. Handles auth, client creation, and context i
 - Supports 4 auth modes: `user` (JWT), `publishable` (publishable key), `secret` (secret key), `none` (no credentials required)
 - Array syntax (`auth: ['user', 'secret']`) is first-match-wins. A present-but-invalid JWT rejects with `InvalidJwtError` (`INVALID_JWT`) — it does not silently downgrade to the next mode.
 - Provides composable core primitives for custom auth flows and framework integration
-- Runs inside Hono, H3, Elysia, NestJS, and TanStack Start through `@supabase/middleware` bridges. The bundled framework adapters (`@supabase/server/adapters/*`) were removed in 2.0.0; they do not exist on this version.
+- Runs inside Hono, H3, Elysia, NestJS, and TanStack Start through `@supabase/middleware` bridges. The bundled framework adapters (`@supabase/server/adapters/*`) were removed in 2.0.0.
 
 ## Entry points
 
@@ -103,7 +103,11 @@ export default {
 
 ### Hono
 
-> **The Hono adapter (`@supabase/server/adapters/hono`) was removed in 2.0.0.** Hono code uses a bridge: one file you copy into your project. It runs `@supabase/middleware` entries inside Hono's middleware slot. The bridge needs Node 22 or later. The bridge file imports `@supabase/middleware`, so add it to your project as a direct dependency. `@supabase/server` depends on it, but a strict package manager such as pnpm does not let your code import a transitive dependency. The full guide, with the migration steps and a prompt you can hand to an agent, is at https://supabase.com/docs/reference/server/frameworks.
+> **The Hono adapter (`@supabase/server/adapters/hono`) was removed in 2.0.0.** Hono code uses a bridge: one file you copy into your project. It runs `@supabase/middleware` entries inside Hono's middleware slot, and needs Node 22 or later.
+>
+> The bridge file imports `@supabase/middleware`, so add it to your project as a direct dependency. `@supabase/server` depends on it, but a strict package manager such as pnpm does not let your code import a transitive dependency.
+>
+> The Hono bridge is at [Frameworks: Hono](https://supabase.com/docs/reference/server/frameworks#hono), and the migration steps, with a prompt you can hand to an agent, are at [Moving off the adapters](https://supabase.com/docs/reference/server/frameworks#moving-off-the-adapters).
 
 The bridge file is not in the npm package. Fetch it from the repository and keep it as is, comments included:
 
@@ -135,9 +139,13 @@ const app = new Hono()
 export default { fetch: app.fetch }
 ```
 
-Register the bridge with `.use()` in the same chain as the routes it gates. Hono applies middleware only to routes added after it. For browser callers, compose `withCors` from `@supabase/middleware/cors` ahead of the gate. On Deno and Supabase Edge Functions, map `hono`, `@supabase/middleware`, and `@supabase/server/middleware/*` to `npm:` specifiers in the function's `deno.json`, so the bridge file stays unmodified.
+Register the bridge with `.use()` in the same chain as the routes it gates. Hono applies middleware only to routes added after it.
 
-**Migrating code off an adapter? Pick the entries from its `auth` value.** The adapter rejected requests that failed its `auth` check. `withClaims()` does not. It contributes `jwtClaims: null` for an anonymous request and lets it through. Using it in place of `auth: 'user'` turns a 401 into a 200 with no error.
+For browser callers, compose `withCors` from `@supabase/middleware/cors` ahead of the gate.
+
+On Deno and Supabase Edge Functions, map `hono`, `@supabase/middleware`, and `@supabase/server/middleware/*` to `npm:` specifiers in the function's `deno.json`, so the bridge file stays unmodified.
+
+**Migrating code off an adapter?** Pick the entries from its `auth` value. The adapter rejected requests that failed its `auth` check. `withClaims()` does not. It contributes `jwtClaims: null` for an anonymous request and lets it through. Using it in place of `auth: 'user'` turns a 401 into a 200 with no error.
 
 | Adapter config                            | Bridge entries                                                                                                                                              |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -152,7 +160,7 @@ The entries contribute flat keys, so handlers read `c.var.supabase` and `c.var.j
 <details>
 <summary>Removed adapter (recognize it in code written against 1.x)</summary>
 
-Code written against `@supabase/server` 1.x may still import the adapter. It does not resolve on 2.x. Recognize the shape below and migrate it with the table above; the adapter handled no CORS, so such code also relies on `hono/cors`.
+Code written against `@supabase/server` 1.x may still import the adapter. It does not resolve on 2.x. Recognize the following shape and migrate it with the adapter-config table in this section; the adapter handled no CORS, so such code also relies on `hono/cors`.
 
 ```ts
 import { Hono } from 'hono'
@@ -466,7 +474,7 @@ The full documentation lives in the `docs/` directory of the `@supabase/server` 
 | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | How do I create a basic endpoint?                                                     | `docs/getting-started.md`                                                     |
 | What auth modes are available? Array syntax? Named keys?                              | `docs/auth-modes.md`                                                          |
-| How do I run middleware entries inside Hono, H3, Elysia, NestJS, or TanStack Start?   | https://supabase.com/docs/reference/server/frameworks                         |
+| How do I run middleware entries inside Hono, H3, Elysia, NestJS, or TanStack Start?   | https://supabase.com/docs/reference/server/frameworks#what-a-bridge-gives-you |
 | I have code importing `@supabase/server/adapters/*`. What replaces it?                | https://supabase.com/docs/reference/server/frameworks#moving-off-the-adapters |
 | How do I use low-level primitives for custom flows?                                   | `docs/core-primitives.md`                                                     |
 | How do environment variables work across runtimes?                                    | `docs/environment-variables.md`                                               |

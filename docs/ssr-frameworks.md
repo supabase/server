@@ -297,7 +297,7 @@ const { data: ctx } = await createSupabaseContext({ auth: ['user', 'none'] })
 
 ## Adapting for other frameworks
 
-The helper above is Next.js-specific only in how it wires `@supabase/ssr`'s cookie adapter. For another framework, swap the cookie adapter you pass to `createServerClient` from `@supabase/ssr` — see `@supabase/ssr`'s framework guides for the canonical patterns:
+The composed helper in Step 2 is Next.js-specific only in how it wires `@supabase/ssr`'s cookie adapter. For another framework, swap the cookie adapter you pass to `createServerClient` from `@supabase/ssr` — see `@supabase/ssr`'s framework guides for the canonical patterns:
 
 - **SvelteKit:** `event.cookies.getAll()` / `event.cookies.set(name, value, options)` in `+page.server.ts` or `+server.ts`.
 - **Remix:** parse cookies from `request.headers.get('cookie')` and emit them via `Set-Cookie` in the response.

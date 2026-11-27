@@ -241,4 +241,4 @@ export default {
 
 In Next.js, SvelteKit, Remix, and other cookie-based frameworks, the JWT lives in session cookies rather than the `Authorization` header. The recommended pattern is to **compose with [`@supabase/ssr`](https://github.com/supabase/ssr)**: let `@supabase/ssr` own the cookie session lifecycle and refresh-token rotation (via middleware), then hand its fresh access token to `verifyCredentials` and build typed clients with `createContextClient` + `createAdminClient`.
 
-For the full pattern, including middleware setup, the composed helper, JWKS caching, and adapting it for other frameworks, see [ssr-frameworks.md](ssr-frameworks.md).
+For the full pattern, including middleware setup, the composed helper, JWKS caching, and adapting it for other frameworks, see [SSR frameworks](ssr-frameworks.md).
