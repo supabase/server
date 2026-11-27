@@ -164,8 +164,8 @@ function withChecks<C>(composite: C): C {
  * @example
  * ```ts
  * import { createWithSupabase } from '@supabase/server'
- * import type { Database } from './database.types.ts'
  *
+ * // `Database` is the type `supabase gen types typescript` generates.
  * const withSupabase = createWithSupabase<Database>()
  *
  * export default {
