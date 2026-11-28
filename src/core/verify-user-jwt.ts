@@ -44,13 +44,19 @@ export type JwksResolver = JWTVerifyGetKey & {
 let remoteJwksResolver: { url: string; resolver: JwksResolver } | undefined =
   undefined
 
+// Content keys also cover inline sets reparsed from SUPABASE_JWKS and detect
+// in-place rotation. Bound the cache so distinct tenant key sets cannot grow it
+// indefinitely.
+const localJwksResolvers = new Map<string, JwksResolver>()
+const MAX_LOCAL_JWKS_RESOLVERS = 16
+
 /**
  * Returns a key resolver for the given JWKS source.
  *
  * For a {@link URL}, the underlying `createRemoteJWKSet` resolver is cached
  * across requests so `jose`'s built-in cooldown / max-age caching is
- * preserved. Local JWKS objects are wrapped on every call — they're trivially
- * cheap and the object identity may change across requests.
+ * preserved. Local resolvers are cached by key-set contents so imported keys
+ * can also be reused, including for inline sets reparsed from environment JSON.
  *
  * @internal
  */
@@ -63,15 +69,28 @@ function getJwksResolver(jwks: JSONWebKeySet | URL): JwksResolver {
     return remoteJwksResolver.resolver
   }
 
-  const localJwkSet = createLocalJWKSet(jwks)
+  const cacheKey = JSON.stringify(jwks)
+  const cached = localJwksResolvers.get(cacheKey)
+  if (cached) {
+    localJwksResolvers.delete(cacheKey)
+    localJwksResolvers.set(cacheKey, cached)
+    return cached
+  }
+
+  const snapshot: JSONWebKeySet = JSON.parse(cacheKey)
+  const localJwkSet = createLocalJWKSet(snapshot)
   function localJwtVerifyGetKey(...args: Parameters<typeof localJwkSet>) {
     return localJwkSet(...args)
   }
 
   const localJwksResolver: JwksResolver = Object.assign(localJwtVerifyGetKey, {
-    jwks: () => jwks,
+    jwks: () => snapshot,
   })
 
+  if (localJwksResolvers.size >= MAX_LOCAL_JWKS_RESOLVERS) {
+    localJwksResolvers.delete(localJwksResolvers.keys().next().value!)
+  }
+  localJwksResolvers.set(cacheKey, localJwksResolver)
   return localJwksResolver
 }
 
