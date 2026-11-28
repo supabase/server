@@ -21,6 +21,7 @@
   "excludePrivate": true,
   "excludeProtected": true,
   "excludeExternals": true,
+  "intentionallyNotExported": ["DatabaseForms"],
   "navigationLinks": {
     "GitHub": "https://github.com/supabase/server"
   },
