@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   EnvError,
@@ -15,6 +15,27 @@ const validEnv = {
 }
 
 describe('createAdminClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('reads only the environment needed to create the client', () => {
+    const get = vi.fn((name: string) => {
+      if (name === 'SUPABASE_URL') return 'https://test.supabase.co'
+      if (name === 'SUPABASE_SECRET_KEYS') return undefined
+      if (name === 'SUPABASE_SECRET_KEY') return 'sb_secret_xyz'
+      throw new Error(`Environment access denied: ${name}`)
+    })
+    vi.stubGlobal('Deno', { env: { get } })
+
+    expect(createAdminClient()).toBeDefined()
+    expect(get.mock.calls.map(([name]) => name)).toEqual([
+      'SUPABASE_URL',
+      'SUPABASE_SECRET_KEYS',
+      'SUPABASE_SECRET_KEY',
+    ])
+  })
+
   it('creates client with valid env', () => {
     const client = createAdminClient({ env: validEnv })
     expect(client).toBeDefined()

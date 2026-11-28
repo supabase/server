@@ -6,7 +6,7 @@ import {
   MissingSecretKeyError,
 } from '../errors.js'
 import type { CreateAdminClientOptions, UntypedDatabase } from '../types.js'
-import { resolveEnv } from './resolve-env.js'
+import { resolveEnvFields } from './resolve-env.js'
 
 /**
  * Creates an admin Supabase client that bypasses Row-Level Security.
@@ -42,7 +42,9 @@ import { resolveEnv } from './resolve-env.js'
 export function createAdminClient<Database = UntypedDatabase>(
   options?: CreateAdminClientOptions,
 ): SupabaseClient<Database> {
-  const { data: resolved, error } = resolveEnv(options?.env)
+  const { data: resolved, error } = resolveEnvFields(options?.env, [
+    'secretKeys',
+  ])
   if (error) throw error
 
   const keyName = options?.auth?.keyName
