@@ -85,6 +85,7 @@
  */
 
 export { withSupabase } from './with-supabase.js'
+export type { WithSupabase } from './with-supabase.js'
 export { createSupabaseContext } from './create-supabase-context.js'
 
 export { withOAuthProtectedResource } from './oauth-protected-resource/with-oauth-protected-resource.js'

@@ -926,3 +926,118 @@ describe('withSupabase audience and issuer validation', () => {
     )
   })
 })
+
+type TodosDatabase = {
+  public: {
+    Tables: {
+      todos: {
+        Row: { id: number; title: string }
+        Insert: { id?: number; title: string }
+        Update: { id?: number; title?: string }
+        Relationships: []
+      }
+    }
+    Views: Record<never, never>
+    Functions: Record<never, never>
+    Enums: Record<never, never>
+    CompositeTypes: Record<never, never>
+  }
+}
+
+const withGreeting = defineMiddleware<
+  'greeting',
+  void,
+  Record<never, never>,
+  string
+>({
+  key: 'greeting',
+  run: () => async () => ({ greeting: 'hello' }),
+})
+
+// Type tests: every call spelling, verified by `tsc --noEmit`. Each
+// `@ts-expect-error` on `from('nope')` proves `ctx.supabase` carries the
+// chosen Database; with an untyped client the line would compile.
+describe('withSupabase call spellings', () => {
+  it('nested without an anchor: the handler sees both layers', () => {
+    const _handler = withSupabase(
+      { auth: 'none', env: baseEnv },
+      withGreeting(async (_req, ctx) => {
+        expectTypeOf(ctx.greeting).toEqualTypeOf<string>()
+        expectTypeOf(ctx.supabase).not.toBeAny()
+        return Response.json({ ok: true })
+      }),
+    )
+    void _handler
+  })
+
+  it('nested inside another middleware: the handler sees its key', () => {
+    const _handler = withGreeting(
+      withSupabase({ auth: 'none', env: baseEnv }, async (_req, ctx) => {
+        expectTypeOf(ctx.greeting).toEqualTypeOf<string>()
+        expectTypeOf(ctx.supabase).not.toBeAny()
+        return Response.json({ ok: true })
+      }),
+    )
+    void _handler
+  })
+
+  it('a key withSupabase contributes cannot be added again below it', () => {
+    const _handler = withSupabase(
+      { auth: 'none', env: baseEnv },
+      // @ts-expect-error — Conflict<'jwtClaims'>: withSupabase already contributes it
+      withClaims(async () => Response.json({ ok: true })),
+    ) satisfies FetchHandler
+    void _handler
+  })
+
+  it('an explicit Database types the client in each form', () => {
+    const _handler = withSupabase<TodosDatabase>(
+      { auth: 'none', env: baseEnv },
+      async (_req, ctx) => {
+        // @ts-expect-error — not a table in TodosDatabase
+        void ctx.supabase.from('nope')
+        return Response.json({ ok: true })
+      },
+    )
+    const _nested = withSupabase<TodosDatabase>(
+      { auth: 'none', env: baseEnv },
+      withGreeting(async (_req, ctx) => {
+        // @ts-expect-error — not a table in TodosDatabase
+        void ctx.supabase.from('nope')
+        return Response.json({ greeting: ctx.greeting })
+      }),
+    )
+    const _entry = pipeline(
+      [withSupabase<TodosDatabase>({ auth: 'none', env: baseEnv })],
+      async (_req, ctx) => {
+        // @ts-expect-error — not a table in TodosDatabase
+        void ctx.supabase.from('nope')
+        return Response.json({ ok: true })
+      },
+    )
+    const _withUpstream = withGreeting(
+      withSupabase<TodosDatabase, { greeting: string }>(
+        { auth: 'none', env: baseEnv },
+        async (_req, ctx) => {
+          expectTypeOf(ctx.greeting).toEqualTypeOf<string>()
+          // @ts-expect-error — not a table in TodosDatabase
+          void ctx.supabase.from('nope')
+          return Response.json({ ok: true })
+        },
+      ),
+    )
+    void [_handler, _nested, _entry, _withUpstream]
+  })
+
+  it('a handler annotation chooses the Database', () => {
+    const _handler = withSupabase(
+      { auth: 'none', env: baseEnv },
+      async (_req, ctx: SupabaseContext<TodosDatabase>) => {
+        // @ts-expect-error — not a table in TodosDatabase
+        void ctx.supabase.from('nope')
+        return Response.json({ ok: true })
+      },
+    )
+    void _handler
+  })
+})

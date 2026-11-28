@@ -1,5 +1,5 @@
 import { defineComposite } from '@supabase/middleware'
-import type { BaseContext, Entry } from '@supabase/middleware'
+import type { BaseContext, Composite, Entry } from '@supabase/middleware'
 
 import { preAuthName } from './core/pre-auth.js'
 import { withConstructionBoundary } from './core/parts/boundary.js'
@@ -16,7 +16,6 @@ import { withSupabaseClient } from './middleware/client/index.js'
 import type {
   AuthModeWithKey,
   SupabaseContext,
-  UntypedDatabase,
   WithSupabaseConfig,
 } from './types.js'
 
@@ -105,6 +104,64 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
   }
 }
 
+function withSupabaseImpl(
+  config: WithSupabaseConfig,
+  handler?: AnyHandler,
+): unknown {
+  rejectMiddlewareOption(config)
+  if (handler === undefined) {
+    return (next: AnyHandler) => {
+      rejectPreAuthBehindGate(config, next)
+      return composite(config, next)
+    }
+  }
+  rejectPreAuthBehindGate(config, handler)
+  return composite(config, handler)
+}
+
+/** A `Database` type argument the caller did not pass. */
+interface NoDatabaseArgument {
+  readonly noDatabaseArgument: true
+}
+
+/**
+ * `T` when the caller chose `Database`, explicitly or through a handler
+ * annotation, and `never` otherwise. A call without a type argument then fails
+ * the {@link DatabaseForms} signatures on its config and resolves against the
+ * engine's `Composite` ones.
+ */
+type WhenDatabaseChosen<Database, T> = [Database] extends [NoDatabaseArgument]
+  ? never
+  : T
+
+/**
+ * The signatures that take a `Database` type. They come ahead of `Composite`'s,
+ * so `withSupabase<Db>(...)` binds `Db` here rather than to `Composite`'s `Base`.
+ */
+interface DatabaseForms {
+  <Database = NoDatabaseArgument, Base extends BaseContext = BaseContext>(
+    config: WhenDatabaseChosen<Database, WithSupabaseConfig>,
+    // `NoInfer<Base>` leaves the contextual return type as the only source of
+    // `Base`, the same split the engine's `Middleware` interface documents.
+    handler: (
+      req: Request,
+      ctx: NoInfer<Base> & SupabaseContext<Database>,
+    ) => Promise<Response>,
+  ): (req: Request, ctx?: Base) => Promise<Response>
+  <Database = NoDatabaseArgument>(
+    config: WhenDatabaseChosen<Database, WithSupabaseConfig>,
+  ): Entry<SupabaseContext<Database>>
+}
+
+/**
+ * The type of {@link withSupabase}: the engine's `Composite` over
+ * {@link SupabaseContext}, plus signatures that take a `Database` type.
+ *
+ * @category Middleware
+ */
+export type WithSupabase = DatabaseForms &
+  Composite<SupabaseContext, WithSupabaseConfig, Record<never, never>>
+
 /**
  * Wraps a request handler with Supabase auth, client creation, and CORS handling.
  *
@@ -112,27 +169,27 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
  * implement natively. Handles CORS preflight, credential verification,
  * context creation, and error responses. Your handler only runs on successful auth.
  *
- * @param config - Auth modes, CORS, and environment overrides. See {@link WithSupabaseConfig}.
- * @param handler - Receives the `Request` and a fully-initialized {@link SupabaseContext}.
- * @returns A fetch handler. The optional second parameter is the host's
- * platform argument (a Workers `env`, a Deno `ServeHandlerInfo`) — when the
- * runtime supplies one, it is captured as the platform env behind
- * `@supabase/middleware`'s `getEnv` for any composed middleware. Nested under
- * another middleware, it is that middleware's accumulated context instead,
- * which is reused rather than reseeded. At the entry point the request body
- * is buffered, so a nested middleware and the handler can both read it.
+ * Called with a handler, `withSupabase(config, handler)` returns a fetch
+ * handler. Its optional second parameter is the host's platform argument (a
+ * Workers `env`, a Deno `ServeHandlerInfo`): when the runtime supplies one, it
+ * is captured as the platform env behind `@supabase/middleware`'s `getEnv` for
+ * any composed middleware. Nested under another middleware, it is that
+ * middleware's accumulated context instead, which is reused rather than
+ * reseeded. At the entry point the request body is buffered, so a nested
+ * middleware and the handler can both read it.
  *
- * **Type note.** `Base` carries an upstream middleware's contributions into the
- * handler's `ctx`: with `satisfies FetchHandler` on the outermost call,
- * `withOAuthProtectedResource(withSupabase(config, handler))` types
- * `ctx.oauthProtectedResource` with no annotation. The anchor is the same one
- * the engine already asks of nested stacks (it also gates collision detection
- * there): `Base` flows from the contextual return type, and without the anchor
- * the outer call resolves before it can push, so `Base` stays the empty
- * upstream and upstream keys are absent from `ctx`. Supplying `Database` explicitly
- * (`withSupabase<Db>(...)`) also defaults every later type parameter, `Base`
- * included; in that case annotate both (`withSupabase<Db, UpstreamCtx>(...)`)
- * or read the upstream key through a cast.
+ * Called with config only, `withSupabase(config)` returns an entry for a
+ * `pipeline` array. Entries placed before it run ahead of the auth gate and may
+ * answer unauthenticated requests; entries placed after it receive the full
+ * {@link SupabaseContext} and may declare prerequisites on its keys.
+ *
+ * `withSupabase` is typed with the engine's `Composite`, so it composes like
+ * any middleware: nested under another middleware, the handler's `ctx` carries
+ * that middleware's keys, and a key `withSupabase` contributes can't be added
+ * again below it. Pass a `Database` type (`withSupabase<Database>(...)`) to
+ * type `ctx.supabase` and `ctx.supabaseAdmin`; that also fixes the upstream
+ * type to the empty context unless it is passed too
+ * (`withSupabase<Database, UpstreamCtx>(...)`).
  *
  * @category Middleware
  *
@@ -147,30 +204,6 @@ function rejectMiddlewareOption(config: WithSupabaseConfig): void {
  *   }),
  * }
  * ```
- */
-export function withSupabase<
-  Database = UntypedDatabase,
-  Base extends BaseContext = BaseContext,
->(
-  config: WithSupabaseConfig,
-  // `NoInfer<Base>` blocks inference from the handler argument, leaving the
-  // contextual return type as the single source of `Base` — the same split the
-  // engine's `Middleware` interface documents. Without it, an annotated handler
-  // supplies a candidate here that collapses `Base` to its constraint.
-  handler: (
-    req: Request,
-    ctx: NoInfer<Base> & SupabaseContext<Database>,
-  ) => Promise<Response>,
-): (req: Request, ctx?: Base) => Promise<Response>
-
-/**
- * Config-only call: returns an entry for a `pipeline` array, so
- * `withSupabase` composes by position with any other middleware. Entries
- * placed before it run ahead of the auth gate and may answer unauthenticated
- * requests; entries placed after it receive the full {@link SupabaseContext}
- * and may declare prerequisites on its keys.
- *
- * @category Middleware
  *
  * @example OAuth discovery ahead of the gate, Postgres behind it
  * ```ts
@@ -189,21 +222,5 @@ export function withSupabase<
  * }
  * ```
  */
-export function withSupabase<Database = UntypedDatabase>(
-  config: WithSupabaseConfig,
-): Entry<SupabaseContext<Database>>
-
-export function withSupabase(
-  config: WithSupabaseConfig,
-  handler?: AnyHandler,
-): unknown {
-  rejectMiddlewareOption(config)
-  if (handler === undefined) {
-    return (next: AnyHandler) => {
-      rejectPreAuthBehindGate(config, next)
-      return composite(config, next)
-    }
-  }
-  rejectPreAuthBehindGate(config, handler)
-  return composite(config, handler)
-}
+export const withSupabase: WithSupabase =
+  withSupabaseImpl as unknown as WithSupabase
