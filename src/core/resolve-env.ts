@@ -209,6 +209,16 @@ export function deriveJwksUrl(rawUrl: string | undefined): URL | null {
 export function resolveEnv(
   overrides?: Partial<SupabaseEnv>,
 ): { data: SupabaseEnv; error: null } | { data: null; error: EnvError } {
+  return resolveEnvFields(overrides, ['publishableKeys', 'secretKeys', 'jwks'])
+}
+
+/** Resolves only the configuration a caller needs. @internal */
+export function resolveEnvFields<K extends Exclude<keyof SupabaseEnv, 'url'>>(
+  overrides: Partial<SupabaseEnv> | undefined,
+  fields: readonly K[],
+):
+  | { data: Pick<SupabaseEnv, 'url' | K>; error: null }
+  | { data: null; error: EnvError } {
   const url = overrides?.url ?? getEnvVar('SUPABASE_URL')
 
   if (!url) {
@@ -218,16 +228,19 @@ export function resolveEnv(
     }
   }
 
-  const data: SupabaseEnv = {
-    url,
-    publishableKeys:
+  const resolvers = {
+    publishableKeys: () =>
       overrides?.publishableKeys ??
       resolveKeys('SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_PUBLISHABLE_KEYS'),
-    secretKeys:
+    secretKeys: () =>
       overrides?.secretKeys ??
       resolveKeys('SUPABASE_SECRET_KEY', 'SUPABASE_SECRET_KEYS'),
-    jwks: overrides?.jwks ?? resolveJwks(url),
+    jwks: () => overrides?.jwks ?? resolveJwks(url),
   }
+  const data = {
+    url,
+    ...Object.fromEntries(fields.map((field) => [field, resolvers[field]()])),
+  } as Pick<SupabaseEnv, 'url' | K>
 
   return { data, error: null }
 }

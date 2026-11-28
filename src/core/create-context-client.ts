@@ -6,7 +6,7 @@ import {
   MissingPublishableKeyError,
 } from '../errors.js'
 import type { CreateContextClientOptions, UntypedDatabase } from '../types.js'
-import { resolveEnv } from './resolve-env.js'
+import { resolveEnvFields } from './resolve-env.js'
 
 /**
  * Creates a Supabase client scoped to the caller's context.
@@ -40,7 +40,9 @@ import { resolveEnv } from './resolve-env.js'
 export function createContextClient<Database = UntypedDatabase>(
   options?: CreateContextClientOptions,
 ): SupabaseClient<Database> {
-  const { data: resolved, error } = resolveEnv(options?.env)
+  const { data: resolved, error } = resolveEnvFields(options?.env, [
+    'publishableKeys',
+  ])
   if (error) throw error
 
   const token = options?.auth?.token
